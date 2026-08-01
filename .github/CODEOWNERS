@@ -1,0 +1,10 @@
+# CODEOWNERS
+# This file defines who must review/approve PRs before they can be merged.
+# Place this file at: .github/CODEOWNERS (recommended location)
+#
+# Syntax: <path pattern>  <owner(s)>
+# Owners must be GitHub usernames (prefixed with @) or team names (@org/team-name),
+# and must have at least Write access to the repo.
+
+# Global rule: this owner must approve ALL pull requests, regardless of which files changed
+*       @krishmal2004

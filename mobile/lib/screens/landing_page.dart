@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/service_item.dart';
 import '../widgets/service_card.dart';
 import '../theme/app_colors.dart';
+import 'login_page.dart';
 
 class LandingPage extends StatefulWidget {
   const LandingPage({super.key});
@@ -107,6 +108,9 @@ class _LandingPageState extends State<LandingPage> {
         ),
         IconButton(
           onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const LoginPage()),
+            );
           },
           icon: const Icon(Icons.person_outline, color: AppColors.dark),
         ),
@@ -129,7 +133,7 @@ class _LandingPageState extends State<LandingPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Describe your situation in your own words - no forms, '
+          'Describe your situation in your own words — no forms, '
           'no jargon. We\u2019ll match it to the right government '
           'procedure for you.',
           style: TextStyle(
@@ -215,6 +219,7 @@ class _LandingPageState extends State<LandingPage> {
         return ServiceCard(
           service: service,
           onTap: () {
+            // TODO: navigate to service detail / guided procedure
           },
         );
       },
@@ -256,6 +261,7 @@ class _LandingPageState extends State<LandingPage> {
           ),
           ElevatedButton(
             onPressed: () {
+              // TODO: navigate to application tracker
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,

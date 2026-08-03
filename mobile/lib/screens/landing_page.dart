@@ -129,7 +129,7 @@ class _LandingPageState extends State<LandingPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Describe your situation in your own words — no forms, '
+          'Describe your situation in your own words - no forms, '
           'no jargon. We\u2019ll match it to the right government '
           'procedure for you.',
           style: TextStyle(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'screens/loading_page.dart';
+import 'screens/dashboard_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   runApp(const MyApp());
@@ -13,11 +14,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Government Service Navigator',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B5FFF)),
-        useMaterial3: true,
-      ),
-      home: const LoadingPage(),
+      theme: AppTheme.lightTheme,
+      home: const DashboardScreen(),
     );
   }
 }

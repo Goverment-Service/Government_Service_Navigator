@@ -36,3 +36,5 @@ backend/src/GSN.Infrastructure/obj/GSN.Infrastructure.csproj.nuget.g.props
 backend/src/GSN.Infrastructure/obj/GSN.Infrastructure.csproj.nuget.g.targets
 backend/src/GSN.Infrastructure/obj/project.assets.json
 backend/src/GSN.Infrastructure/obj/project.nuget.cache
+backend/src/GSN.Api/.env
+backend/src/GSN.Api/appsettings.json

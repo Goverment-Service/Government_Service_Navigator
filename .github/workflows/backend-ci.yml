@@ -23,6 +23,12 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Show .NET version
+        run: dotnet --version
+
+      - name: Show project files (debug)
+        run: find backend -name "*.csproj" | sort
+
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
@@ -32,19 +38,19 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore - GSN.Domain
-        run: dotnet restore backend/src/GSN.Domain/GSN.Domain.csproj
+        run: dotnet restore backend/src/GSN.Domain/GSN.Domain.csproj --verbosity normal
 
       - name: Restore - GSN.Infrastructure
-        run: dotnet restore backend/src/GSN.Infrastructure/GSN.Infrastructure.csproj
+        run: dotnet restore backend/src/GSN.Infrastructure/GSN.Infrastructure.csproj --verbosity normal
 
       - name: Restore - GSN.Application
-        run: dotnet restore backend/src/GSN.Application/GSN.Application.csproj
+        run: dotnet restore backend/src/GSN.Application/GSN.Application.csproj --verbosity normal
 
       - name: Restore - GSN.Agents
-        run: dotnet restore backend/src/GSN.Agents/GSN.Agents.csproj
+        run: dotnet restore backend/src/GSN.Agents/GSN.Agents.csproj --verbosity normal
 
       - name: Restore - GSN.Api
-        run: dotnet restore backend/src/GSN.Api/GSN.Api.csproj
+        run: dotnet restore backend/src/GSN.Api/GSN.Api.csproj --verbosity normal
 
       - name: Build - GSN.Domain
         run: dotnet build backend/src/GSN.Domain/GSN.Domain.csproj --no-restore --configuration Release

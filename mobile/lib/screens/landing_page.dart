@@ -138,7 +138,7 @@ class _LandingPageState extends State<LandingPage> {
           'procedure for you.',
           style: TextStyle(
             fontSize: 14,
-            color: AppColors.dark.withOpacity(0.65),
+            color: AppColors.dark.withValues(alpha: 0.65),
             height: 1.4,
           ),
         ),
@@ -154,7 +154,7 @@ class _LandingPageState extends State<LandingPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -298,7 +298,7 @@ class _LandingPageState extends State<LandingPage> {
               children: [
                 CircleAvatar(
                   radius: 14,
-                  backgroundColor: AppColors.primary.withOpacity(0.1),
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                   child: Text(
                     step.$1,
                     style: const TextStyle(
@@ -314,7 +314,7 @@ class _LandingPageState extends State<LandingPage> {
                     step.$2,
                     style: TextStyle(
                       fontSize: 13.5,
-                      color: AppColors.dark.withOpacity(0.8),
+                      color: AppColors.dark.withValues(alpha: 0.8),
                     ),
                   ),
                 ),

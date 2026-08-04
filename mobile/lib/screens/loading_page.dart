@@ -45,8 +45,8 @@ class _LoadingPageState extends State<LoadingPage>
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 500),
-        pageBuilder: (_, __, ___) => const LandingPage(),
-        transitionsBuilder: (_, animation, __, child) {
+        pageBuilder: (_, _, _) => const LandingPage(),
+        transitionsBuilder: (_, animation, _, child) {
           return FadeTransition(opacity: animation, child: child);
         },
       ),
@@ -79,7 +79,7 @@ class _LoadingPageState extends State<LoadingPage>
                     borderRadius: BorderRadius.circular(22),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withOpacity(0.25),
+                        color: AppColors.primary.withValues(alpha: 0.25),
                         blurRadius: 24,
                         offset: const Offset(0, 10),
                       ),
@@ -105,7 +105,7 @@ class _LoadingPageState extends State<LoadingPage>
                   'Guiding you through government services',
                   style: TextStyle(
                     fontSize: 12.5,
-                    color: AppColors.dark.withOpacity(0.55),
+                    color: AppColors.dark.withValues(alpha: 0.55),
                   ),
                 ),
                 const SizedBox(height: 32),

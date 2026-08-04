@@ -31,13 +31,10 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore dependencies
-        working-directory: ./backend
-        run: dotnet restore GSN.slnx
+        run: dotnet restore backend/src/GSN.Api/GSN.Api.csproj
 
       - name: Build
-        working-directory: ./backend
-        run: dotnet build GSN.slnx --no-restore --configuration Release
+        run: dotnet build backend/src/GSN.Api/GSN.Api.csproj --no-restore --configuration Release
 
       - name: Test
-        working-directory: ./backend
-        run: dotnet test GSN.slnx --no-build --configuration Release --verbosity normal
+        run: dotnet test backend/src/GSN.Api/GSN.Api.csproj --no-build --configuration Release --verbosity normal

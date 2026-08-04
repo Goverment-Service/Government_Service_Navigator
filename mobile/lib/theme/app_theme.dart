@@ -16,10 +16,8 @@ class AppTheme {
         seedColor: primaryBlue,
         primary: primaryBlue,
         secondary: secondaryColor,
-        background: backgroundColor,
-        surface: white,
+        surface: backgroundColor,
         onPrimary: white,
-        onBackground: textPrimary,
         onSurface: textPrimary,
       ),
       scaffoldBackgroundColor: backgroundColor,
@@ -43,7 +41,7 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: white,
         elevation: 2,
-        shadowColor: Colors.black.withOpacity(0.1),
+        shadowColor: Colors.black.withValues(alpha: 0.1),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),

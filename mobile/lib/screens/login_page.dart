@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/screens/dashboard_screen.dart';
 import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import 'signup_page.dart';
-import 'dashboard_screen.dart';
+//import 'landing_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -45,7 +46,6 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = false);
 
     if (result.success) {
-      // TODO: persist result.token (e.g. flutter_secure_storage)
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const DashboardScreen()),
         (route) => false,
@@ -94,10 +94,6 @@ class _LoginPageState extends State<LoginPage> {
                 _buildLabel('Password'),
                 const SizedBox(height: 8),
                 _buildPasswordField(),
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 14),
-                  _buildErrorBanner(_errorMessage!),
-                ],
                 const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerRight,
@@ -107,6 +103,10 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
+                if (_errorMessage != null) ...[
+                  _buildErrorBanner(_errorMessage!),
+                  const SizedBox(height: 16),
+                ],
                 _buildLoginButton(),
                 const SizedBox(height: 24),
                 _buildSignUpPrompt(),

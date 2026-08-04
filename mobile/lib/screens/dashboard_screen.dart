@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/category_card.dart';
 import '../widgets/status_tracker_card.dart';
 import '../theme/app_theme.dart';
+import 'login_page.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -37,10 +38,35 @@ class DashboardScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const CircleAvatar(
-                      radius: 24,
-                      backgroundColor: AppTheme.secondaryColor,
-                      child: Icon(Icons.person, color: AppTheme.primaryBlue),
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'logout') {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(
+                              builder: (_) => const LoginPage(),
+                            ),
+                            (route) => false,
+                          );
+                        }
+                      },
+                      offset: const Offset(0, 50),
+                      child: const CircleAvatar(
+                        radius: 24,
+                        backgroundColor: AppTheme.secondaryColor,
+                        child: Icon(Icons.person, color: AppTheme.primaryBlue),
+                      ),
+                      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                        const PopupMenuItem<String>(
+                          value: 'logout',
+                          child: Row(
+                            children: [
+                              Icon(Icons.logout, color: Colors.redAccent, size: 20),
+                              SizedBox(width: 12),
+                              Text('Log Out', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

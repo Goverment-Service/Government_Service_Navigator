@@ -93,7 +93,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   'Register as a citizen to submit and track applications.',
                   style: TextStyle(
                     fontSize: 14,
-                    color: AppColors.dark.withOpacity(0.6),
+                    color: AppColors.dark.withValues(alpha: 0.6),
                   ),
                 ),
                 const SizedBox(height: 28),
@@ -272,7 +272,7 @@ class _SignUpPageState extends State<SignUpPage> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.08),
+        color: Colors.red.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -328,7 +328,7 @@ class _SignUpPageState extends State<SignUpPage> {
         children: [
           Text(
             'Already have an account? ',
-            style: TextStyle(color: AppColors.dark.withOpacity(0.6)),
+            style: TextStyle(color: AppColors.dark.withValues(alpha: 0.6)),
           ),
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),

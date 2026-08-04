@@ -241,3 +241,5 @@ mobile/linux/flutter/generated_plugins.cmake
 mobile/windows/flutter/generated_plugins.cmake
 mobile/linux/flutter/generated_plugins.cmake
 mobile/windows/flutter/generated_plugins.cmake
+mobile/linux/flutter/generated_plugins.cmake
+mobile/windows/flutter/generated_plugins.cmake

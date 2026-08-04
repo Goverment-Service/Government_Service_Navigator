@@ -62,7 +62,7 @@ class _LoginPageState extends State<LoginPage> {
                   'Sign in to continue tracking your applications.',
                   style: TextStyle(
                     fontSize: 14,
-                    color: AppColors.dark.withOpacity(0.6),
+                    color: AppColors.dark.withValues(alpha: 0.6),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -218,7 +218,7 @@ class _LoginPageState extends State<LoginPage> {
         children: [
           Text(
             "Don't have an account? ",
-            style: TextStyle(color: AppColors.dark.withOpacity(0.6)),
+            style: TextStyle(color: AppColors.dark.withValues(alpha: 0.6)),
           ),
           GestureDetector(
             onTap: () {

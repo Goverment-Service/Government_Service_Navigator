@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../services/auth_service.dart';
 import 'signup_page.dart';
-import 'landing_page.dart';
+import 'dashboard_screen.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -14,8 +15,11 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _authService = AuthService();
 
   bool _obscurePassword = true;
+  bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -24,14 +28,31 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _handleLogin() {
+  Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Frontend only — no backend call here yet.
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LandingPage()),
-      (route) => false,
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final result = await _authService.login(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
     );
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (result.success) {
+      // TODO: persist result.token (e.g. flutter_secure_storage)
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        (route) => false,
+      );
+    } else {
+      setState(() => _errorMessage = result.errorMessage ?? 'Login failed');
+    }
   }
 
   @override
@@ -62,7 +83,7 @@ class _LoginPageState extends State<LoginPage> {
                   'Sign in to continue tracking your applications.',
                   style: TextStyle(
                     fontSize: 14,
-                    color: AppColors.dark.withValues(alpha: 0.6),
+                    color: AppColors.dark.withOpacity(0.6),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -73,6 +94,10 @@ class _LoginPageState extends State<LoginPage> {
                 _buildLabel('Password'),
                 const SizedBox(height: 8),
                 _buildPasswordField(),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 14),
+                  _buildErrorBanner(_errorMessage!),
+                ],
                 const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerRight,
@@ -189,12 +214,35 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  Widget _buildErrorBanner(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildLoginButton() {
     return SizedBox(
       width: double.infinity,
       height: 50,
       child: ElevatedButton(
-        onPressed: _handleLogin,
+        onPressed: _isLoading ? null : _handleLogin,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
@@ -203,10 +251,19 @@ class _LoginPageState extends State<LoginPage> {
           ),
           elevation: 0,
         ),
-        child: const Text(
-          'Sign In',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-        ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Text(
+                'Sign In',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
       ),
     );
   }
@@ -218,7 +275,7 @@ class _LoginPageState extends State<LoginPage> {
         children: [
           Text(
             "Don't have an account? ",
-            style: TextStyle(color: AppColors.dark.withValues(alpha: 0.6)),
+            style: TextStyle(color: AppColors.dark.withOpacity(0.6)),
           ),
           GestureDetector(
             onTap: () {

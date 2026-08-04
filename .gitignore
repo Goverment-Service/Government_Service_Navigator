@@ -239,7 +239,6 @@ backend/src/GSN.Api/bin/Debug/net10.0/zh-Hant/Microsoft.CodeAnalysis.CSharp.Work
 backend/src/GSN.Api/bin/Debug/net10.0/zh-Hant/Microsoft.CodeAnalysis.resources.dll
 backend/src/GSN.Api/bin/Debug/net10.0/zh-Hant/Microsoft.CodeAnalysis.Workspaces.MSBuild.resources.dll
 backend/src/GSN.Api/bin/Debug/net10.0/zh-Hant/Microsoft.CodeAnalysis.Workspaces.resources.dll
-backend/src/GSN.Api/Controllers/AuthController.cs
 backend/src/GSN.Api/obj/GSN.Api.csproj.nuget.dgspec.json
 backend/src/GSN.Api/obj/GSN.Api.csproj.nuget.g.props
 backend/src/GSN.Api/obj/GSN.Api.csproj.nuget.g.targets

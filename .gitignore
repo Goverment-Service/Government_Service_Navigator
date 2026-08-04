@@ -231,3 +231,7 @@ backend/src/GSN.Application/obj/Debug/net10.0/GSN.Application.dll
 backend/src/GSN.Application/obj/Debug/net10.0/GSN.Application.pdb
 backend/src/GSN.Application/obj/Debug/net10.0/ref/GSN.Application.dll
 backend/src/GSN.Application/obj/Debug/net10.0/refint/GSN.Application.dll
+mobile/linux/flutter/generated_plugins.cmake
+mobile/windows/flutter/generated_plugins.cmake
+mobile/linux/flutter/generated_plugins.cmake
+mobile/windows/flutter/generated_plugins.cmake

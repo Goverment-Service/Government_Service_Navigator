@@ -1,9 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/GSN.Agents/GSN.Agents.csproj" />
-    <Project Path="src/GSN.Api/GSN.Api.csproj" />
-    <Project Path="src/GSN.Application/GSN.Application.csproj" />
-    <Project Path="src/GSN.Domain/GSN.Domain.csproj" />
-    <Project Path="src/GSN.Infrastructure/GSN.Infrastructure.csproj" />
-  </Folder>
-</Solution>

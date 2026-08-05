@@ -3,6 +3,7 @@ import '../models/service_item.dart';
 import '../widgets/service_card.dart';
 import '../theme/app_colors.dart';
 import 'login_page.dart';
+import '../widgets/main_layout.dart';
 
 class LandingPage extends StatefulWidget {
   const LandingPage({super.key});
@@ -48,43 +49,56 @@ class _LandingPageState extends State<LandingPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildTopBar(),
-              const SizedBox(height: 28),
-              _buildHero(),
-              const SizedBox(height: 24),
-              _buildSearchBar(),
-              const SizedBox(height: 32),
-              _buildSectionTitle('Popular Services'),
-              const SizedBox(height: 14),
-              _buildServiceGrid(),
-              const SizedBox(height: 32),
-              _buildSectionTitle('Track Your Application'),
-              const SizedBox(height: 14),
-              _buildTrackCard(),
-              const SizedBox(height: 32),
-              _buildHowItWorks(),
-              const SizedBox(height: 24),
-            ],
-          ),
+    final isMobile = MediaQuery.of(context).size.width < 800;
+
+    return MainLayout(
+      isAuthenticated: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildTopBar(isMobile),
+            const SizedBox(height: 28),
+            _buildHero(),
+            const SizedBox(height: 24),
+            _buildSearchBar(),
+            const SizedBox(height: 32),
+            _buildSectionTitle('Popular Services'),
+            const SizedBox(height: 14),
+            _buildServiceGrid(),
+            const SizedBox(height: 32),
+            _buildSectionTitle('Track Your Application'),
+            const SizedBox(height: 14),
+            _buildTrackCard(),
+            const SizedBox(height: 32),
+            _buildHowItWorks(),
+            const SizedBox(height: 24),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildTopBar(bool isMobile) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Row(
           children: [
+            if (isMobile) ...[
+              Builder(
+                builder: (context) {
+                  return IconButton(
+                    icon: const Icon(Icons.menu, color: AppColors.dark),
+                    onPressed: () {
+                      Scaffold.of(context).openDrawer();
+                    },
+                  );
+                }
+              ),
+              const SizedBox(width: 8),
+            ],
             Container(
               width: 40,
               height: 40,
@@ -212,7 +226,7 @@ class _LandingPageState extends State<LandingPage> {
         crossAxisCount: 2,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: 1.3,
+        childAspectRatio: 1.1,
       ),
       itemBuilder: (context, index) {
         final service = _popularServices[index];

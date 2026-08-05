@@ -3,28 +3,46 @@ import '../widgets/category_card.dart';
 import '../widgets/status_tracker_card.dart';
 import '../theme/app_theme.dart';
 import 'login_page.dart';
+import '../widgets/main_layout.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+    final isMobile = MediaQuery.of(context).size.width < 800;
+
+    return MainLayout(
+      isAuthenticated: true,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
                 // Header Profile Section
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
                       children: [
-                        Text(
+                        if (isMobile) ...[
+                          Builder(
+                            builder: (context) {
+                              return IconButton(
+                                icon: const Icon(Icons.menu),
+                                onPressed: () {
+                                  Scaffold.of(context).openDrawer();
+                                },
+                              );
+                            }
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
                           'Good Morning,',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
@@ -38,7 +56,9 @@ class DashboardScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    PopupMenuButton<String>(
+                  ],
+                ),
+                PopupMenuButton<String>(
                       onSelected: (value) {
                         if (value == 'logout') {
                           Navigator.of(context).pushAndRemoveUntil(
@@ -160,7 +180,6 @@ class DashboardScreen extends StatelessWidget {
             ),
           ),
         ),
-      ),
     );
   }
 }

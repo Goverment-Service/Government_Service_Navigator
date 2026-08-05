@@ -48,9 +48,6 @@ jobs:
       - name: Restore - GSN.Application
         run: dotnet restore backend/src/GSN.Application/GSN.Application.csproj --verbosity normal
 
-      - name: Restore - GSN.Agents
-        run: dotnet restore backend/src/GSN.Agents/GSN.Agents.csproj --verbosity normal
-
       - name: Restore - GSN.Api
         run: dotnet restore backend/src/GSN.Api/GSN.Api.csproj --verbosity normal
 
@@ -62,9 +59,6 @@ jobs:
 
       - name: Build - GSN.Application
         run: dotnet build backend/src/GSN.Application/GSN.Application.csproj --no-restore --configuration Release
-
-      - name: Build - GSN.Agents
-        run: dotnet build backend/src/GSN.Agents/GSN.Agents.csproj --no-restore --configuration Release
 
       - name: Build - GSN.Api
         run: dotnet build backend/src/GSN.Api/GSN.Api.csproj --no-restore --configuration Release

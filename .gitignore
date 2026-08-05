@@ -25,3 +25,11 @@ build/
 
 # Windows
 Thumbs.db
+backend/src/GSN.Api/.env
+backend/src/GSN.Agents/Class1.cs
+backend/src/GSN.Agents/GSN.Agents.csproj
+backend/src/GSN.Api/GSN.Api.http
+backend/src/GSN.Api/Properties/launchSettings.json
+backend/src/GSN.Application/Class1.cs
+backend/src/GSN.Domain/Class1.cs
+backend/src/GSN.Infrastructure/Class1.cs

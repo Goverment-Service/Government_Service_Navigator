@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'landing_page.dart';
 import '../theme/app_colors.dart';
 
@@ -12,24 +13,19 @@ class LoadingPage extends StatefulWidget {
 class _LoadingPageState extends State<LoadingPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _fadeAnimation;
-  late final Animation<double> _scaleAnimation;
+  late final Animation<double> _fadeAnim;
+  late final Animation<double> _scaleAnim;
 
   @override
   void initState() {
     super.initState();
-
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
     );
 
-    _fadeAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeIn,
-    );
-
-    _scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
+    _fadeAnim = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+    _scaleAnim = Tween<double>(begin: 0.85, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
     );
 
@@ -39,17 +35,9 @@ class _LoadingPageState extends State<LoadingPage>
 
   Future<void> _navigateNext() async {
     await Future.delayed(const Duration(seconds: 2));
-
     if (!mounted) return;
-
     Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 500),
-        pageBuilder: (_, _, _) => const LandingPage(),
-        transitionsBuilder: (_, animation, _, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-      ),
+      CupertinoPageRoute(builder: (_) => const LandingPage()),
     );
   }
 
@@ -65,58 +53,59 @@ class _LoadingPageState extends State<LoadingPage>
       backgroundColor: Colors.white,
       body: Center(
         child: FadeTransition(
-          opacity: _fadeAnimation,
+          opacity: _fadeAnim,
           child: ScaleTransition(
-            scale: _scaleAnimation,
+            scale: _scaleAnim,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // iOS-style app icon with glow shadow
                 Container(
-                  width: 84,
-                  height: 84,
+                  width: 96,
+                  height: 96,
                   decoration: BoxDecoration(
                     color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.25),
-                        blurRadius: 24,
-                        offset: const Offset(0, 10),
+                        color: AppColors.primary.withValues(alpha: 0.30),
+                        blurRadius: 32,
+                        offset: const Offset(0, 14),
+                      ),
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
                   child: const Icon(
                     Icons.account_balance,
                     color: Colors.white,
-                    size: 44,
+                    size: 50,
                   ),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 26),
                 const Text(
                   'GovServiceNav',
                   style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.dark,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF000000),
+                    letterSpacing: -0.3,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Text(
                   'Guiding you through government services',
                   style: TextStyle(
-                    fontSize: 12.5,
-                    color: AppColors.dark.withValues(alpha: 0.55),
+                    fontSize: 14,
+                    color: AppColors.secondaryLabel,
                   ),
                 ),
-                const SizedBox(height: 32),
-                const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.4,
-                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-                  ),
-                ),
+                const SizedBox(height: 52),
+                // Native iOS spinner
+                const CupertinoActivityIndicator(radius: 13),
               ],
             ),
           ),

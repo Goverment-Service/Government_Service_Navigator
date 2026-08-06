@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'landing_page.dart';
-import '../theme/app_colors.dart';
+import '../../theme/app_colors.dart';
 
 class LoadingPage extends StatefulWidget {
   const LoadingPage({super.key});

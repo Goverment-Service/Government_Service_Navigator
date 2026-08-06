@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
 import '../screens/login_page.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -129,7 +129,7 @@ class AppDrawer extends StatelessWidget {
   Widget _buildAuthHeader(BuildContext context) {
     return DrawerHeader(
       decoration: const BoxDecoration(
-        color: AppTheme.primaryBlue,
+        color: AppColors.primary,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,7 +138,7 @@ class AppDrawer extends StatelessWidget {
             radius: 30,
             backgroundColor: Colors.white,
             child: Icon(Icons.person,
-                size: 35, color: AppTheme.primaryBlue),
+                size: 35, color: AppColors.primary),
           ),
           const SizedBox(height: 10),
           Text(

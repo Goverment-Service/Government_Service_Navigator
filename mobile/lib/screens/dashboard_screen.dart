@@ -10,8 +10,6 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 800;
-
     return MainLayout(
       isAuthenticated: true,
       child: SingleChildScrollView(
@@ -20,76 +18,62 @@ class DashboardScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                // Header Profile Section
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        if (isMobile) ...[
-                          Builder(
-                            builder: (context) {
-                              return IconButton(
-                                icon: const Icon(Icons.menu),
-                                onPressed: () {
-                                  Scaffold.of(context).openDrawer();
-                                },
-                              );
+              // Header Section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Builder(
+                        builder: (context) => GestureDetector(
+                          onTap: () {
+                            if (Scaffold.of(context).hasDrawer) {
+                              Scaffold.of(context).openDrawer();
                             }
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                          'Good Morning,',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        Text(
-                          'Citizen',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'logout') {
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(
-                              builder: (_) => const LoginPage(),
+                          },
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryBlue,
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            (route) => false,
-                          );
-                        }
-                      },
-                      offset: const Offset(0, 50),
-                      child: const CircleAvatar(
-                        radius: 24,
-                        backgroundColor: AppTheme.secondaryColor,
-                        child: Icon(Icons.person, color: AppTheme.primaryBlue),
-                      ),
-                      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                        const PopupMenuItem<String>(
-                          value: 'logout',
-                          child: Row(
-                            children: [
-                              Icon(Icons.logout, color: Colors.redAccent, size: 20),
-                              SizedBox(width: 12),
-                              Text('Log Out', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600)),
-                            ],
+                            child: const Icon(Icons.account_balance, color: Colors.white, size: 24),
                           ),
                         ),
-                      ],
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'GovServiceNav',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryBlue,
+                            ),
+                      ),
+                    ],
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const LoginPage(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryBlue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                  ],
-                ),
+                    child: const Text(
+                      'Sign In',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
                 const SizedBox(height: 24),
 
                 // Search Bar

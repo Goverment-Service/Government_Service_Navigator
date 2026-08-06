@@ -88,11 +88,11 @@ class _LandingPageState extends State<LandingPage> {
           children: [
             Builder(
               builder: (context) => GestureDetector(
-                onTap: () {
+                /*onTap: () {
                   if (Scaffold.of(context).hasDrawer) {
                     Scaffold.of(context).openDrawer();
                   }
-                },
+                },*/
                 child: Container(
                   width: 40,
                   height: 40,

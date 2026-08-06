@@ -10,8 +10,6 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 800;
-
     return MainLayout(
       isAuthenticated: true,
       child: SingleChildScrollView(

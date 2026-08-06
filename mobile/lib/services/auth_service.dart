@@ -1,8 +1,5 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-
-/// Result returned from login/signup calls, mirroring the backend's
-/// AuthResponse shape (Success, Token, ErrorMessage, User).
 class AuthResult {
   final bool success;
   final String? token;
@@ -18,10 +15,6 @@ class AuthResult {
 }
 
 class AuthService {
-  /// Android emulator maps 10.0.2.2 -> your host machine's localhost.
-  /// If you're testing on a physical device, replace this with your
-  /// computer's actual LAN IP, e.g. http://192.168.1.20:5082
-  /// If you're on iOS simulator, localhost works directly instead.
   static const String baseUrl = 'http://10.0.2.2:5275/api';
 
   Future<AuthResult> login({

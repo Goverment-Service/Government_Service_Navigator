@@ -86,28 +86,24 @@ class _LandingPageState extends State<LandingPage> {
       children: [
         Row(
           children: [
-            if (isMobile) ...[
-              Builder(
-                builder: (context) {
-                  return IconButton(
-                    icon: const Icon(Icons.menu, color: AppColors.dark),
-                    onPressed: () {
-                      Scaffold.of(context).openDrawer();
-                    },
-                  );
-                }
+            Builder(
+              builder: (context) => GestureDetector(
+                onTap: () {
+                  if (Scaffold.of(context).hasDrawer) {
+                    Scaffold.of(context).openDrawer();
+                  }
+                },
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.account_balance,
+                      color: Colors.white, size: 22),
+                ),
               ),
-              const SizedBox(width: 8),
-            ],
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.account_balance,
-                  color: Colors.white, size: 22),
             ),
             const SizedBox(width: 10),
             const Text(
@@ -120,13 +116,23 @@ class _LandingPageState extends State<LandingPage> {
             ),
           ],
         ),
-        IconButton(
+        ElevatedButton(
           onPressed: () {
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const LoginPage()),
             );
           },
-          icon: const Icon(Icons.person_outline, color: AppColors.dark),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          child: const Text(
+            'Sign In',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
         ),
       ],
     );

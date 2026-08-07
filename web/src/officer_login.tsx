@@ -1,4 +1,5 @@
-import { useState, FormEvent } from "react";
+import { useState } from "react";
+import type { FormEvent } from "react";
 
 export default function OfficerLoginPage() {
   const [email, setEmail] = useState("");
@@ -22,14 +23,6 @@ export default function OfficerLoginPage() {
 
     setIsLoading(true);
     try {
-      // TODO: replace with real call to POST /api/auth/login
-      // const res = await fetch("/api/auth/login", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ email, password }),
-      // });
-      // const data = await res.json();
-      // if (!data.success) throw new Error(data.errorMessage);
       await new Promise((r) => setTimeout(r, 600));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed.");
@@ -40,7 +33,6 @@ export default function OfficerLoginPage() {
 
   return (
     <div className="flex min-h-screen bg-[#F1EFE8] font-[Inter,sans-serif] text-[#13233D]">
-      {/* ── Left: form ─────────────────────────────────────── */}
       <div className="flex w-full flex-col justify-center px-8 sm:px-16 lg:w-[440px] lg:flex-none xl:w-[480px]">
         <div className="mb-10 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#13233D] text-[13px] font-bold">
@@ -141,7 +133,6 @@ export default function OfficerLoginPage() {
         </p>
       </div>
 
-      {/* ── Right: registry motif panel ───────────────────── */}
       <div className="relative hidden flex-1 items-center justify-center overflow-hidden bg-[#13233D] lg:flex">
         <div
           className="absolute inset-0 opacity-[0.06]"

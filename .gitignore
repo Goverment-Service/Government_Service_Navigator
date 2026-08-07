@@ -25,3 +25,8 @@ build/
 
 # Windows
 Thumbs.db
+backend/src/.env
+backend/src/Government_Service_Navigator.Backend.http
+backend/src/server_log_err.txt
+backend/src/server_log.txt
+backend/src/Properties/launchSettings.json

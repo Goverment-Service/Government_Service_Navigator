@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:mobile/screens/dashboard_screen.dart';
 import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import 'signup_page.dart';
-//import 'landing_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -31,11 +31,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    setState(() { _isLoading = true; _errorMessage = null; });
 
     final result = await _authService.login(
       email: _emailController.text.trim(),
@@ -47,7 +43,7 @@ class _LoginPageState extends State<LoginPage> {
 
     if (result.success) {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        CupertinoPageRoute(builder: (_) => const DashboardScreen()),
         (route) => false,
       );
     } else {
@@ -67,39 +63,78 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 24),
-                _buildLogo(),
+                // Back chevron
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(CupertinoIcons.chevron_left,
+                          color: AppColors.primary, size: 20),
+                      SizedBox(width: 4),
+                      Text('Back',
+                          style: TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w400)),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 32),
+                // App icon
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.25),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.account_balance,
+                      color: Colors.white, size: 30),
+                ),
+                const SizedBox(height: 28),
                 const Text(
                   'Welcome back',
                   style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.dark,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF000000),
+                    letterSpacing: -0.4,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   'Sign in to continue tracking your applications.',
                   style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.dark.withValues(alpha: 0.6),
+                    fontSize: 15,
+                    color: AppColors.secondaryLabel,
                   ),
                 ),
-                const SizedBox(height: 32),
-                _buildLabel('Email'),
-                const SizedBox(height: 8),
-                _buildEmailField(),
-                const SizedBox(height: 18),
-                _buildLabel('Password'),
-                const SizedBox(height: 8),
-                _buildPasswordField(),
-                const SizedBox(height: 10),
+                const SizedBox(height: 36),
+                // Grouped fields — iOS grouped table style
+                _buildGroupedFields(),
+                const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: TextButton(
+                  child: CupertinoButton(
+                    padding: EdgeInsets.zero,
                     onPressed: () {},
-                    child: const Text('Forgot password?'),
+                    child: const Text(
+                      'Forgot password?',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -107,9 +142,57 @@ class _LoginPageState extends State<LoginPage> {
                   _buildErrorBanner(_errorMessage!),
                   const SizedBox(height: 16),
                 ],
-                _buildLoginButton(),
-                const SizedBox(height: 24),
-                _buildSignUpPrompt(),
+                // iOS-style full-width blue button
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: CupertinoButton.filled(
+                    borderRadius: BorderRadius.circular(14),
+                    onPressed: _isLoading ? null : _handleLogin,
+                    child: _isLoading
+                        ? const CupertinoActivityIndicator(
+                            color: Colors.white, radius: 11)
+                        : const Text(
+                            'Sign In',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 28),
+                Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "Don't have an account?  ",
+                        style: TextStyle(
+                          color: AppColors.secondaryLabel,
+                          fontSize: 15,
+                        ),
+                      ),
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            CupertinoPageRoute(
+                                builder: (_) => const SignUpPage()),
+                          );
+                        },
+                        child: const Text(
+                          'Sign Up',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -118,118 +201,81 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildLogo() {
+  // iOS grouped-list style for fields
+  Widget _buildGroupedFields() {
     return Container(
-      width: 56,
-      height: 56,
       decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: const Icon(Icons.account_balance, color: Colors.white, size: 28),
-    );
-  }
-
-  Widget _buildLabel(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: AppColors.dark,
-      ),
-    );
-  }
-
-  InputDecoration _fieldDecoration(String hint, IconData icon) {
-    return InputDecoration(
-      hintText: hint,
-      prefixIcon: Icon(icon, color: Colors.grey, size: 20),
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.redAccent),
-      ),
-    );
-  }
-
-  Widget _buildEmailField() {
-    return TextFormField(
-      controller: _emailController,
-      keyboardType: TextInputType.emailAddress,
-      decoration: _fieldDecoration('you@example.com', Icons.mail_outline),
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return 'Email is required';
-        }
-        if (!value.contains('@')) {
-          return 'Enter a valid email';
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _buildPasswordField() {
-    return TextFormField(
-      controller: _passwordController,
-      obscureText: _obscurePassword,
-      decoration: _fieldDecoration('Enter your password', Icons.lock_outline)
-          .copyWith(
-        suffixIcon: IconButton(
-          icon: Icon(
-            _obscurePassword
-                ? Icons.visibility_outlined
-                : Icons.visibility_off_outlined,
-            color: Colors.grey,
-            size: 20,
+        color: AppColors.cardBg,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-          onPressed: () =>
-              setState(() => _obscurePassword = !_obscurePassword),
-        ),
+        ],
       ),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Password is required';
-        }
-        if (value.length < 6) {
-          return 'Password must be at least 6 characters';
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _buildErrorBanner(String message) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
+      child: Column(
         children: [
-          const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+          // Email row
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              style: const TextStyle(fontSize: 16, color: Color(0xFF000000)),
+              decoration: InputDecoration(
+                hintText: 'Email',
+                hintStyle: TextStyle(color: AppColors.secondaryLabel),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                prefixIcon: const Icon(CupertinoIcons.mail,
+                    color: AppColors.primary, size: 20),
+                contentPadding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Email is required';
+                if (!v.contains('@')) return 'Enter a valid email';
+                return null;
+              },
+            ),
+          ),
+          Divider(height: 1, color: AppColors.divider, indent: 52),
+          // Password row
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: TextFormField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              style: const TextStyle(fontSize: 16, color: Color(0xFF000000)),
+              decoration: InputDecoration(
+                hintText: 'Password',
+                hintStyle: TextStyle(color: AppColors.secondaryLabel),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                prefixIcon: const Icon(CupertinoIcons.lock,
+                    color: AppColors.primary, size: 20),
+                contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                suffixIcon: CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
+                  child: Icon(
+                    _obscurePassword
+                        ? CupertinoIcons.eye
+                        : CupertinoIcons.eye_slash,
+                    color: AppColors.secondaryLabel,
+                    size: 20,
+                  ),
+                ),
+              ),
+              validator: (v) {
+                if (v == null || v.isEmpty) return 'Password is required';
+                if (v.length < 6) return 'At least 6 characters';
+                return null;
+              },
             ),
           ),
         ],
@@ -237,59 +283,23 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildLoginButton() {
-    return SizedBox(
+  Widget _buildErrorBanner(String message) {
+    return Container(
       width: double.infinity,
-      height: 50,
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : _handleLogin,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 0,
-        ),
-        child: _isLoading
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.4,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            : const Text(
-                'Sign In',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-              ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.danger.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
       ),
-    );
-  }
-
-  Widget _buildSignUpPrompt() {
-    return Center(
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            "Don't have an account? ",
-            style: TextStyle(color: AppColors.dark.withValues(alpha: 0.6)),
-          ),
-          GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SignUpPage()),
-              );
-            },
-            child: const Text(
-              'Sign Up',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+          const Icon(CupertinoIcons.exclamationmark_circle,
+              color: AppColors.danger, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(message,
+                style: const TextStyle(
+                    color: AppColors.danger, fontSize: 13)),
           ),
         ],
       ),

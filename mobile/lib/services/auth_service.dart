@@ -15,7 +15,7 @@ class AuthResult {
 }
 
 class AuthService {
-  static const String baseUrl = 'http://10.0.2.2:5275/api';
+  static const String baseUrl = 'http://10.0.2.2:5119/api';
 
   Future<AuthResult> login({
     required String email,

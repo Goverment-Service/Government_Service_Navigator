@@ -30,14 +30,14 @@ namespace Government_Service_Navigator.Backend.Services
         {
             if (await _context.Users.AnyAsync(u => u.Email == request.Email))
             {
-                throw new Exception("User with this email already exists.");
+                return new AuthResponse { Success = false, ErrorMessage = "User with this email already exists." };
             }
 
             var user = new User
             {
                 Email = request.Email,
-                FirstName = request.FirstName,
-                LastName = request.LastName,
+                FullName = request.FullName,
+                NicNumber = request.NicNumber,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
             };
 
@@ -48,11 +48,15 @@ namespace Government_Service_Navigator.Backend.Services
 
             return new AuthResponse
             {
+                Success = true,
                 Token = token,
-                Email = user.Email,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                Role = user.Role
+                User = new UserDto
+                {
+                    Email = user.Email,
+                    FullName = user.FullName,
+                    NicNumber = user.NicNumber,
+                    Role = user.Role
+                }
             };
         }
 
@@ -62,26 +66,30 @@ namespace Government_Service_Navigator.Backend.Services
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             {
-                throw new Exception("Invalid email or password.");
+                return new AuthResponse { Success = false, ErrorMessage = "Invalid email or password." };
             }
 
             var token = GenerateJwtToken(user);
 
             return new AuthResponse
             {
+                Success = true,
                 Token = token,
-                Email = user.Email,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                Role = user.Role
+                User = new UserDto
+                {
+                    Email = user.Email,
+                    FullName = user.FullName,
+                    NicNumber = user.NicNumber,
+                    Role = user.Role
+                }
             };
         }
 
         private string GenerateJwtToken(User user)
         {
-            var keyStr = _configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("Jwt__Key");
-            var issuer = _configuration["Jwt:Issuer"] ?? Environment.GetEnvironmentVariable("Jwt__Issuer");
-            var audience = _configuration["Jwt:Audience"] ?? Environment.GetEnvironmentVariable("Jwt__Audience");
+            var keyStr = _configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("JWT_KEY");
+            var issuer = _configuration["Jwt:Issuer"] ?? Environment.GetEnvironmentVariable("JWT_ISSUER");
+            var audience = _configuration["Jwt:Audience"] ?? Environment.GetEnvironmentVariable("JWT_AUDIENCE");
             
             if (string.IsNullOrEmpty(keyStr))
                 throw new Exception("JWT Key is not configured.");
@@ -94,8 +102,8 @@ namespace Government_Service_Navigator.Backend.Services
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
                 new Claim(ClaimTypes.Role, user.Role),
-                new Claim("firstName", user.FirstName),
-                new Claim("lastName", user.LastName),
+                new Claim("fullName", user.FullName),
+                new Claim("nicNumber", user.NicNumber),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 

@@ -36,7 +36,8 @@ export default function OfficerLoginPage() {
       if (resData.success) {
         localStorage.setItem("officerToken", resData.token);
         localStorage.setItem("officerUser", JSON.stringify(resData.user));
-        window.location.href = "/officer/dashboard";
+        //window.location.href = "/officer/dashboard"; // Redirect to the officer dashboard
+        window.location.href = "/admin/dashboard"; // Redirect to the admin dashboard
       } else {
         setError(resData.errorMessage || "Login failed. Please try again.");
       }

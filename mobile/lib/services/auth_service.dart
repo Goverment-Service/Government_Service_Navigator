@@ -16,8 +16,6 @@ class AuthResult {
 }
 
 class AuthService {
-  // IMPORTANT: If you are running the app on a PHYSICAL device (not an emulator),
-  // you must change '10.0.2.2' to your computer's local Wi-Fi IPv4 address (e.g., '192.168.1.50').
   static const String baseUrl = 'http://10.0.2.2:5119/api';
 
   Future<AuthResult> login({

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+
 class AuthResult {
   final bool success;
   final String? token;
@@ -36,8 +37,14 @@ class AuthService {
         errorMessage: data['errorMessage'],
         user: data['user'],
       );
-    } catch (e) {
-      return AuthResult(
+    } catch (e, stackTrace) {
+      // Print the exact network error to the Flutter console for debugging
+      print('--- LOGIN NETWORK ERROR ---');
+      print('Error: $e');
+      print('Stack Trace: $stackTrace');
+      print('---------------------------');
+
+      return const AuthResult(
         success: false,
         errorMessage: 'Could not reach the server. Check your connection.',
       );
@@ -70,8 +77,14 @@ class AuthService {
         errorMessage: data['errorMessage'],
         user: data['user'],
       );
-    } catch (e) {
-      return AuthResult(
+    } catch (e, stackTrace) {
+      // Print the exact network error to the Flutter console for debugging
+      print('--- SIGNUP NETWORK ERROR ---');
+      print('Error: $e');
+      print('Stack Trace: $stackTrace');
+      print('----------------------------');
+
+      return const AuthResult(
         success: false,
         errorMessage: 'Could not reach the server. Check your connection.',
       );

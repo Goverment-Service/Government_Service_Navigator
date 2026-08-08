@@ -23,9 +23,25 @@ export default function OfficerLoginPage() {
 
     setIsLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 600));
+      const response = await fetch("http://localhost:5119/api/auth/officer-login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const resData = await response.json();
+
+      if (resData.success) {
+        localStorage.setItem("officerToken", resData.token);
+        localStorage.setItem("officerUser", JSON.stringify(resData.user));
+        window.location.href = "/officer/dashboard";
+      } else {
+        setError(resData.errorMessage || "Login failed. Please try again.");
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign in failed.");
+      setError("Could not connect to server. Please check your connection.");
     } finally {
       setIsLoading(false);
     }

@@ -85,6 +85,29 @@ namespace Government_Service_Navigator.Backend.Services
             };
         }
 
+        public async Task<AuthResponse> OfficerLoginAsync(LoginRequest request) 
+        {
+            var officer = await _context.Officers.FirstOrDefaultAsync(o => o.Email == request.Email);
+            
+            if (officer == null || !BCrypt.Net.BCrypt.Verify(request.Password, officer.PasswordHash)) {
+                return new AuthResponse {
+                    Success = false,
+                    ErrorMessage = "Invalid email or password."
+                };
+            }
+            
+            var token = GenerateJwtTokenForOfficer(officer);
+            
+            return new AuthResponse {
+                Success = true, // FIXED spelling
+                Token = token,
+                Officer = new OfficerDto {
+                    Email = officer.Email,
+                    Role = officer.Role
+                }
+            };
+        }
+
         private string GenerateJwtToken(User user)
         {
             var keyStr = _configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("JWT_KEY");
@@ -104,6 +127,37 @@ namespace Government_Service_Navigator.Backend.Services
                 new Claim(ClaimTypes.Role, user.Role),
                 new Claim("fullName", user.FullName),
                 new Claim("nicNumber", user.NicNumber),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: issuer,
+                audience: audience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddDays(7),
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        private string GenerateJwtTokenForOfficer(Officer officer)
+        {
+            var keyStr = _configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("JWT_KEY");
+            var issuer = _configuration["Jwt:Issuer"] ?? Environment.GetEnvironmentVariable("JWT_ISSUER");
+            var audience = _configuration["Jwt:Audience"] ?? Environment.GetEnvironmentVariable("JWT_AUDIENCE");
+            
+            if (string.IsNullOrEmpty(keyStr))
+                throw new Exception("JWT Key is not configured.");
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyStr));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, officer.Id.ToString()),
+                new Claim(JwtRegisteredClaimNames.Email, officer.Email),
+                new Claim(ClaimTypes.Role, officer.Role),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 

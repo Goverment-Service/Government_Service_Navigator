@@ -7,6 +7,11 @@ namespace Government_Service_Navigator.Backend.DTOs.Responses
         public string NicNumber { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
     }
+    public class OfficerDto
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+    }
 
     public class AuthResponse
     {
@@ -14,5 +19,6 @@ namespace Government_Service_Navigator.Backend.DTOs.Responses
         public string? Token { get; set; }
         public string? ErrorMessage { get; set; }
         public UserDto? User { get; set; }
+        public OfficerDto? Officer { get; set; }
     }
 }

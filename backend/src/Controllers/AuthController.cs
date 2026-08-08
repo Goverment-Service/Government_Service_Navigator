@@ -83,5 +83,29 @@ namespace Government_Service_Navigator.Backend.Controllers
                 );
             }
         }
+        [HttpPost("admin-login")]
+        public async Task<IActionResult> AdminLogin([FromBody] LoginRequest request)
+        {
+            if(!ModelState.IsValid) {
+                var errors = string.Join(" ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                return Ok(
+                    new AuthResponse {
+                        Success =  false,
+                        ErrorMessage = errors
+                    }
+                );
+            } 
+            try {
+                var response = await _authService.AdminLoginAsync(request);
+                return Ok(response);
+            } catch (Exception ex) {
+                return Ok (
+                    new AuthResponse {
+                        Success = false,
+                        ErrorMessage = ex.Message
+                    }
+                );
+            }
+        }
     }
 }

@@ -11,6 +11,7 @@ namespace Government_Service_Navigator.Backend.Data.Context
 
         public DbSet<User> Users { get; set; }
         public DbSet<Officer> Officers { get; set; }
+        public DbSet<Admin> Admins { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -22,6 +23,11 @@ namespace Government_Service_Navigator.Backend.Data.Context
                 entity.HasIndex(e => e.Email).IsUnique();
             });
             modelBuilder.Entity<Officer>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.Email).IsUnique();
+            });
+            modelBuilder.Entity<Admin>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.HasIndex(e => e.Email).IsUnique();

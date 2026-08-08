@@ -12,6 +12,11 @@ namespace Government_Service_Navigator.Backend.DTOs.Responses
         public string Email { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
     }
+    public class AdminDto
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+    }
 
     public class AuthResponse
     {
@@ -20,5 +25,6 @@ namespace Government_Service_Navigator.Backend.DTOs.Responses
         public string? ErrorMessage { get; set; }
         public UserDto? User { get; set; }
         public OfficerDto? Officer { get; set; }
+        public AdminDto? Admin { get; set; }
     }
 }

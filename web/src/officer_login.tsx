@@ -23,7 +23,7 @@ export default function OfficerLoginPage() {
 
     setIsLoading(true);
     try {
-      const response = await fetch("http://localhost:5119/api/auth/officer-login", {
+      let response = await fetch("http://localhost:5119/api/auth/officer-login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -31,16 +31,36 @@ export default function OfficerLoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      const resData = await response.json();
+      let resData = await response.json();
 
-      if (resData.success) {
+      if (resData.success && resData.officer) {
         localStorage.setItem("officerToken", resData.token);
-        localStorage.setItem("officerUser", JSON.stringify(resData.user));
-        //window.location.href = "/officer/dashboard"; // Redirect to the officer dashboard
-        window.location.href = "/admin/dashboard"; // Redirect to the admin dashboard
-      } else {
-        setError(resData.errorMessage || "Login failed. Please try again.");
+        localStorage.setItem("officerUser", JSON.stringify(resData.officer));
+        
+        window.location.href = "/officer/dashboard"; 
+        return; 
       }
+
+      response = await fetch("http://localhost:5119/api/auth/admin-login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      resData = await response.json();
+
+      if (resData.success && resData.admin) {
+        localStorage.setItem("officerToken", resData.token);
+        localStorage.setItem("officerUser", JSON.stringify(resData.admin));
+        
+        window.location.href = "/admin/dashboard"; 
+        return; 
+      }
+
+      setError("Invalid official email or password.");
+      
     } catch (err) {
       setError("Could not connect to server. Please check your connection.");
     } finally {
@@ -84,7 +104,7 @@ export default function OfficerLoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="officer@gov.lk"
+              placeholder="official@gov.lk"
               className="w-full rounded-md border border-[#13233D]/15 bg-white px-4 py-2.5 text-[13px] placeholder:text-[#13233D]/35 focus:border-[#13233D]/40 focus:outline-none focus:ring-2 focus:ring-[#13233D]/10"
             />
           </div>

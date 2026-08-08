@@ -1,8 +1,15 @@
-import OfficerLoginPage from "./officer_login";
-import "./App.css";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import OfficerLoginPage from "./officer_login"; 
+import AdminDashboard from "./Admin/admin_dashboard";
 
-function App() {
-  return <OfficerLoginPage />;
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/officer/login" replace />} />
+        <Route path="/officer/login" element={<OfficerLoginPage />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
-
-export default App;

@@ -20,9 +20,10 @@ export default function OfficerDashboard() {
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (parsedUser.fullName) setOfficerName(parsedUser.fullName);
         else if (parsedUser.email) setOfficerName(parsedUser.email.split("@")[0]);
-      } catch (e) {
+      } catch {
         // Handle parse error silently
       }
     }

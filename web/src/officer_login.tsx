@@ -61,7 +61,7 @@ export default function OfficerLoginPage() {
 
       setError("Invalid official email or password.");
       
-    } catch (err) {
+    } catch {
       setError("Could not connect to server. Please check your connection.");
     } finally {
       setIsLoading(false);

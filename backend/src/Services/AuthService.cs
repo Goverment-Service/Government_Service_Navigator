@@ -99,11 +99,33 @@ namespace Government_Service_Navigator.Backend.Services
             var token = GenerateJwtTokenForOfficer(officer);
             
             return new AuthResponse {
-                Success = true, // FIXED spelling
+                Success = true, 
                 Token = token,
                 Officer = new OfficerDto {
                     Email = officer.Email,
                     Role = officer.Role
+                }
+            };
+        }
+        public async Task<AuthResponse> AdminLoginAsync(LoginRequest request) 
+        {
+            var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == request.Email);
+            
+            if (admin == null || !BCrypt.Net.BCrypt.Verify(request.Password, admin.PasswordHash)) {
+                return new AuthResponse {
+                    Success = false,
+                    ErrorMessage = "Invalid email or password."
+                };
+            }
+            
+            var token = GenerateJwtTokenForAdmin(admin);
+            
+            return new AuthResponse {
+                Success = true, 
+                Token = token,
+                Admin = new AdminDto {
+                    Email = admin.Email,
+                    Role = admin.Role
                 }
             };
         }
@@ -158,6 +180,37 @@ namespace Government_Service_Navigator.Backend.Services
                 new Claim(JwtRegisteredClaimNames.Sub, officer.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, officer.Email),
                 new Claim(ClaimTypes.Role, officer.Role),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: issuer,
+                audience: audience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddDays(7),
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        private string GenerateJwtTokenForAdmin(Admin admin)
+        {
+            var keyStr = _configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("JWT_KEY");
+            var issuer = _configuration["Jwt:Issuer"] ?? Environment.GetEnvironmentVariable("JWT_ISSUER");
+            var audience = _configuration["Jwt:Audience"] ?? Environment.GetEnvironmentVariable("JWT_AUDIENCE");
+            
+            if (string.IsNullOrEmpty(keyStr))
+                throw new Exception("JWT Key is not configured.");
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyStr));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, admin.Id.ToString()),
+                new Claim(JwtRegisteredClaimNames.Email, admin.Email),
+                new Claim(ClaimTypes.Role, admin.Role),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 

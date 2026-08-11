@@ -57,6 +57,7 @@ export default function AdminDashboard() {
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (parsedUser.fullName) setAdminName(parsedUser.fullName);
       } catch {
         // ignore parse error

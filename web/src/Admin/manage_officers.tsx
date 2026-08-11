@@ -1,5 +1,5 @@
 import '@carbon/styles/css/styles.css'; // Maintains the Carbon styling[cite: 3]
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Header,
   HeaderContainer,
@@ -54,7 +54,7 @@ const rows = [
 ];
 
 export default function ManageOfficers() {
-  const [adminName, setAdminName] = useState("System Admin");
+  const [, setAdminName] = useState("System Admin");
 
   useEffect(() => {
     const storedUser = localStorage.getItem("officerUser");
@@ -76,7 +76,7 @@ export default function ManageOfficers() {
 
   return (
     <HeaderContainer
-      render={({ isSideNavExpanded, onClickSideNavExpand }) => (
+      render={({ isSideNavExpanded }) => (
         <>
           <Header aria-label="Registry Admin System">
             <HeaderName href="#" prefix="GSN">

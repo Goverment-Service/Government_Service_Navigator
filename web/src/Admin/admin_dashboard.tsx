@@ -1,5 +1,5 @@
 import '@carbon/styles/css/styles.css'; // This fixes the unstyled layout!
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Header,
   HeaderContainer,
@@ -72,7 +72,7 @@ export default function AdminDashboard() {
 
   return (
     <HeaderContainer
-      render={({ isSideNavExpanded, onClickSideNavExpand }) => (
+      render={({ isSideNavExpanded }) => (
         <>
           <Header aria-label="Registry Admin System">
             <HeaderName href="#" prefix="GSN">

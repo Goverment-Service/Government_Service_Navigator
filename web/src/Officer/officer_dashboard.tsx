@@ -34,6 +34,7 @@ import {
   Warning,
   CheckmarkOutline
 } from "@carbon/icons-react";
+import Footer from "../components/Footer";
 
 // Table Data for Verification Queue
 const headers = [
@@ -229,7 +230,7 @@ export default function OfficerDashboard() {
                 </TableContainer>
               )}
             </DataTable>
-
+            <Footer />
           </main>
         </>
       )}

@@ -33,6 +33,7 @@ import {
   Document,
   Activity
 } from "@carbon/icons-react";
+import Footer from "../components/Footer";
 
 // Table Data
 const headers = [
@@ -209,7 +210,7 @@ export default function AdminDashboard() {
                 </TableContainer>
               )}
             </DataTable>
-
+            <Footer />
           </main>
         </>
       )}

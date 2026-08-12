@@ -35,7 +35,6 @@ import {
   Notification,
   Add
 } from "@carbon/icons-react";
-import Footer from "../components/Footer";
 
 // Table Data for Officers
 const headers = [
@@ -192,7 +191,7 @@ export default function ManageOfficers() {
                 </TableContainer>
               )}
             </DataTable>
-            <Footer />
+
           </main>
         </>
       )}

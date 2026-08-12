@@ -1,4 +1,4 @@
-import '@carbon/styles/css/styles.css'; // Maintains the Carbon styling[cite: 3]
+import '@carbon/styles/css/styles.css';
 import { useState, useEffect } from "react";
 import {
   Header,
@@ -101,10 +101,10 @@ export default function ManageOfficers() {
                 <SideNavLink renderIcon={UserMultiple} href="/admin/manage-officers" isActive>
                   Manage Officers
                 </SideNavLink>
-                <SideNavLink renderIcon={Security} href="#">
+                <SideNavLink renderIcon={Security} href="/admin/audit-logs">
                   Audit Logs
                 </SideNavLink>
-                <SideNavLink renderIcon={Settings} href="#">
+                <SideNavLink renderIcon={Settings} href="/admin/system-settings">
                   System Settings
                 </SideNavLink>
                 

@@ -1,5 +1,5 @@
 import '@carbon/styles/css/styles.css'; 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Header,
   HeaderContainer,
@@ -9,9 +9,6 @@ import {
   SideNav,
   SideNavItems,
   SideNavLink,
-  Grid,
-  Column,
-  Tile,
   DataTable,
   TableContainer,
   Table,
@@ -20,6 +17,10 @@ import {
   TableHeader,
   TableBody,
   TableCell,
+  TableToolbar,
+  TableToolbarContent,
+  TableToolbarSearch,
+  Button,
   Tag,
   Search
 } from "@carbon/react";
@@ -30,26 +31,29 @@ import {
   Settings,
   Logout,
   Notification,
-  Document,
-  Activity
+  Download
 } from "@carbon/icons-react";
 
-// Table Data
+// Expanded Table Data for Audit Logs
 const headers = [
-  { key: "officer", header: "Officer" },
-  { key: "action", header: "Action" },
-  { key: "target", header: "Target ID" },
   { key: "time", header: "Timestamp" },
+  { key: "officer", header: "User / System" },
+  { key: "action", header: "Event Action" },
+  { key: "target", header: "Target ID" },
+  { key: "ip", header: "IP Address" },
   { key: "status", header: "Status" },
 ];
 
 const rows = [
-  { id: "1", officer: "Sarah Fernando", action: "Approved Application", target: "APP-8992", time: "2 mins ago", status: "Success" },
-  { id: "2", officer: "Nuwan Perera", action: "Rejected Document", target: "DOC-1029", time: "15 mins ago", status: "Flagged" },
-  { id: "3", officer: "System Auto-Sync", action: "Database Backup", target: "SYS-DB-01", time: "1 hour ago", status: "Success" },
+  { id: "1", time: "2026-08-12 18:05:12", officer: "Sarah Fernando", action: "Approved Application", target: "APP-8992", ip: "192.168.1.45", status: "Success" },
+  { id: "2", time: "2026-08-12 17:50:01", officer: "Nuwan Perera", action: "Rejected Document", target: "DOC-1029", ip: "192.168.1.102", status: "Flagged" },
+  { id: "3", time: "2026-08-12 17:00:00", officer: "System Auto-Sync", action: "Database Backup", target: "SYS-DB-01", ip: "Internal System", status: "Success" },
+  { id: "4", time: "2026-08-12 16:45:22", officer: "Unknown", action: "Failed Login Attempt", target: "admin@gov.lk", ip: "103.24.55.12", status: "Failed" },
+  { id: "5", time: "2026-08-12 15:30:10", officer: "Priyanka Silva", action: "Modified Global Settings", target: "SET-GLOBAL", ip: "192.168.1.88", status: "Success" },
+  { id: "6", time: "2026-08-12 14:12:05", officer: "Kamal Dissanayake", action: "Suspended User Account", target: "USR-4091", ip: "192.168.1.22", status: "Warning" },
 ];
 
-export default function AdminDashboard() {
+export default function AuditLogs() {
   const [adminName, setAdminName] = useState("System Admin");
 
   useEffect(() => {
@@ -59,7 +63,7 @@ export default function AdminDashboard() {
         const parsedUser = JSON.parse(storedUser);
         if (parsedUser.fullName) setAdminName(parsedUser.fullName);
       } catch {
-        // ignore parse error
+        // ignore parse error[cite: 5]
       }
     }
   }, []);
@@ -72,7 +76,7 @@ export default function AdminDashboard() {
 
   return (
     <HeaderContainer
-      render={({ isSideNavExpanded }) => (
+      render={({ isSideNavExpanded, onClickSideNavExpand }) => (
         <>
           <Header aria-label="Registry Admin System">
             <HeaderName href="#" prefix="GSN">
@@ -90,13 +94,14 @@ export default function AdminDashboard() {
 
             <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="#" isActive>
+                <SideNavLink renderIcon={Dashboard} href="/admin/dashboard">
                   Overview
                 </SideNavLink>
                 <SideNavLink renderIcon={UserMultiple} href="/admin/manage-officers">
                   Manage Officers
                 </SideNavLink>
-                <SideNavLink renderIcon={Security} href="/admin/audit-logs">
+                {/* Active state moved to Audit Logs[cite: 5] */}
+                <SideNavLink renderIcon={Security} href="/admin/audit-logs" isActive>
                   Audit Logs
                 </SideNavLink>
                 <SideNavLink renderIcon={Settings} href="/admin/system-settings">
@@ -113,69 +118,39 @@ export default function AdminDashboard() {
             </SideNav>
           </Header>
 
-          {/* Main Content */}
+          {/* Main Content[cite: 5] */}
           <main style={{ marginTop: '3rem', padding: '2rem', marginLeft: '16rem', backgroundColor: '#f4f4f4', minHeight: '100vh' }}>
             
             <div style={{ marginBottom: '2rem' }}>
               <h1 style={{ fontSize: '2rem', fontWeight: 400, color: '#161616' }}>
-                Welcome back, {adminName}
+                System Audit Logs
               </h1>
               <p style={{ color: '#525252', marginTop: '0.5rem' }}>
-                Monitor system activity and manage registry officers across the platform.
+                Immutable, timestamped record of all registry modifications, access attempts, and administrative actions.
               </p>
             </div>
 
-            {/* Stat Cards mapped to Carbon Grid/Tiles */}
-            <Grid style={{ paddingLeft: 0, paddingRight: 0, marginBottom: '2rem' }}>
-              <Column sm={4} md={4} lg={4}>
-                <Tile>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>Total Applications</p>
-                    <Document size={20} />
-                  </div>
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>12,845</h3>
-                  <p style={{ color: '#24a148', fontSize: '0.875rem', marginTop: '1rem' }}>+14% vs last week</p>
-                </Tile>
-              </Column>
-              <Column sm={4} md={4} lg={4}>
-                <Tile>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>Active Officers</p>
-                    <UserMultiple size={20} />
-                  </div>
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>342</h3>
-                  <p style={{ color: '#24a148', fontSize: '0.875rem', marginTop: '1rem' }}>+2% vs last week</p>
-                </Tile>
-              </Column>
-              <Column sm={4} md={4} lg={4}>
-                <Tile style={{ borderTop: '4px solid #da1e28' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>Pending Reviews</p>
-                    <Activity size={20} color="#da1e28" />
-                  </div>
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>1,204</h3>
-                  <p style={{ color: '#da1e28', fontSize: '0.875rem', marginTop: '1rem' }}>-5% vs last week</p>
-                </Tile>
-              </Column>
-              <Column sm={4} md={4} lg={4}>
-                <Tile>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>System Health</p>
-                    <Security size={20} />
-                  </div>
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>99.9%</h3>
-                  <p style={{ color: '#24a148', fontSize: '0.875rem', marginTop: '1rem' }}>Stable vs last week</p>
-                </Tile>
-              </Column>
-            </Grid>
-
-            {/* Data Table */}
+            {/* Data Table with Toolbar */}
             <DataTable rows={rows} headers={headers}>
-              {({ rows, headers, getTableProps, getHeaderProps, getRowProps }) => (
-                <TableContainer 
-                  title="Recent Officer Activity" 
-                  description="Live audit trail of registry modifications and approvals."
-                >
+              {({ rows, headers, getTableProps, getHeaderProps, getRowProps, onInputChange }) => (
+                <TableContainer>
+                  <TableToolbar>
+                    <TableToolbarContent>
+                      <TableToolbarSearch 
+                        onChange={onInputChange} 
+                        persistent 
+                        placeholder="Filter by officer, action, or IP..." 
+                      />
+                      <Button 
+                        kind="ghost" 
+                        renderIcon={Download} 
+                        onClick={() => console.log('Exporting CSV...')}
+                      >
+                        Export CSV
+                      </Button>
+                    </TableToolbarContent>
+                  </TableToolbar>
+
                   <Table {...getTableProps()}>
                     <TableHead>
                       <TableRow>
@@ -191,14 +166,29 @@ export default function AdminDashboard() {
                         <TableRow {...getRowProps({ row })} key={row.id}>
                           {row.cells.map((cell) => {
                             if (cell.info.header === 'status') {
+                              // Dynamic tag coloring based on the log status[cite: 5]
+                              let tagType = "green";
+                              if (cell.value === "Failed" || cell.value === "Flagged") tagType = "red";
+                              if (cell.value === "Warning") tagType = "magenta";
+
                               return (
                                 <TableCell key={cell.id}>
-                                  <Tag type={cell.value === 'Flagged' ? 'red' : 'green'}>
+                                  <Tag type={tagType as any}>
                                     {cell.value}
                                   </Tag>
                                 </TableCell>
                               );
                             }
+                            
+                            // Render monospace font for IPs and Target IDs for better readability
+                            if (cell.info.header === 'target' || cell.info.header === 'ip') {
+                              return (
+                                <TableCell key={cell.id} style={{ fontFamily: 'monospace', fontSize: '13px' }}>
+                                  {cell.value}
+                                </TableCell>
+                              );
+                            }
+
                             return <TableCell key={cell.id}>{cell.value}</TableCell>;
                           })}
                         </TableRow>

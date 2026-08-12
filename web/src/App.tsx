@@ -3,6 +3,8 @@ import OfficerLoginPage from "./officer_login";
 import AdminDashboard from "./Admin/admin_dashboard";
 import ManageOfficers from "./Admin/manage_officers";
 import OfficerDashboard from "./Officer/officer_dashboard";
+import AuditLogs from "./Admin/audit_logs";
+import SystemSettings from "./Admin/system_settings";
 
 export default function App() {
   return (
@@ -13,6 +15,8 @@ export default function App() {
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/manage-officers" element={<ManageOfficers />} />
         <Route path="/officer/dashboard" element={<OfficerDashboard />} />
+        <Route path="/admin/audit-logs" element={<AuditLogs />} />
+        <Route path="/admin/system-settings" element={<SystemSettings />} />
       </Routes>
     </BrowserRouter>
   );

@@ -3,6 +3,7 @@ import OfficerLoginPage from "./officer_login";
 import AdminDashboard from "./Admin/admin_dashboard";
 import ManageOfficers from "./Admin/manage_officers";
 import OfficerDashboard from "./Officer/officer_dashboard";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
   return (
@@ -10,9 +11,13 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/officer/login" replace />} />
         <Route path="/officer/login" element={<OfficerLoginPage />} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/admin/manage-officers" element={<ManageOfficers />} />
-        <Route path="/officer/dashboard" element={<OfficerDashboard />} />
+        
+        {/* Protected Routes - require login */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/manage-officers" element={<ManageOfficers />} />
+          <Route path="/officer/dashboard" element={<OfficerDashboard />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );

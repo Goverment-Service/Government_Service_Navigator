@@ -4,6 +4,7 @@ import AdminDashboard from "./Admin/admin_dashboard";
 import ManageOfficers from "./Admin/manage_officers";
 import OfficerDashboard from "./Officer/officer_dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Settings from "./components/settings";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/manage-officers" element={<ManageOfficers />} />
           <Route path="/officer/dashboard" element={<OfficerDashboard />} />
+          <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>
     </BrowserRouter>

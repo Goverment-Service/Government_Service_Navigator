@@ -96,7 +96,7 @@ export default function SystemSettings() {
                   Audit Logs
                 </SideNavLink>
                 {/* Active state moved to System Settings */}
-                <SideNavLink renderIcon={Settings} href="/admin/settings" isActive>
+                <SideNavLink renderIcon={Settings} href="/admin/system-settings" isActive>
                   System Settings
                 </SideNavLink>
                 

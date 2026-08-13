@@ -104,7 +104,7 @@ export default function AuditLogs() {
                 <SideNavLink renderIcon={Security} href="/admin/audit-logs" isActive>
                   Audit Logs
                 </SideNavLink>
-                <SideNavLink renderIcon={Settings} href="/admin/settings">
+                <SideNavLink renderIcon={Settings} href="/admin/system-settings">
                   System Settings
                 </SideNavLink>
                 

@@ -44,6 +44,11 @@ import {
   Add
 } from "@carbon/icons-react";
 
+// 1. Import Components 
+import EditOfficerModal from "./Manage_Officers/EditOfficerModel";
+import ResetPasswordModal from "./Manage_Officers/ResetPasswordModel";
+import SuspendAccountModal from "./Manage_Officers/SuspendAccountModel";
+
 const headers = [
   { key: "name", header: "Officer Name" },
   { key: "email", header: "Official Email" },
@@ -56,11 +61,11 @@ const headers = [
 export default function ManageOfficers() {
   const [adminName, setAdminName] = useState("System Admin");
   
-  const [officerRows, setOfficerRows] = useState([]);
+  const [officerRows, setOfficerRows] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Modal & Form State
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Add Officer Form State
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -71,10 +76,16 @@ export default function ManageOfficers() {
     role: "Verifying Officer"
   });
 
+  // 2. State for the Action Modals
+  const [selectedOfficer, setSelectedOfficer] = useState<any>(null);
+  const [activeActionModal, setActiveActionModal] = useState<"edit" | "reset" | "suspend" | null>(null);
+
   const fetchOfficers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("http://localhost:5119/api/admin/officers");
+      const response = await fetch("http://localhost:5119/api/admin/officers", {
+        cache: "no-store"
+      });
       if (response.ok) {
         const data = await response.json();
         setOfficerRows(data);
@@ -111,7 +122,7 @@ export default function ManageOfficers() {
   const handleAddOfficer = async () => {
     setFormError(null);
     setIsSubmitting(true);
-    
+
     try {
       const response = await fetch("http://localhost:5119/api/admin/officers", {
         method: "POST",
@@ -122,7 +133,7 @@ export default function ManageOfficers() {
       });
 
       if (response.ok) {
-        setIsModalOpen(false);
+        setIsAddModalOpen(false);
         setFormData({ fullName: "", email: "", password: "", department: "", role: "Verifying Officer" });
         fetchOfficers();
       } else {
@@ -138,7 +149,6 @@ export default function ManageOfficers() {
 
   return (
     <>
-      {/* 1. HeaderContainer ONLY wraps the UI Shell components now */}
       <HeaderContainer
         render={({ isSideNavExpanded, onClickSideNavExpand }) => (
           <Header aria-label="Registry Admin System">
@@ -181,7 +191,6 @@ export default function ManageOfficers() {
         )}
       />
 
-      {/* 2. Main content and Modal are safely outside, preventing focus-loss on re-renders */}
       <main style={{ marginTop: '3rem', padding: '2rem', marginLeft: '16rem', backgroundColor: '#f4f4f4', minHeight: '100vh' }}>
         
         <div style={{ marginBottom: '2rem' }}>
@@ -202,7 +211,7 @@ export default function ManageOfficers() {
                 <TableToolbar>
                   <TableToolbarContent>
                     <TableToolbarSearch onChange={onInputChange} persistent />
-                    <Button renderIcon={Add} onClick={() => setIsModalOpen(true)}>
+                    <Button renderIcon={Add} onClick={() => setIsAddModalOpen(true)}>
                       Add Officer
                     </Button>
                   </TableToolbarContent>
@@ -233,12 +242,35 @@ export default function ManageOfficers() {
                           }
                           
                           if (cell.info.header === 'actions') {
+                            // 3. Find the original officer object based on the row ID
+                            const currentOfficer = officerRows.find(o => o.id === row.id);
+
                             return (
                               <TableCell key={cell.id} style={{ padding: 0, width: '48px' }}>
                                 <OverflowMenu flipped direction="bottom">
-                                  <OverflowMenuItem itemText="Edit Profile" />
-                                  <OverflowMenuItem itemText="Reset Password" />
-                                  <OverflowMenuItem hasDivider isDelete itemText="Suspend Account" />
+                                  <OverflowMenuItem 
+                                    itemText="Edit Profile" 
+                                    onClick={() => {
+                                      setSelectedOfficer(currentOfficer);
+                                      setActiveActionModal("edit");
+                                    }}
+                                  />
+                                  <OverflowMenuItem 
+                                    itemText="Reset Password" 
+                                    onClick={() => {
+                                      setSelectedOfficer(currentOfficer);
+                                      setActiveActionModal("reset");
+                                    }}
+                                  />
+                                  <OverflowMenuItem 
+                                    hasDivider 
+                                    isDelete={currentOfficer?.status !== "Suspended"} 
+                                    itemText={currentOfficer?.status === "Suspended" ? "Reactivate Account" : "Suspend Account"} 
+                                    onClick={() => {
+                                      setSelectedOfficer(currentOfficer);
+                                      setActiveActionModal("suspend");
+                                    }}
+                                  />
                                 </OverflowMenu>
                               </TableCell>
                             );
@@ -255,9 +287,10 @@ export default function ManageOfficers() {
           </DataTable>
         )}
 
+        {/* Existing Add Officer Modal */}
         <Modal
-          open={isModalOpen}
-          onRequestClose={() => setIsModalOpen(false)}
+          open={isAddModalOpen}
+          onRequestClose={() => setIsAddModalOpen(false)}
           onRequestSubmit={handleAddOfficer}
           modalHeading="Add New Officer"
           primaryButtonText={isSubmitting ? "Saving..." : "Create Officer"}
@@ -329,6 +362,27 @@ export default function ManageOfficers() {
             </Select>
           </Stack>
         </Modal>
+
+        {/* 4. Render the Action Modals */}
+        <EditOfficerModal
+          isOpen={activeActionModal === "edit"}
+          onClose={() => setActiveActionModal(null)}
+          onSuccess={fetchOfficers}
+          officer={selectedOfficer}
+        />
+
+        <ResetPasswordModal
+          isOpen={activeActionModal === "reset"}
+          onClose={() => setActiveActionModal(null)}
+          officer={selectedOfficer}
+        />
+
+        <SuspendAccountModal
+          isOpen={activeActionModal === "suspend"}
+          onClose={() => setActiveActionModal(null)}
+          onSuccess={fetchOfficers}
+          officer={selectedOfficer}
+        />
 
       </main>
     </>

@@ -20,6 +20,9 @@ import {
   TableHeader,
   TableBody,
   TableCell,
+  TableToolbar,
+  TableToolbarContent,
+  TableToolbarSearch,
   Tag,
   Search,
   Button
@@ -32,30 +35,34 @@ import {
   Logout,
   Notification,
   Warning,
-  CheckmarkOutline
+  Hourglass,
+  Email,
+  Flag
 } from "@carbon/icons-react";
 
-// Table Data for Verification Queue
+// Table Data for Pending Reviews
 const headers = [
   { key: "appId", header: "App ID" },
   { key: "citizen", header: "Citizen Name" },
   { key: "service", header: "Service Type" },
-  { key: "time", header: "Submitted" },
-  { key: "priority", header: "Priority" },
+  { key: "reason", header: "Pending Reason" },
+  { key: "days", header: "Time Pending" },
+  { key: "status", header: "Status" },
   { key: "actions", header: "" },
 ];
 
 const rows = [
-  { id: "1", appId: "GSN-2026-9012", citizen: "Kasun Bandara", service: "Business Registration", time: "15 mins ago", priority: "High" },
-  { id: "2", appId: "GSN-2026-9015", citizen: "Chamari Silva", service: "Residence Certificate", time: "42 mins ago", priority: "Normal" },
-  { id: "3", appId: "GSN-2026-9021", citizen: "Amesh Perera", service: "Character Verification", time: "1 hour ago", priority: "Normal" },
+  { id: "1", appId: "GSN-2026-9102", citizen: "Amila Kumara", service: "Business Registration", reason: "Missing NIC Upload", days: "3 Days", status: "Awaiting Citizen" },
+  { id: "2", appId: "GSN-2026-9088", citizen: "Nethmi Silva", service: "Income Certificate", reason: "Requires Supervisor Approval", days: "1 Day", status: "In Progress" },
+  { id: "3", appId: "GSN-2026-8799", citizen: "Dinesh Bandara", service: "Residence Certificate", reason: "Mismatched Address Details", days: "5 Days", status: "Action Required" },
+  { id: "4", appId: "GSN-2026-8745", citizen: "Tharindu Perera", service: "Character Verification", reason: "Pending Police Clearance", days: "14 Days", status: "External Block" },
 ];
 
-export default function OfficerDashboard() {
+export default function PendingReviews() {
   const [officerName, setOfficerName] = useState("Verifying Officer");
 
   useEffect(() => {
-    // Retrieve the officer details stored during login[cite: 4]
+    // Retrieve the officer details stored during login
     const storedUser = localStorage.getItem("officerUser");
     if (storedUser) {
       try {
@@ -63,7 +70,7 @@ export default function OfficerDashboard() {
         if (parsedUser.fullName) setOfficerName(parsedUser.fullName);
         else if (parsedUser.email) setOfficerName(parsedUser.email.split("@")[0]);
       } catch (e) {
-        // Handle parse error silently[cite: 4]
+        // Handle parse error silently
       }
     }
   }, []);
@@ -85,7 +92,7 @@ export default function OfficerDashboard() {
             
             <HeaderGlobalBar>
               <div style={{ width: '280px', marginRight: '1rem', display: 'flex', alignItems: 'center' }}>
-                 <Search size="sm" id="search-queue" labelText="Search" placeholder="Search NIC or Application ID..." />
+                 <Search size="sm" id="search-global" labelText="Search" placeholder="Search NIC or Application ID..." />
               </div>
               <HeaderGlobalAction aria-label="Notifications" onClick={() => {}}>
                 <Notification size={20} />
@@ -94,13 +101,14 @@ export default function OfficerDashboard() {
 
             <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="#" isActive>
+                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">
                   Application Queue
                 </SideNavLink>
                 <SideNavLink renderIcon={Document} href="/officer/verified-records">
                   Verified Records
                 </SideNavLink>
-                <SideNavLink renderIcon={Time} href="/officer/pending-reviews">
+                {/* Active state moved to Pending Reviews */}
+                <SideNavLink renderIcon={Time} href="/officer/pending-reviews" isActive>
                   Pending Reviews
                 </SideNavLink>
                 <SideNavLink renderIcon={User} href="/officer/profile">
@@ -122,64 +130,74 @@ export default function OfficerDashboard() {
             
             <div style={{ marginBottom: '2rem' }}>
               <h1 style={{ fontSize: '2rem', fontWeight: 400, color: '#161616' }}>
-                Welcome back, {officerName}
+                Pending Reviews
               </h1>
               <p style={{ color: '#525252', marginTop: '0.5rem' }}>
-                Review assigned citizen submissions and maintain accountable registry records.
+                Manage stalled applications, follow up on missing documents, and clear blocked queues.
               </p>
             </div>
 
-            {/* Stat Cards mapped to Carbon Grid/Tiles */}
+            {/* Stat Cards for Pending Context */}
             <Grid style={{ paddingLeft: 0, paddingRight: 0, marginBottom: '2rem' }}>
+              <Column sm={4} md={4} lg={4}>
+                <Tile>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>Total Pending</p>
+                    <Hourglass size={20} />
+                  </div>
+                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>45</h3>
+                  <p style={{ color: '#525252', fontSize: '0.875rem', marginTop: '1rem' }}>Active on hold</p>
+                </Tile>
+              </Column>
+              <Column sm={4} md={4} lg={4}>
+                <Tile style={{ borderTop: '4px solid #8a3ffc' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>Awaiting Citizen</p>
+                    <Email size={20} color="#8a3ffc" />
+                  </div>
+                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>12</h3>
+                  <p style={{ color: '#8a3ffc', fontSize: '0.875rem', marginTop: '1rem' }}>Missing documents</p>
+                </Tile>
+              </Column>
               <Column sm={4} md={4} lg={4}>
                 <Tile style={{ borderTop: '4px solid #da1e28' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>Queue Pending</p>
-                    <Warning size={20} color="#da1e28" />
+                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>Action Required</p>
+                    <Flag size={20} color="#da1e28" />
                   </div>
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>24</h3>
-                  <p style={{ color: '#da1e28', fontSize: '0.875rem', marginTop: '1rem' }}>Requires your review</p>
+                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>5</h3>
+                  <p style={{ color: '#da1e28', fontSize: '0.875rem', marginTop: '1rem' }}>Flagged issues</p>
                 </Tile>
               </Column>
               <Column sm={4} md={4} lg={4}>
-                <Tile>
+                <Tile style={{ borderTop: '4px solid #f1c21b' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>Reviewed Today</p>
-                    <CheckmarkOutline size={20} />
+                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>SLA Overdue</p>
+                    <Warning size={20} color="#f1c21b" />
                   </div>
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>18</h3>
-                  <p style={{ color: '#525252', fontSize: '0.875rem', marginTop: '1rem' }}>+4 from yesterday</p>
-                </Tile>
-              </Column>
-              <Column sm={4} md={4} lg={4}>
-                <Tile>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>Approved Total</p>
-                    <Document size={20} />
-                  </div>
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>482</h3>
-                  <p style={{ color: '#525252', fontSize: '0.875rem', marginTop: '1rem' }}>This month</p>
-                </Tile>
-              </Column>
-              <Column sm={4} md={4} lg={4}>
-                <Tile>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>Accuracy Rating</p>
-                    <User size={20} />
-                  </div>
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>99.4%</h3>
-                  <p style={{ color: '#24a148', fontSize: '0.875rem', marginTop: '1rem' }}>Audit compliant</p>
+                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>2</h3>
+                  <p style={{ color: '#f1c21b', fontSize: '0.875rem', marginTop: '1rem' }}>Exceeded target time</p>
                 </Tile>
               </Column>
             </Grid>
 
-            {/* Data Table for Active Verification Queue */}
+            {/* Data Table for Pending Reviews */}
             <DataTable rows={rows} headers={headers}>
-              {({ rows, headers, getTableProps, getHeaderProps, getRowProps }) => (
+              {({ rows, headers, getTableProps, getHeaderProps, getRowProps, onInputChange }) => (
                 <TableContainer 
-                  title="Active Verification Queue" 
-                  description="Citizen submissions waiting for departmental review and timestamping."
+                  title="Stalled Applications" 
+                  description="Items that require manual intervention before they can be verified."
                 >
+                  <TableToolbar>
+                    <TableToolbarContent>
+                      <TableToolbarSearch 
+                        onChange={onInputChange} 
+                        persistent 
+                        placeholder="Filter by App ID, Citizen, or Status..." 
+                      />
+                    </TableToolbarContent>
+                  </TableToolbar>
+
                   <Table {...getTableProps()}>
                     <TableHead>
                       <TableRow>
@@ -195,26 +213,34 @@ export default function OfficerDashboard() {
                         <TableRow {...getRowProps({ row })} key={row.id}>
                           {row.cells.map((cell) => {
                             
-                            // Format Priority with Carbon Tags[cite: 4]
-                            if (cell.info.header === 'priority') {
+                            // Format Status with Carbon Tags based on state severity
+                            if (cell.info.header === 'status') {
+                              let tagColor = 'blue';
+                              if (cell.value === 'Awaiting Citizen') tagColor = 'purple';
+                              if (cell.value === 'Action Required') tagColor = 'red';
+                              if (cell.value === 'External Block') tagColor = 'gray';
+
                               return (
                                 <TableCell key={cell.id}>
-                                  <Tag type={cell.value === 'High' ? 'red' : 'blue'}>
+                                  <Tag type={tagColor as any}>
                                     {cell.value}
                                   </Tag>
                                 </TableCell>
                               );
                             }
                             
-                            // Format the actions column with a Review button[cite: 4]
+                            // Dynamic Action Buttons
                             if (cell.info.header === 'actions') {
+                              const status = row.cells.find(c => c.info.header === 'status')?.value;
+                              
                               return (
                                 <TableCell key={cell.id} style={{ padding: '0.5rem', textAlign: 'right' }}>
                                   <Button 
                                     size="sm" 
-                                    onClick={() => alert(`Reviewing application ${row.cells.find(c => c.info.header === 'appId')?.value}`)}
+                                    kind={status === 'Awaiting Citizen' ? "secondary" : "primary"}
+                                    onClick={() => alert(`Taking action on ${row.cells.find(c => c.info.header === 'appId')?.value}`)}
                                   >
-                                    Review
+                                    {status === 'Awaiting Citizen' ? "Send Reminder" : "Resume Review"}
                                   </Button>
                                 </TableCell>
                               );

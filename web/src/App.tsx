@@ -6,17 +6,30 @@ import OfficerDashboard from "./Officer/officer_dashboard";
 import AuditLogs from "./Admin/audit_logs";
 import SystemSettings from "./Admin/system_settings";
 
+/*
+  Summary: import the necessary components for officer routes
+*/
+import VerifiedRecords from "./Officer/verified_record";
+import PendingReviews from "./Officer/pending_reviews";
+import Profile from "./Officer/profile";
+
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* admin routes */}
         <Route path="/" element={<Navigate to="/officer/login" replace />} />
-        <Route path="/officer/login" element={<OfficerLoginPage />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/manage-officers" element={<ManageOfficers />} />
         <Route path="/officer/dashboard" element={<OfficerDashboard />} />
         <Route path="/admin/audit-logs" element={<AuditLogs />} />
         <Route path="/admin/system-settings" element={<SystemSettings />} />
+
+        {/* officer route */}
+        <Route path="/officer/login" element={<OfficerLoginPage />} />
+        <Route path="/officer/verified-records" element={<VerifiedRecords />} />
+        <Route path="/officer/pending-reviews" element={<PendingReviews />} />
+        <Route path="/officer/profile" element={<Profile />} />
       </Routes>
     </BrowserRouter>
   );

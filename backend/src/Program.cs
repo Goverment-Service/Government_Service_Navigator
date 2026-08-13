@@ -7,6 +7,8 @@ using Government_Service_Navigator.Backend.Data.Context;
 using Government_Service_Navigator.Backend.Services;
 using Government_Service_Navigator.Backend.Services.Interfaces;
 using Microsoft.OpenApi.Models;
+using Government_Service_Navigator.Backend.Services.Interfaces;
+using Government_Service_Navigator.Backend.Services;
 
 // Load environment variables from .env file
 Env.Load();
@@ -34,6 +36,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // 2. Setup Dependency Injection
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddControllers();
 
 // 3. Setup CORS (Crucial for Flutter/Mobile/Web app connectivity)

@@ -100,7 +100,7 @@ export default function AdminDashboard() {
                 <SideNavLink renderIcon={Security} href="#">
                   Audit Logs
                 </SideNavLink>
-                <SideNavLink renderIcon={Settings} href="#">
+                <SideNavLink renderIcon={Settings} href="/settings">
                   System Settings
                 </SideNavLink>
                 

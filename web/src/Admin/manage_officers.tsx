@@ -101,10 +101,10 @@ export default function ManageOfficers() {
                 <SideNavLink renderIcon={UserMultiple} href="/admin/manage-officers" isActive>
                   Manage Officers
                 </SideNavLink>
-                <SideNavLink renderIcon={Security} href="#">
+                <SideNavLink renderIcon={Security} href="/admin/audit-logs">
                   Audit Logs
                 </SideNavLink>
-                <SideNavLink renderIcon={Settings} href="/settings">
+                <SideNavLink renderIcon={Settings} href="/admin/settings">
                   System Settings
                 </SideNavLink>
                 

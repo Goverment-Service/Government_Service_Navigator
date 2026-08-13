@@ -32,8 +32,7 @@ import {
   Logout,
   Notification,
   Warning,
-  CheckmarkOutline,
-  Settings
+  CheckmarkOutline
 } from "@carbon/icons-react";
 
 // Table Data for Verification Queue
@@ -103,9 +102,6 @@ export default function OfficerDashboard() {
                 </SideNavLink>
                 <SideNavLink renderIcon={Time} href="#">
                   Pending Reviews
-                </SideNavLink>
-                <SideNavLink renderIcon={Settings} href="/settings">
-                  System Settings
                 </SideNavLink>
                 <SideNavLink renderIcon={User} href="#">
                   My Profile

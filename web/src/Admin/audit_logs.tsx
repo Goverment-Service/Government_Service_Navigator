@@ -1,4 +1,4 @@
-import '@carbon/styles/css/styles.css'; 
+import '@carbon/styles/css/styles.css'; // This fixes the unstyled layout![cite: 5]
 import React, { useState, useEffect } from "react";
 import {
   Header,
@@ -104,7 +104,7 @@ export default function AuditLogs() {
                 <SideNavLink renderIcon={Security} href="/admin/audit-logs" isActive>
                   Audit Logs
                 </SideNavLink>
-                <SideNavLink renderIcon={Settings} href="/admin/system-settings">
+                <SideNavLink renderIcon={Settings} href="/admin/settings">
                   System Settings
                 </SideNavLink>
                 

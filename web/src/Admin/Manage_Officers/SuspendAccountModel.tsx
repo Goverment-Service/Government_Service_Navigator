@@ -18,14 +18,18 @@ export default function SuspendAccountModal({ isOpen, onClose, onSuccess, office
     setFormError(null);
     setIsSubmitting(true);
 
+    if (!officer?.id) {
+      setFormError("Error: Missing Officer ID. Please refresh the page and try again.");
+      setIsSubmitting(false);
+      return;
+    }
     try {
-      // NOTE: You will need to create this PATCH endpoint in your backend AdminController
       const endpoint = isCurrentlySuspended 
         ? `http://localhost:5119/api/admin/officers/${officer.id}/activate`
         : `http://localhost:5119/api/admin/officers/${officer.id}/suspend`;
 
       const response = await fetch(endpoint, {
-        method: "PATCH",
+        method: "PATCH", 
         headers: { "Content-Type": "application/json" }
       });
 
@@ -33,11 +37,21 @@ export default function SuspendAccountModal({ isOpen, onClose, onSuccess, office
         onSuccess();
         onClose();
       } else {
-        const errorData = await response.json();
-        setFormError(errorData.message || "Failed to change account status.");
+        let errorMessage = "Failed to change account status.";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          errorMessage = `Server Error: ${response.status} ${response.statusText}.`;
+        }
+        setFormError(errorMessage);
       }
-    } catch (error) {
-      setFormError("Network error. Could not connect to the server.");
+    } catch (error: any) {
+      if (error.message === "Failed to fetch") {
+         setFormError("Backend is offline. Please ensure the server is running on port 5119.");
+      } else {
+         setFormError(`Request failed: ${error.message}`);
+      }
     } finally {
       setIsSubmitting(false);
     }

@@ -44,10 +44,10 @@ import {
   Add
 } from "@carbon/icons-react";
 
-// 1. Import your new Modal Components
-import EditOfficerModal from "./Manage_Officers/EditOfficerModal";
-import ResetPasswordModal from "./Manage_Officers/ResetPasswordModal";
-import SuspendAccountModal from "./Manage_Officers/SuspendAccountModal";
+// 1. Import Components 
+import EditOfficerModal from "./Manage_Officers/EditOfficerModel";
+import ResetPasswordModal from "./Manage_Officers/ResetPasswordModel";
+import SuspendAccountModal from "./Manage_Officers/SuspendAccountModel";
 
 const headers = [
   { key: "name", header: "Officer Name" },
@@ -83,7 +83,9 @@ export default function ManageOfficers() {
   const fetchOfficers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("http://localhost:5119/api/admin/officers");
+      const response = await fetch("http://localhost:5119/api/admin/officers", {
+        cache: "no-store"
+      });
       if (response.ok) {
         const data = await response.json();
         setOfficerRows(data);

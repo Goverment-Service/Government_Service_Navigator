@@ -56,5 +56,31 @@ namespace Government_Service_Navigator.Backend.Services
                 }
             };
         }
+        public async Task<bool> UpdateOfficerAsync(int id,UpdateOfficerRequest request) {
+            var officer = await _context.Officers.FindAsync(id);
+            if (officer ==null) return false;
+
+            officer.Name = request.FullName;
+            officer.Department = request.Department;
+            officer.Role = request.Role;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        public async Task<bool> ResetOfficerPasswordAsync(int id, ResetPasswordRequest request) {
+            var officer = await _context.Officers.FindAsync(id);
+            if (officer == null) return false;
+
+            officer.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        public async Task<bool> UpdateOfficerStatusAsync(int id, string status) {
+            var officer = await _context.Officers.FindAsync(id);
+            if(officer ==null) return false;
+
+            officer.Status = status;
+            await _context.SaveChangesAsync();
+            return true;
+        }
     }
 }

@@ -24,7 +24,6 @@ export default function ResetPasswordModal({ isOpen, onClose, officer }: ResetPa
     setIsSubmitting(true);
 
     try {
-      // NOTE: You will need to create this PATCH/POST endpoint in your backend AdminController
       const response = await fetch(`http://localhost:5119/api/admin/officers/${officer.id}/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -39,11 +38,21 @@ export default function ResetPasswordModal({ isOpen, onClose, officer }: ResetPa
           setSuccessMsg(null);
         }, 1500);
       } else {
-        const errorData = await response.json();
-        setFormError(errorData.message || "Failed to reset password.");
+        let errorMessage = "Failed to reset password.";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || (errorData.errors && JSON.stringify(errorData.errors)) || errorMessage;
+        } catch {
+          errorMessage = `Server Error: ${response.status} ${response.statusText}. Check backend console.`;
+        }
+        setFormError(errorMessage);
       }
-    } catch (error) {
-      setFormError("Network error. Could not connect to the server.");
+    } catch (error: any) {
+      if (error.message === "Failed to fetch") {
+         setFormError("Backend is offline. Please ensure the server is running on port 5119.");
+      } else {
+         setFormError(`Request failed: ${error.message}`);
+      }
     } finally {
       setIsSubmitting(false);
     }

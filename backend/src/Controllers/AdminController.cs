@@ -31,5 +31,59 @@ namespace Government_Service_Navigator.Backend.Controllers
             }
             return Ok(response.Officer);
         }
+        [HttpPut("officers/{id}")]
+        public async Task<IActionResult> UpdateOfficer(int id, [FromBody]UpdateOfficerRequest request) {
+            if(!ModelState.IsValid) {
+                return BadRequest(ModelState);
+            }
+            var success = await _adminService.UpdateOfficerAsync(id,request);
+            if(!success) {
+                return NotFound(new {
+                    message = "Officer not found or update failed."
+                });
+            }
+            return Ok(new {
+                message = "Officer updated successfully."
+            });
+        }
+        [HttpPost("officers/{id}/reset-password")]
+        public async Task<IActionResult> ResetOfficerPassword(int id, [FromBody]ResetPasswordRequest request) {
+            if(!ModelState.IsValid) {
+                return BadRequest(ModelState);
+            }
+            var success = await _adminService.ResetOfficerPasswordAsync(id,request);
+            if(!success) {
+                return NotFound(new {
+                    message = "Officer not found or password reset failed."
+                });
+            }
+            return Ok(new {
+                message = "Password reset successfully."
+            });
+        }
+        [HttpPatch("officers/{id}/suspend")]
+        public async Task<IActionResult> SuspendOfficer(int id) {
+            var success = await _adminService.UpdateOfficerStatusAsync(id,"Suspended");
+            if(!success) {
+                return NotFound(new {
+                    message = "Officer not found or status update failed."
+                });
+            }
+            return Ok(new {
+                message = "Account Suspended successfully."
+            });
+        }
+        [HttpPatch("officers/{id}/activate")]
+        public async Task<IActionResult> ActivateOfficer(int id) {
+            var success = await _adminService.UpdateOfficerStatusAsync(id,"Active");
+            if(!success) {
+                return NotFound(new {
+                    message = "Officer not found or status update failed."
+                });
+            }
+            return Ok(new {
+                message = "Account Activated successfully."
+            });
+        }
     }
 }

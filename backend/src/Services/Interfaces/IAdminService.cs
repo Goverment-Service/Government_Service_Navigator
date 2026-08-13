@@ -9,5 +9,8 @@ namespace Government_Service_Navigator.Backend.Services.Interfaces
     {
         Task<IEnumerable<OfficerDetailsDto>> GetAllOfficersAsync();
         Task<AuthResponse> CreateOfficerAsync(CreateOfficerRequest request);
+        Task<bool> UpdateOfficerAsync(int id, UpdateOfficerRequest request);
+        Task<bool> ResetOfficerPasswordAsync(int id, ResetPasswordRequest request);
+        Task<bool> UpdateOfficerStatusAsync(int id, string status);
     }
 }

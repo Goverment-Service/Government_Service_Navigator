@@ -3,6 +3,10 @@ const { setupScreen } = require("./screen_setup");
 const { spawnAll } = require("./spawn_process");
 const { setupKeyBindings } = require("./key_binding");
 const { killPorts } = require("./port_cleanup");
+const { printHeader } = require("./header");
+const { askYesNo, selectEmulator } = require("./mobile_prompt");
+
+const TITLE = "GOVERNMENT SERVICE NAVIGATOR";
 
 const PROCESSES = [
   {
@@ -22,14 +26,41 @@ const PROCESSES = [
     port: 5173,
   },
 ];
-function run() {
-  killPorts(PROCESSES.map((p) => p.port));
 
-  const { screen, panes } = setupScreen(PROCESSES, "GOVERNMENT SERVICE NAVIGATOR");
-  const children = spawnAll(PROCESSES, panes, screen);
+function buildMobileProcess(emulator) {
+  return {
+    name: "mobile",
+    type: "mobile",
+    emulatorId: emulator.id,
+    cwd: path.join(__dirname, "..", "mobile"),
+    color: "magenta",
+    port: null,
+    bootTimeoutMs: 90000,
+  };
+}
+
+async function run() {
+  printHeader(TITLE);
+
+  const wantsMobile = await askYesNo("\nRun mobile app? (y/n): ");
+
+  const processes = [...PROCESSES];
+
+  if (wantsMobile) {
+    const emulator = await selectEmulator();
+    if (emulator) {
+      processes.push(buildMobileProcess(emulator));
+    } else {
+      console.log("Skipping mobile app — no emulator selected.\n");
+    }
+  }
+  killPorts(processes.map((p) => p.port));
+
+  const { screen, panes } = setupScreen(processes, TITLE);
+  const children = spawnAll(processes, panes, screen);
   setupKeyBindings({ screen, panes, children });
 
   screen.render();
 }
 
-module.exports = { run, PROCESSES };
+module.exports = { run, PROCESSES, buildMobileProcess };

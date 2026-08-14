@@ -22,12 +22,13 @@ const PROCESSES = [
     port: 5173,
   },
 ];
-
 function run() {
   killPorts(PROCESSES.map((p) => p.port));
-  const { screen, panes } = setupScreen(PROCESSES);
+
+  const { screen, panes } = setupScreen(PROCESSES, "GOVERNMENT SERVICE NAVIGATOR");
   const children = spawnAll(PROCESSES, panes, screen);
   setupKeyBindings({ screen, panes, children });
+
   screen.render();
 }
 

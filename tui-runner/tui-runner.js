@@ -9,6 +9,8 @@
  *   spawn_process.js - spawns child processes and streams output into panes
  *   key_binding.js   - Tab to switch panes, q/Ctrl+C to quit everything
  *   process_run.js   - defines PROCESSES and wires the above together
+ *   port_cleanup.js  - frees ports from child processes
+ *   header.js        - renders the ASCII-art title header
  *
  * Usage:  node tui-runner.js
  * Quit:   q  or  Ctrl+C   (kills both child processes cleanly)

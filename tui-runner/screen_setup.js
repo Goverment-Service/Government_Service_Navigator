@@ -1,24 +1,24 @@
 const blessed = require("blessed");
+const { setupHeader } = require("./header");
 
-/**
- * Builds the blessed screen, one log pane per process, and the status bar.
- * @param {Array} processes - array of { name, color } (order defines pane layout)
- * @returns {{ screen: blessed.Widgets.Screen, panes: blessed.Widgets.Log[] }}
- */
-function setupScreen(processes) {
+function setupScreen(processes, title) {
   const screen = blessed.screen({
     smartCSR: true,
     title: "GSN Dev Runner",
   });
 
+  const { height: headerHeight } = setupHeader(screen, title);
+  const bottomReserved = 1;
+  const paneHeight = `100%-${headerHeight + bottomReserved}`;
+
   const panes = processes.map((proc, i) =>
     blessed.log({
       parent: screen,
       label: ` ${proc.name} `,
-      top: 0,
+      top: headerHeight,
       left: `${(100 / processes.length) * i}%`,
       width: `${100 / processes.length}%`,
-      height: "100%-1",
+      height: paneHeight,
       border: { type: "line" },
       style: {
         border: { fg: proc.color },

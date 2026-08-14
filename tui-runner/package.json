@@ -1,0 +1,12 @@
+{
+  "name": "gsn-tui-runner",
+  "version": "1.0.0",
+  "description": "Split-pane TUI that runs the GSN backend (dotnet) and web (npm) dev servers together",
+  "main": "tui-runner.js",
+  "scripts": {
+    "start": "node tui-runner.js"
+  },
+  "dependencies": {
+    "blessed": "^0.1.81"
+  }
+}

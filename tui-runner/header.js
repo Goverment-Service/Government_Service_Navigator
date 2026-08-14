@@ -1,14 +1,20 @@
 const blessed = require("blessed");
 const figlet = require("figlet");
 
-function setupHeader(screen, title) {
+function getHeaderLines(title) {
   const art = figlet.textSync(title, { font: "Mini" });
 
   const lines = art.split("\n");
   while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
 
+  return lines;
+}
+function printHeader(title) {
+  console.log(getHeaderLines(title).join("\n"));
+}
+function setupHeader(screen, title) {
+  const lines = getHeaderLines(title);
   const height = lines.length + 2; 
-
   const box = blessed.box({
     parent: screen,
     top: 0,
@@ -29,4 +35,4 @@ function setupHeader(screen, title) {
   return { box, height };
 }
 
-module.exports = { setupHeader };
+module.exports = { setupHeader, getHeaderLines, printHeader };

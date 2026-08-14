@@ -11,10 +11,16 @@
  *   process_run.js   - defines PROCESSES and wires the above together
  *   port_cleanup.js  - frees ports from child processes
  *   header.js        - renders the ASCII-art title header
+ *   mobile_prompt.js  - prompts user to select a mobile emulator (if any)
  *
  * Usage:  node tui-runner.js
  * Quit:   q  or  Ctrl+C   (kills both child processes cleanly)
  * Switch focus / scroll:  Tab  to switch pane, Up/Down or PgUp/PgDn to scroll
  */
 
-require("./process_run.js").run();
+require("./process_run.js")
+    .run()
+    .catch((err) => {
+        console.error(err);
+        process.exit(1);
+    });

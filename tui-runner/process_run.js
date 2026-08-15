@@ -5,15 +5,20 @@ const { setupKeyBindings } = require("./key_binding");
 const { killPorts } = require("./port_cleanup");
 const { printHeader } = require("./header");
 const { askYesNo, selectEmulator } = require("./mobile_prompt");
+const { ensureNodeModules, ensureDotnetRestore, ensureFlutterPackages } = require("./dependency_setup");
 
 const TITLE = "GOVERNMENT SERVICE NAVIGATOR";
+
+const BACKEND_DIR = path.join(__dirname, "..", "backend", "src");
+const WEB_DIR = path.join(__dirname, "..", "web");
+const MOBILE_DIR = path.join(__dirname, "..", "mobile");
 
 const PROCESSES = [
   {
     name: "backend",
     cmd: "dotnet",
     args: ["run"],
-    cwd: path.join(__dirname, "..", "backend", "src"),
+    cwd: BACKEND_DIR,
     color: "green",
     port: 5119,
   },
@@ -21,18 +26,17 @@ const PROCESSES = [
     name: "web",
     cmd: "npm",
     args: ["run", "dev"],
-    cwd: path.join(__dirname, "..", "web"),
+    cwd: WEB_DIR,
     color: "cyan",
     port: 5173,
   },
 ];
-
 function buildMobileProcess(emulator) {
   return {
     name: "mobile",
     type: "mobile",
     emulatorId: emulator.id,
-    cwd: path.join(__dirname, "..", "mobile"),
+    cwd: MOBILE_DIR,
     color: "magenta",
     port: null,
     bootTimeoutMs: 90000,
@@ -41,14 +45,19 @@ function buildMobileProcess(emulator) {
 
 async function run() {
   printHeader(TITLE);
+  console.log("Checking dependencies...");
+  ensureDotnetRestore(BACKEND_DIR, "backend");
+  ensureNodeModules(WEB_DIR, "web");
+  console.log("Dependencies ready.\n");
 
-  const wantsMobile = await askYesNo("\nRun mobile app? (y/n): ");
+  const wantsMobile = await askYesNo("Run mobile app? (y/n): ");
 
   const processes = [...PROCESSES];
 
   if (wantsMobile) {
     const emulator = await selectEmulator();
     if (emulator) {
+      ensureFlutterPackages(MOBILE_DIR, "mobile");
       processes.push(buildMobileProcess(emulator));
     } else {
       console.log("Skipping mobile app — no emulator selected.\n");

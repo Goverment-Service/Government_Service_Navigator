@@ -46,12 +46,25 @@ function buildMobileProcess(emulator) {
 async function run() {
   printHeader(TITLE);
   console.log("Checking dependencies...");
-  ensureDotnetRestore(BACKEND_DIR, "backend");
-  ensureNodeModules(WEB_DIR, "web");
-  console.log("Dependencies ready.\n");
+  const backendOk = ensureDotnetRestore(BACKEND_DIR, "backend");
+  const webOk = ensureNodeModules(WEB_DIR, "web");
+
+  if (backendOk && webOk) {
+    console.log("Dependencies ready.\n");
+  } else {
+    console.log(""); 
+    if (!backendOk) console.log(`  - backend setup failed (${BACKEND_DIR})`);
+    if (!webOk) console.log(`  - web setup failed (${WEB_DIR})`);
+    const proceedAnyway = await askYesNo(
+      "\nDependency setup had errors above. Start the TUI anyway? (y/n): "
+    );
+    if (!proceedAnyway) {
+      console.log("Aborted. Fix the errors above and try again.");
+      process.exit(1);
+    }
+  }
 
   const wantsMobile = await askYesNo("Run mobile app? (y/n): ");
-
   const processes = [...PROCESSES];
 
   if (wantsMobile) {

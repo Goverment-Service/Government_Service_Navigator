@@ -13,6 +13,7 @@ function getFlutterDevices(cwd) {
         });
     });
 }
+
 async function waitForEmulatorDevice(avdId, cwd, box, { timeoutMs = 90000, intervalMs = 2000 } = {}) {
     const deadline = Date.now() + timeoutMs;
     const wantedEmuId = avdId.toLowerCase();
@@ -24,9 +25,6 @@ async function waitForEmulatorDevice(avdId, cwd, box, { timeoutMs = 90000, inter
             (d) => (d.emulatorId || "").toLowerCase() === wantedEmuId
         );
         if (byEmulatorId) return byEmulatorId.id;
-
-        // Fallback: any booted Android emulator, in case the reported
-        // emulatorId doesn't match the AVD name exactly.
         const anyEmulator = devices.find(
             (d) => d.emulator === true || (d.id || "").toLowerCase().startsWith("emulator-")
         );
@@ -37,14 +35,6 @@ async function waitForEmulatorDevice(avdId, cwd, box, { timeoutMs = 90000, inter
     }
     return null;
 }
-
-/**
- * Spawns one process and streams its stdout/stderr into the given pane.
- * @param {{name:string, cmd:string, args:string[], cwd:string}} proc
- * @param {blessed.Widgets.Log} box - the pane to log into
- * @param {blessed.Widgets.Screen} screen - needed to re-render after each log line
- * @returns {import('child_process').ChildProcess}
- */
 
 function spawnProcess(proc, box, screen) {
     box.log(`{bold}$ ${proc.cmd} ${proc.args.join(" ")}{/bold}  (cwd: ${proc.cwd})`);
@@ -161,14 +151,6 @@ function spawnMobileProcess(proc, box, screen) {
 
     return handle;
 }
-
-/**
- * Spawns every process in `processes`, wiring each to its matching pane.
- * @param {Array} processes
- * @param {blessed.Widgets.Log[]} panes - same order/length as processes
- * @param {blessed.Widgets.Screen} screen
- * @returns {import('child_process').ChildProcess[]}
- */
 
 function spawnAll(processes, panes, screen) {
     return processes.map((proc, i) =>

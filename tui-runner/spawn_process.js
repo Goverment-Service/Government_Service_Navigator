@@ -13,7 +13,6 @@ function getFlutterDevices(cwd) {
         });
     });
 }
-
 async function waitForEmulatorDevice(avdId, cwd, box, { timeoutMs = 90000, intervalMs = 2000 } = {}) {
     const deadline = Date.now() + timeoutMs;
     const wantedEmuId = avdId.toLowerCase();

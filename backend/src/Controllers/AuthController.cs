@@ -107,5 +107,13 @@ namespace Government_Service_Navigator.Backend.Controllers
                 );
             }
         }
+        [HttpPost("logout")]
+        public IActionResult logout() 
+        {
+            return Ok(new AuthResponse {
+                Success = true,
+                ErrorMessage = "Logged out successfully"
+            });
+        }
     }
 }

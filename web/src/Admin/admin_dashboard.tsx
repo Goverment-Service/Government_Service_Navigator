@@ -64,11 +64,24 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("officerToken");
-    localStorage.removeItem("officerUser");
-    window.location.href = "/officer/login";
-  };
+  const handleLogout = async() => {
+    try {
+      await fetch("http://localhost:5119/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        }
+      });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      localStorage.removeItem("officerToken"); 
+      localStorage.removeItem("officerUser");
+      localStorage.removeItem("adminToken"); 
+      window.location.href = "/officer/login";
+
+    }
+  }
 
   return (
     <HeaderContainer

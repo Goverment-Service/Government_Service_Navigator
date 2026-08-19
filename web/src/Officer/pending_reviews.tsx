@@ -37,7 +37,8 @@ import {
   Warning,
   Hourglass,
   Email,
-  Flag
+  Flag,
+  Add
 } from "@carbon/icons-react";
 
 // Table Data for Pending Reviews
@@ -103,6 +104,9 @@ export default function PendingReviews() {
               <SideNavItems>
                 <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">
                   Application Queue
+                </SideNavLink>
+                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">
+                  New Application
                 </SideNavLink>
                 <SideNavLink renderIcon={Document} href="/officer/verified-records">
                   Verified Records

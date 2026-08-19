@@ -5,6 +5,7 @@ import ManageOfficers from "./Admin/manage_officers";
 import OfficerDashboard from "./Officer/officer_dashboard";
 import AuditLogs from "./Admin/audit_logs";
 import SystemSettings from "./Admin/system_settings";
+import ApplicationCreate from "./Officer/Application_create/application_create";
 
 /*
   Summary: import the necessary components for officer routes
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/officer/verified-records" element={<VerifiedRecords />} />
         <Route path="/officer/pending-reviews" element={<PendingReviews />} />
         <Route path="/officer/profile" element={<Profile />} />
+        <Route path="/officer/Application_create/application_create" element={<ApplicationCreate />} />
       </Routes>
     </BrowserRouter>
   );

@@ -13,6 +13,7 @@ function setupKeyBindings({ screen, panes, children }) {
     function shutdown() {
         if (shuttingDown) return;
         shuttingDown = true;
+        
 
         screen.destroy();
         console.log("Shutting down backend/web processes...");

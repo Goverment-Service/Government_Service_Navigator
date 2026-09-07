@@ -1131,3 +1131,7 @@ tui-runner/node_modules/figlet/importable-fonts/WideTerm.d.ts
 tui-runner/node_modules/figlet/importable-fonts/WideTerm.js
 tui-runner/node_modules/figlet/importable-fonts/Wow.d.ts
 tui-runner/node_modules/figlet/importable-fonts/Wow.js
+backend/src/Migrations/20260907122435_AddTemplates.cs
+backend/src/Migrations/20260907122435_AddTemplates.Designer.cs
+backend/src/Migrations/AppDbContextModelSnapshot.cs
+backend/src/Migrations/AppDbContextModelSnapshot.cs

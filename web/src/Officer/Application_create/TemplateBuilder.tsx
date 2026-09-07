@@ -104,6 +104,7 @@ export default function TemplateBuilder() {
       }
 
       alert("Template Saved Successfully!");
+      window.location.href = "/officer/applications";
     } catch (error) {
       console.error(error);
       alert("Error saving template. Please check console.");

@@ -151,7 +151,7 @@ export default function ApplicationsList() {
                             if (cell.info.header === 'actions') {
                               return (
                                 <TableCell key={cell.id} style={{ padding: '0.5rem' }}>
-                                  <Button kind="ghost" size="sm" renderIcon={Edit} iconDescription="Edit" hasIconOnly onClick={() => window.location.href = "/officer/Application_create/application_create"} />
+                                  <Button kind="ghost" size="sm" renderIcon={Edit} iconDescription="Edit" hasIconOnly onClick={() => window.location.href = `/officer/Application_create/application_create?id=${row.id}`} />
                                   <Button kind="ghost" size="sm" renderIcon={View} iconDescription="View" hasIconOnly onClick={() => alert("Preview feature coming soon")} />
                                 </TableCell>
                               );

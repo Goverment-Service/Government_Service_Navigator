@@ -12,6 +12,7 @@ namespace Government_Service_Navigator.Backend.Models.Entities
         public Guid TemplateId { get; set; }
 
         [ForeignKey(nameof(TemplateId))]
+        [System.Text.Json.Serialization.JsonIgnore]
         public Template? Template { get; set; }
 
         [Required]

@@ -53,6 +53,40 @@ namespace Government_Service_Navigator.Backend.Migrations
                     b.ToTable("Admins");
                 });
 
+            modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.FormField", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Options")
+                        .HasColumnType("text");
+
+                    b.Property<int>("OrderIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TemplateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TemplateId");
+
+                    b.ToTable("FormFields");
+                });
+
             modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.Officer", b =>
                 {
                     b.Property<int>("Id")
@@ -96,6 +130,32 @@ namespace Government_Service_Navigator.Backend.Migrations
                     b.ToTable("Officers");
                 });
 
+            modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.Template", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FormName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("LawText")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SubTitle")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Templates");
+                });
+
             modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.User", b =>
                 {
                     b.Property<int>("Id")
@@ -133,6 +193,22 @@ namespace Government_Service_Navigator.Backend.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.FormField", b =>
+                {
+                    b.HasOne("Government_Service_Navigator.Backend.Models.Entities.Template", "Template")
+                        .WithMany("Fields")
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Template");
+                });
+
+            modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.Template", b =>
+                {
+                    b.Navigation("Fields");
                 });
 #pragma warning restore 612, 618
         }

@@ -34,7 +34,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // 2. Setup Dependency Injection
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+});
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<ITemplateService, TemplateService>();
 

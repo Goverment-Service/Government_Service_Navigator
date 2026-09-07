@@ -33,7 +33,8 @@ import {
   Notification,
   Warning,
   CheckmarkOutline,
-  Add
+  Add,
+  Catalog
 } from "@carbon/icons-react";
 
 const headers = [
@@ -96,6 +97,9 @@ export default function OfficerDashboard() {
                 <SideNavLink renderIcon={Dashboard} href="/officer/dashboard" isActive>
                   Application Queue
                 </SideNavLink>
+                <SideNavLink renderIcon={Catalog} href="/officer/applications">
+                  All Applications
+                </SideNavLink>
                 {/* Updated: Navigates to the new page instead of opening a modal */}
                 <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">
                   New Application
@@ -130,10 +134,6 @@ export default function OfficerDashboard() {
                   Review assigned citizen submissions and maintain accountable registry records.
                 </p>
               </div>
-              {/* Added standard link navigation to button as well */}
-              <Button renderIcon={Add} onClick={() => window.location.href = "/officer/Application_create/application_create"} style={{ backgroundColor: '#0f62fe', color: '#ffffff' }}>
-                Create Application
-              </Button>
             </div>
 
             <Grid style={{ paddingLeft: 0, paddingRight: 0, marginBottom: '2rem' }}>

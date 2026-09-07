@@ -13,6 +13,7 @@ import ApplicationCreate from "./Officer/Application_create/application_create";
 import VerifiedRecords from "./Officer/verified_record";
 import PendingReviews from "./Officer/pending_reviews";
 import Profile from "./Officer/profile";
+import ApplicationsList from "./Officer/applications";
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
 
         {/* officer route */}
         <Route path="/officer/login" element={<OfficerLoginPage />} />
+        <Route path="/officer/applications" element={<ApplicationsList />} />
         <Route path="/officer/verified-records" element={<VerifiedRecords />} />
         <Route path="/officer/pending-reviews" element={<PendingReviews />} />
         <Route path="/officer/profile" element={<Profile />} />

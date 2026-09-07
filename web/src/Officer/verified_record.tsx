@@ -37,7 +37,8 @@ import {
   Download,
   CheckmarkOutline,
   CloseOutline,
-  Add
+  Add,
+  Catalog
 } from "@carbon/icons-react";
 
 // Table Data for Verified Records
@@ -102,6 +103,9 @@ export default function VerifiedRecords() {
               <SideNavItems>
                 <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">
                   Application Queue
+                </SideNavLink>
+                <SideNavLink renderIcon={Catalog} href="/officer/applications">
+                  All Applications
                 </SideNavLink>
                 <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">
                   New Application

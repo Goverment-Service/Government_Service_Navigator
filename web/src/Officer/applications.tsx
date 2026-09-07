@@ -1,5 +1,5 @@
 import '@carbon/styles/css/styles.css';
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Header,
   HeaderContainer,
@@ -43,15 +43,36 @@ const headers = [
   { key: "actions", header: "Actions" },
 ];
 
-const initialRows = [
-  { id: "1", templateId: "TPL-001", formName: "FORM 1 - Company Registration", createdDate: "2026-09-01", fieldsCount: 10, status: "Active" },
-  { id: "2", templateId: "TPL-002", formName: "Business Name Registration (Sinhala)", createdDate: "2026-09-03", fieldsCount: 8, status: "Active" },
-  { id: "3", templateId: "TPL-003", formName: "Birth Certificate Copy Request", createdDate: "2026-09-05", fieldsCount: 5, status: "Draft" },
-  { id: "4", templateId: "TPL-004", formName: "Residence Certificate Application", createdDate: "2026-09-06", fieldsCount: 6, status: "Active" },
-];
-
 export default function ApplicationsList() {
-  const [rows, setRows] = useState(initialRows);
+  const [rows, setRows] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const token = localStorage.getItem("officerToken");
+        const response = await fetch("http://localhost:5119/api/templates/all", {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const formattedRows = data.map((t: any) => ({
+            id: t.id,
+            templateId: t.id.substring(0, 8).toUpperCase(),
+            formName: t.formName + (t.subTitle ? ` - ${t.subTitle}` : ""),
+            createdDate: new Date(t.createdAt).toLocaleDateString(),
+            fieldsCount: t.fields ? t.fields.length : 0,
+            status: "Active"
+          }));
+          setRows(formattedRows);
+        }
+      } catch (error) {
+        console.error("Error fetching templates:", error);
+      }
+    };
+    fetchTemplates();
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("officerToken");

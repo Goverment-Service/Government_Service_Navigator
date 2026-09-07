@@ -5,7 +5,6 @@ import {
   SelectItem,
   Button,
   Stack,
-  FormGroup,
   Checkbox,
   TextArea
 } from "@carbon/react";
@@ -24,27 +23,56 @@ export interface FormField {
 }
 
 export default function TemplateBuilder() {
-  const [formName, setFormName] = useState("FORM 1");
-  const [subTitle, setSubTitle] = useState("Application for Registration Of A Company");
-  const [lawText, setLawText] = useState("Section 4(1) of Companies Act No. 7 of 2007");
+  const [formName, setFormName] = useState("");
+  const [subTitle, setSubTitle] = useState("");
+  const [lawText, setLawText] = useState("");
   
-  const [customFields, setCustomFields] = useState<FormField[]>([
-    { id: 'f1', label: 'Company Number', type: 'text', required: true },
-    { id: 'f2', label: 'Type of the Company', type: 'select', options: 'Private Limited, Public Limited' },
-    { id: 'f3', label: 'Name Approval Number', type: 'text' },
-    { id: 'f4', label: 'Name of Proposed Company', type: 'text', required: true },
-    { id: 'f5', label: 'Registered Address', type: 'textarea', required: true },
-    { id: 'f6', label: 'DECLARATION UNDER SECTION 4(1)(a) OF THE ACT', type: 'heading' },
-    { id: 'f7', label: 'I/We declare that to the best of my/our knowledge the name of this proposed company is not identical or similar to that of any existing company.', type: 'paragraph' },
-    { id: 'f8', label: 'INITIAL DIRECTORS', type: 'heading' },
-    { id: 'f9', label: 'The following persons are the initial directors of the proposed company and signify their consent by signing below...', type: 'paragraph' },
-    { id: 'f10', label: 'Directors List', type: 'table', options: 'Full Name, NIC No./Passport & Country, Residential Address, Email Address, Signature' }
-  ]);
+  const [customFields, setCustomFields] = useState<FormField[]>([]);
   
   const [newFieldLabel, setNewFieldLabel] = useState("");
   const [newFieldType, setNewFieldType] = useState<FieldType>("text");
   const [newFieldOptions, setNewFieldOptions] = useState("");
   const [newFieldRequired, setNewFieldRequired] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveTemplate = async () => {
+    try {
+      setIsSaving(true);
+      const token = localStorage.getItem("officerToken");
+      
+      const payload = {
+        formName: formName,
+        subTitle: subTitle,
+        lawText: lawText,
+        fields: customFields.map(f => ({
+          label: f.label,
+          type: f.type,
+          options: f.options,
+          required: f.required || false
+        }))
+      };
+
+      const response = await fetch("http://localhost:5119/api/templates/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save template");
+      }
+
+      alert("Template Saved Successfully!");
+    } catch (error) {
+      console.error(error);
+      alert("Error saving template. Please check console.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleAddField = () => {
     if (!newFieldLabel) return;
@@ -245,7 +273,7 @@ export default function TemplateBuilder() {
                     labelText="Required Field" 
                     id="required-checkbox" 
                     checked={newFieldRequired}
-                    onChange={(e, {checked}) => setNewFieldRequired(checked)} 
+                    onChange={(_, {checked}) => setNewFieldRequired(checked)} 
                   />
                 )}
 
@@ -261,7 +289,9 @@ export default function TemplateBuilder() {
         <div style={{ flex: '2', minWidth: '500px', backgroundColor: '#fff', padding: '2rem', border: '1px solid #e0e0e0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #e0e0e0', paddingBottom: '0.5rem' }}>
             <h3 style={{ fontSize: '1.2rem', color: '#161616' }}>Live Document Preview</h3>
-            <Button size="sm" kind="primary" onClick={() => alert('Template Saved Successfully!')}>Save Template</Button>
+            <Button size="sm" kind="primary" onClick={handleSaveTemplate} disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save Template"}
+            </Button>
           </div>
           
           <div style={{ backgroundColor: '#fff', border: '1px solid #ccc', padding: '3rem', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>

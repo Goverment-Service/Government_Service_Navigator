@@ -45,5 +45,32 @@ namespace Government_Service_Navigator.Backend.Services
                 .Include(t => t.Fields.OrderBy(f => f.OrderIndex))
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
+        public async Task<Template> UpdateTemplateAsync(Guid id, CreateTemplateRequest request)
+        {
+            var template = await _context.Templates.Include(t => t.Fields).FirstOrDefaultAsync(t => t.Id == id);
+            if (template == null) throw new Exception("Template not found");
+
+            template.FormName = request.FormName;
+            template.SubTitle = request.SubTitle;
+            template.LawText = request.LawText;
+
+            _context.FormFields.RemoveRange(template.Fields);
+            
+            var newFields = request.Fields.Select((f, index) => new FormField
+            {
+                TemplateId = template.Id,
+                Label = f.Label,
+                Type = f.Type,
+                Options = f.Options,
+                IsRequired = f.Required ?? false,
+                OrderIndex = index
+            }).ToList();
+            
+            _context.FormFields.AddRange(newFields);
+
+            await _context.SaveChangesAsync();
+            
+            return await GetTemplateByIdAsync(id) ?? template;
+        }
     }
 }

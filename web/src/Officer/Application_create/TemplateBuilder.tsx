@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   TextInput,
   Select,
@@ -23,6 +23,7 @@ export interface FormField {
 }
 
 export default function TemplateBuilder() {
+  const [templateId, setTemplateId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
   const [subTitle, setSubTitle] = useState("");
   const [lawText, setLawText] = useState("");
@@ -34,6 +35,38 @@ export default function TemplateBuilder() {
   const [newFieldOptions, setNewFieldOptions] = useState("");
   const [newFieldRequired, setNewFieldRequired] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const id = queryParams.get("id");
+    if (id) {
+      setTemplateId(id);
+      fetchTemplateData(id);
+    }
+  }, []);
+
+  const fetchTemplateData = async (id: string) => {
+    try {
+      const response = await fetch(`http://localhost:5119/api/templates/${id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setFormName(data.formName || "");
+        setSubTitle(data.subTitle || "");
+        setLawText(data.lawText || "");
+        if (data.fields) {
+          setCustomFields(data.fields.map((f: any) => ({
+            id: f.id || Date.now().toString() + Math.random(),
+            label: f.label,
+            type: f.type,
+            options: f.options,
+            required: f.isRequired
+          })));
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching template", error);
+    }
+  };
 
   const handleSaveTemplate = async () => {
     try {
@@ -52,8 +85,13 @@ export default function TemplateBuilder() {
         }))
       };
 
-      const response = await fetch("http://localhost:5119/api/templates/create", {
-        method: "POST",
+      const url = templateId 
+        ? `http://localhost:5119/api/templates/update/${templateId}` 
+        : "http://localhost:5119/api/templates/create";
+      const method = templateId ? "PUT" : "POST";
+
+      const response = await fetch(url, {
+        method: method,
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`

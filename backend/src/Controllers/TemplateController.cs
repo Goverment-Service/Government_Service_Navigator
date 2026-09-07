@@ -45,5 +45,16 @@ namespace Government_Service_Navigator.Backend.Controllers
             if(template ==null) return NotFound();
             return Ok(template);
         }
+        [HttpPut("update/{id}")]
+        public async Task<IActionResult>UpdateTemplate(Guid id, [FromBody] CreateTemplateRequest request)
+        {
+            if(!ModelState.IsValid) return BadRequest(ModelState);
+            try {
+                var template = await _templateService.UpdateTemplateAsync(id, request);
+                return Ok(template);
+            } catch (Exception ex) {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
     }
 }

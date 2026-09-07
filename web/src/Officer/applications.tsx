@@ -152,7 +152,7 @@ export default function ApplicationsList() {
                               return (
                                 <TableCell key={cell.id} style={{ padding: '0.5rem' }}>
                                   <Button kind="ghost" size="sm" renderIcon={Edit} iconDescription="Edit" hasIconOnly onClick={() => window.location.href = `/officer/Application_create/application_create?id=${row.id}`} />
-                                  <Button kind="ghost" size="sm" renderIcon={View} iconDescription="View" hasIconOnly onClick={() => alert("Preview feature coming soon")} />
+                                  <Button kind="ghost" size="sm" renderIcon={View} iconDescription="View" hasIconOnly onClick={() => window.location.href = `/officer/application-preview?id=${row.id}`} />
                                 </TableCell>
                               );
                             }

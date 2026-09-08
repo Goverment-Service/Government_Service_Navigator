@@ -1136,3 +1136,6 @@ backend/src/Migrations/20260907122435_AddTemplates.Designer.cs
 backend/src/Migrations/AppDbContextModelSnapshot.cs
 backend/src/Migrations/AppDbContextModelSnapshot.cs
 backend/src/Migrations/AppDbContextModelSnapshot.cs
+backend/src/Migrations/20260908170255_AddTemplateStatus.cs
+backend/src/Migrations/20260908170255_AddTemplateStatus.Designer.cs
+backend/src/Migrations/AppDbContextModelSnapshot.cs

@@ -15,7 +15,10 @@ namespace Government_Service_Navigator.Backend.Models.Entities
         [MaxLength(500)]
         public string? SubTitle {get;set;}
         public string? LawText {get;set;}
-        public DateTime CreatedAt {get;set;} = DateTime.UtcNow; 
+
+        [MaxLength(20)]
+        public string Status {get;set;} = "Active";
+        public DateTime CreatedAt {get;set;} = DateTime.UtcNow;
 
         public ICollection<FormField> Fields {get;set;} = new List<FormField>();
     }

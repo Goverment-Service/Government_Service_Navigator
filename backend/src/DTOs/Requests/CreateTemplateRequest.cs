@@ -7,11 +7,16 @@ namespace Government_Service_Navigator.Backend.DTOs.Requests
         public string? LawText { get; set; }
         public List<FormFieldDto> Fields { get; set; } = new List<FormFieldDto>();
     }
-    public class FormFieldDto 
+    public class FormFieldDto
     {
         public string Label {get; set;} = string.Empty;
         public string Type {get; set;} = string.Empty;
         public string? Options {get; set;}
         public bool? Required {get; set;}
+    }
+
+    public class UpdateTemplateStatusRequest
+    {
+        public string Status { get; set; } = string.Empty;
     }
 }

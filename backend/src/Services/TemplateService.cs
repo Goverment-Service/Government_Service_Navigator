@@ -69,8 +69,23 @@ namespace Government_Service_Navigator.Backend.Services
             _context.FormFields.AddRange(newFields);
 
             await _context.SaveChangesAsync();
-            
+
             return await GetTemplateByIdAsync(id) ?? template;
+        }
+
+        public async Task<Template> UpdateTemplateStatusAsync(Guid id, string status)
+        {
+            var allowedStatuses = new[] { "Active", "Inactive" };
+            if (!allowedStatuses.Contains(status))
+                throw new ArgumentException($"Invalid status '{status}'. Allowed values: {string.Join(", ", allowedStatuses)}");
+
+            var template = await _context.Templates.FirstOrDefaultAsync(t => t.Id == id);
+            if (template == null) throw new Exception("Template not found");
+
+            template.Status = status;
+            await _context.SaveChangesAsync();
+
+            return template;
         }
     }
 }

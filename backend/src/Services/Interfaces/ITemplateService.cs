@@ -9,5 +9,6 @@ namespace Government_Service_Navigator.Backend.Services.Interfaces
         Task<IEnumerable<Template>> GetAllTemplatesAsync();
         Task<Template?> GetTemplateByIdAsync(Guid id);
         Task<Template> UpdateTemplateAsync(Guid id, CreateTemplateRequest request);
+        Task<Template> UpdateTemplateStatusAsync(Guid id, string status);
     }
 }

@@ -56,5 +56,18 @@ namespace Government_Service_Navigator.Backend.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+        [HttpPatch("{id}/status")]
+        public async Task<IActionResult>UpdateTemplateStatus(Guid id, [FromBody] UpdateTemplateStatusRequest request)
+        {
+            if(!ModelState.IsValid) return BadRequest(ModelState);
+            try {
+                var template = await _templateService.UpdateTemplateStatusAsync(id, request.Status);
+                return Ok(template);
+            } catch (ArgumentException ex) {
+                return BadRequest(new { message = ex.Message });
+            } catch (Exception ex) {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
     }
 }

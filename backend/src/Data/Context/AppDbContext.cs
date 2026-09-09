@@ -17,6 +17,8 @@ namespace Government_Service_Navigator.Backend.Data.Context
         public DbSet<ComplianceCheck> ComplianceChecks {get; set;}
         public DbSet<RejectionReason> RejectionReasons {get; set;}
         public DbSet<AuditLog> AuditLogs {get; set;}
+        public DbSet<Template> Templates { get; set; }
+        public DbSet<FormField> FormFields { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -37,7 +39,6 @@ namespace Government_Service_Navigator.Backend.Data.Context
                 entity.HasKey(e => e.Id);
                 entity.HasIndex(e => e.Email).IsUnique();
             });
-
             // Relationships for Verification and Compliance
             modelBuilder.Entity<OfficerReview>(entity =>
             {
@@ -52,6 +53,12 @@ namespace Government_Service_Navigator.Backend.Data.Context
                       .WithMany(t => t.ComplianceChecks)
                       .HasForeignKey(c => c.TaskId);
             });
+
+            modelBuilder.Entity<Template>()
+                .HasMany(t => t.Fields)
+                .WithOne(f => f.Template)
+                .HasForeignKey(f => f.TemplateId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

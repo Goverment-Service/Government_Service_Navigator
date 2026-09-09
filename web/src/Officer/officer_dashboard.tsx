@@ -32,10 +32,11 @@ import {
   Logout,
   Notification,
   Warning,
-  CheckmarkOutline
+  CheckmarkOutline,
+  Add,
+  Catalog
 } from "@carbon/icons-react";
 
-// Table Data for Verification Queue
 const headers = [
   { key: "appId", header: "App ID" },
   { key: "citizen", header: "Citizen Name" },
@@ -55,7 +56,6 @@ export default function OfficerDashboard() {
   const [officerName, setOfficerName] = useState("Verifying Officer");
 
   useEffect(() => {
-    // Retrieve the officer details stored during login[cite: 4]
     const storedUser = localStorage.getItem("officerUser");
     if (storedUser) {
       try {
@@ -63,7 +63,7 @@ export default function OfficerDashboard() {
         if (parsedUser.fullName) setOfficerName(parsedUser.fullName);
         else if (parsedUser.email) setOfficerName(parsedUser.email.split("@")[0]);
       } catch (e) {
-        // Handle parse error silently[cite: 4]
+        // Handle parse error silently
       }
     }
   }, []);
@@ -94,8 +94,15 @@ export default function OfficerDashboard() {
 
             <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="#" isActive>
+                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard" isActive>
                   Application Queue
+                </SideNavLink>
+                <SideNavLink renderIcon={Catalog} href="/officer/applications">
+                  All Applications
+                </SideNavLink>
+                {/* Updated: Navigates to the new page instead of opening a modal */}
+                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">
+                  New Application
                 </SideNavLink>
                 <SideNavLink renderIcon={Document} href="/officer/verified-records">
                   Verified Records
@@ -107,7 +114,6 @@ export default function OfficerDashboard() {
                   My Profile
                 </SideNavLink>
                 
-                {/* Logout Button */}
                 <div style={{ marginTop: 'auto', borderTop: '1px solid #393939' }}>
                   <SideNavLink renderIcon={Logout} onClick={handleLogout} style={{ cursor: 'pointer' }}>
                     Sign Out
@@ -117,19 +123,19 @@ export default function OfficerDashboard() {
             </SideNav>
           </Header>
 
-          {/* Main Content */}
           <main style={{ marginTop: '3rem', padding: '2rem', marginLeft: '16rem', backgroundColor: '#f4f4f4', minHeight: '100vh' }}>
             
-            <div style={{ marginBottom: '2rem' }}>
-              <h1 style={{ fontSize: '2rem', fontWeight: 400, color: '#161616' }}>
-                Welcome back, {officerName}
-              </h1>
-              <p style={{ color: '#525252', marginTop: '0.5rem' }}>
-                Review assigned citizen submissions and maintain accountable registry records.
-              </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+              <div>
+                <h1 style={{ fontSize: '2rem', fontWeight: 400, color: '#161616' }}>
+                  Welcome back, {officerName}
+                </h1>
+                <p style={{ color: '#525252', marginTop: '0.5rem' }}>
+                  Review assigned citizen submissions and maintain accountable registry records.
+                </p>
+              </div>
             </div>
 
-            {/* Stat Cards mapped to Carbon Grid/Tiles */}
             <Grid style={{ paddingLeft: 0, paddingRight: 0, marginBottom: '2rem' }}>
               <Column sm={4} md={4} lg={4}>
                 <Tile style={{ borderTop: '4px solid #da1e28' }}>
@@ -137,7 +143,7 @@ export default function OfficerDashboard() {
                     <p style={{ color: '#525252', fontSize: '0.875rem' }}>Queue Pending</p>
                     <Warning size={20} color="#da1e28" />
                   </div>
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>24</h3>
+                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>{rows.length}</h3>
                   <p style={{ color: '#da1e28', fontSize: '0.875rem', marginTop: '1rem' }}>Requires your review</p>
                 </Tile>
               </Column>
@@ -173,7 +179,6 @@ export default function OfficerDashboard() {
               </Column>
             </Grid>
 
-            {/* Data Table for Active Verification Queue */}
             <DataTable rows={rows} headers={headers}>
               {({ rows, headers, getTableProps, getHeaderProps, getRowProps }) => (
                 <TableContainer 
@@ -194,8 +199,6 @@ export default function OfficerDashboard() {
                       {rows.map((row) => (
                         <TableRow {...getRowProps({ row })} key={row.id}>
                           {row.cells.map((cell) => {
-                            
-                            // Format Priority with Carbon Tags[cite: 4]
                             if (cell.info.header === 'priority') {
                               return (
                                 <TableCell key={cell.id}>
@@ -205,8 +208,6 @@ export default function OfficerDashboard() {
                                 </TableCell>
                               );
                             }
-                            
-                            // Format the actions column with a Review button[cite: 4]
                             if (cell.info.header === 'actions') {
                               return (
                                 <TableCell key={cell.id} style={{ padding: '0.5rem', textAlign: 'right' }}>
@@ -219,7 +220,6 @@ export default function OfficerDashboard() {
                                 </TableCell>
                               );
                             }
-
                             return <TableCell key={cell.id}>{cell.value}</TableCell>;
                           })}
                         </TableRow>

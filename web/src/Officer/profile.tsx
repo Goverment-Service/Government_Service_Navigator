@@ -30,7 +30,9 @@ import {
   Notification,
   UserAvatar,
   Save,
-  Security
+  Security,
+  Add,
+  Catalog
 } from "@carbon/icons-react";
 
 export default function Profile() {
@@ -99,6 +101,12 @@ export default function Profile() {
               <SideNavItems>
                 <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">
                   Application Queue
+                </SideNavLink>
+                <SideNavLink renderIcon={Catalog} href="/officer/applications">
+                  All Applications
+                </SideNavLink>
+                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">
+                  New Application
                 </SideNavLink>
                 <SideNavLink renderIcon={Document} href="/officer/verified-records">
                   Verified Records

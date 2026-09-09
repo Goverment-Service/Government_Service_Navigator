@@ -1,0 +1,219 @@
+import { useState, useEffect } from "react";
+import {
+  Header,
+  HeaderName,
+  SideNav,
+  SideNavItems,
+  SideNavLink,
+  Button,
+  TextInput,
+  TextArea,
+  Select,
+  SelectItem,
+  Checkbox,
+  FileUploader
+} from "@carbon/react";
+import { Dashboard, Document, Time, User, Logout, ArrowLeft, Catalog, Add } from "@carbon/icons-react";
+import type { FormField } from "./Application_create/TemplateBuilder";
+
+export default function ApplicationPreview() {
+  const [template, setTemplate] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const id = queryParams.get("id");
+    if (id) {
+      fetchTemplateData(id);
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchTemplateData = async (id: string) => {
+    try {
+      const response = await fetch(`http://localhost:5119/api/templates/${id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setTemplate(data);
+      }
+    } catch (error) {
+      console.error("Error fetching template", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("officerToken");
+    window.location.href = "/officer/login";
+  };
+
+  const renderField = (field: FormField) => {
+    switch (field.type) {
+      case 'heading':
+        return <h3 key={field.id} style={{ marginTop: '2rem', marginBottom: '1rem', color: '#161616' }}>{field.label}</h3>;
+      case 'paragraph':
+        return <p key={field.id} style={{ marginBottom: '1.5rem', color: '#525252' }}>{field.label}</p>;
+      case 'text':
+      case 'number':
+      case 'date':
+        return (
+          <div key={field.id} style={{ marginBottom: '1.5rem' }}>
+            <TextInput
+              id={field.id}
+              labelText={field.label}
+              type={field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text'}
+              required={field.required}
+            />
+          </div>
+        );
+      case 'textarea':
+        return (
+          <div key={field.id} style={{ marginBottom: '1.5rem' }}>
+            <TextArea
+              id={field.id}
+              labelText={field.label}
+              required={field.required}
+              rows={4}
+            />
+          </div>
+        );
+      case 'select':
+        return (
+          <div key={field.id} style={{ marginBottom: '1.5rem' }}>
+            <Select id={field.id} labelText={field.label} required={field.required}>
+              <SelectItem disabled hidden value="" text="Choose an option" />
+              {(field.options?.split(',') || []).map((opt: string, i: number) => (
+                <SelectItem key={i} value={opt.trim()} text={opt.trim()} />
+              ))}
+            </Select>
+          </div>
+        );
+      case 'multiselect':
+        return (
+          <div key={field.id} style={{ marginBottom: '1.5rem' }}>
+            <fieldset style={{ border: 'none', padding: 0 }}>
+              <legend style={{ fontSize: '0.875rem', color: '#525252', marginBottom: '0.5rem' }}>{field.label}</legend>
+              {(field.options?.split(',') || []).map((opt: string, i: number) => (
+                <Checkbox key={i} id={`${field.id}-${i}`} labelText={opt.trim()} />
+              ))}
+            </fieldset>
+          </div>
+        );
+      case 'file':
+        return (
+          <div key={field.id} style={{ marginBottom: '1.5rem' }}>
+            <p style={{ fontSize: '0.875rem', color: '#525252', marginBottom: '0.5rem' }}>{field.label} {field.required && '*'}</p>
+            <FileUploader
+              buttonLabel="Add file"
+              buttonKind="primary"
+              size="md"
+              filenameStatus="edit"
+              accept={['.jpg', '.png', '.pdf']}
+              multiple={true}
+            />
+          </div>
+        );
+      case 'table':
+        const cols = field.options?.split(',').map(c => c.trim()) || ['Column 1'];
+        return (
+          <div key={field.id} style={{ marginBottom: '1.5rem', overflowX: 'auto' }}>
+            <p style={{ fontSize: '0.875rem', color: '#525252', marginBottom: '0.5rem' }}>{field.label} {field.required && '*'}</p>
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #e0e0e0' }}>
+              <thead>
+                <tr>
+                  {cols.map((col, i) => (
+                    <th key={i} style={{ backgroundColor: '#f4f4f4', padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid #e0e0e0' }}>{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  {cols.map((_, i) => (
+                    <td key={i} style={{ padding: '0.5rem', borderBottom: '1px solid #e0e0e0' }}>
+                      <TextInput id={`${field.id}-row0-col${i}`} labelText="" placeholder="Enter value..." />
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+            <Button kind="ghost" size="sm" style={{ marginTop: '0.5rem' }}>+ Add Row</Button>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <>
+      <Header aria-label="Government Service Navigator">
+        <HeaderName href="#" prefix="Gov">
+          Service Navigator
+        </HeaderName>
+        <SideNav aria-label="Side navigation" expanded={true} isFixedNav>
+          <SideNavItems>
+            <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">Application Queue</SideNavLink>
+            <SideNavLink renderIcon={Catalog} href="/officer/applications" isActive>All Applications</SideNavLink>
+            <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">New Application</SideNavLink>
+            <SideNavLink renderIcon={Document} href="/officer/verified-records">Verified Records</SideNavLink>
+            <SideNavLink renderIcon={Time} href="/officer/pending-reviews">Pending Reviews</SideNavLink>
+            <SideNavLink renderIcon={User} href="/officer/profile">My Profile</SideNavLink>
+            <div style={{ marginTop: 'auto', borderTop: '1px solid #393939' }}>
+              <SideNavLink renderIcon={Logout} onClick={handleLogout} style={{ cursor: 'pointer' }}>Sign Out</SideNavLink>
+            </div>
+          </SideNavItems>
+        </SideNav>
+      </Header>
+
+      <main style={{ marginTop: '3rem', padding: '2rem', marginLeft: '16rem', backgroundColor: '#f4f4f4', minHeight: '100vh' }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2rem' }}>
+          <Button 
+            kind="ghost" 
+            renderIcon={ArrowLeft} 
+            iconDescription="Back" 
+            hasIconOnly 
+            onClick={() => window.location.href = "/officer/applications"}
+            style={{ marginRight: '1rem' }}
+          />
+          <div>
+            <h1 style={{ fontSize: '2rem', fontWeight: 400, color: '#161616' }}>Preview Application</h1>
+            <p style={{ color: '#525252', marginTop: '0.5rem' }}>This is how citizens will see the application form.</p>
+          </div>
+        </div>
+
+        {loading ? (
+          <p>Loading preview...</p>
+        ) : !template ? (
+          <p>Template not found.</p>
+        ) : (
+          <div style={{ backgroundColor: '#ffffff', padding: '3rem', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', maxWidth: '800px', margin: '0 auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: '3rem', paddingBottom: '2rem', borderBottom: '2px solid #0f62fe' }}>
+              <h2 style={{ fontSize: '2.5rem', color: '#161616', marginBottom: '1rem' }}>{template.formName}</h2>
+              {template.subTitle && <h3 style={{ fontSize: '1.25rem', color: '#525252', fontWeight: 400 }}>{template.subTitle}</h3>}
+              {template.lawText && (
+                <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#f4f4f4', borderLeft: '4px solid #0f62fe', textAlign: 'left', fontSize: '0.875rem' }}>
+                  <strong>Legal Notice:</strong> {template.lawText}
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); alert('This is just a preview!'); }}>
+              {[...(template.fields || [])].sort((a: any, b: any) => a.orderIndex - b.orderIndex).map((field: FormField) => renderField(field))}
+
+              <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid #e0e0e0', display: 'flex', justifyContent: 'flex-end' }}>
+                <Button kind="secondary" style={{ marginRight: '1rem' }} onClick={() => window.location.href = "/officer/applications"}>
+                  Close Preview
+                </Button>
+                <Button kind="primary" type="submit">
+                  Submit Application
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
+      </main>
+    </>
+  );
+}

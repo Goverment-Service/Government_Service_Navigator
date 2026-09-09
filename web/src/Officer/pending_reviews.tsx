@@ -1,5 +1,5 @@
 import '@carbon/styles/css/styles.css';
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Header,
   HeaderContainer,
@@ -37,7 +37,9 @@ import {
   Warning,
   Hourglass,
   Email,
-  Flag
+  Flag,
+  Add,
+  Catalog
 } from "@carbon/icons-react";
 
 // Table Data for Pending Reviews
@@ -59,22 +61,6 @@ const rows = [
 ];
 
 export default function PendingReviews() {
-  const [officerName, setOfficerName] = useState("Verifying Officer");
-
-  useEffect(() => {
-    // Retrieve the officer details stored during login
-    const storedUser = localStorage.getItem("officerUser");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        if (parsedUser.fullName) setOfficerName(parsedUser.fullName);
-        else if (parsedUser.email) setOfficerName(parsedUser.email.split("@")[0]);
-      } catch (e) {
-        // Handle parse error silently
-      }
-    }
-  }, []);
-
   const handleLogout = () => {
     localStorage.removeItem("officerToken");
     localStorage.removeItem("officerUser");
@@ -83,7 +69,7 @@ export default function PendingReviews() {
 
   return (
     <HeaderContainer
-      render={({ isSideNavExpanded, onClickSideNavExpand }) => (
+      render={({ isSideNavExpanded }) => (
         <>
           <Header aria-label="Registry Portal System">
             <HeaderName href="#" prefix="GSN">
@@ -103,6 +89,12 @@ export default function PendingReviews() {
               <SideNavItems>
                 <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">
                   Application Queue
+                </SideNavLink>
+                <SideNavLink renderIcon={Catalog} href="/officer/applications">
+                  All Applications
+                </SideNavLink>
+                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">
+                  New Application
                 </SideNavLink>
                 <SideNavLink renderIcon={Document} href="/officer/verified-records">
                   Verified Records

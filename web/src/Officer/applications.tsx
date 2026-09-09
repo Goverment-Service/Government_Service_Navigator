@@ -1,0 +1,262 @@
+import '@carbon/styles/css/styles.css';
+import { useState, useEffect } from "react";
+import jsPDF from "jspdf";
+import {
+  Header,
+  HeaderContainer,
+  HeaderName,
+  HeaderGlobalBar,
+  HeaderGlobalAction,
+  SideNav,
+  SideNavItems,
+  SideNavLink,
+  DataTable,
+  TableContainer,
+  Table,
+  TableHead,
+  TableRow,
+  TableHeader,
+  TableBody,
+  TableCell,
+  Button,
+  Search,
+  Tag
+} from "@carbon/react";
+import {
+  Dashboard,
+  Document,
+  Time,
+  User,
+  Logout,
+  Notification,
+  Add,
+  Catalog,
+  Edit,
+  View,
+  Download
+} from "@carbon/icons-react";
+
+const headers = [
+  { key: "templateId", header: "Template ID" },
+  { key: "formName", header: "Form Name / Title" },
+  { key: "createdDate", header: "Created Date" },
+  { key: "fieldsCount", header: "Fields" },
+  { key: "status", header: "Status" },
+  { key: "actions", header: "Actions" },
+];
+
+export default function ApplicationsList() {
+  const [rows, setRows] = useState<any[]>([]);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const token = localStorage.getItem("officerToken");
+        const response = await fetch("http://localhost:5119/api/templates/all", {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const formattedRows = data.map((t: any) => ({
+            id: t.id,
+            templateId: t.id.substring(0, 8).toUpperCase(),
+            formName: t.formName + (t.subTitle ? ` - ${t.subTitle}` : ""),
+            rawFormName: t.formName,
+            subTitle: t.subTitle,
+            lawText: t.lawText,
+            createdDate: new Date(t.createdAt).toLocaleDateString(),
+            fieldsCount: t.fields ? t.fields.length : 0,
+            fields: t.fields || [],
+            status: t.status || "Active"
+          }));
+          setRows(formattedRows);
+        }
+      } catch (error) {
+        console.error("Error fetching templates:", error);
+      }
+    };
+    fetchTemplates();
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("officerToken");
+    localStorage.removeItem("officerUser");
+    window.location.href = "/officer/login";
+  };
+
+  const handleToggleStatus = async (id: string, currentStatus: string) => {
+    const nextStatus = currentStatus === "Active" ? "Inactive" : "Active";
+    setUpdatingStatusId(id);
+    try {
+      const token = localStorage.getItem("officerToken");
+      const response = await fetch(`http://localhost:5119/api/templates/${id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: nextStatus })
+      });
+      if (response.ok) {
+        setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status: nextStatus } : r)));
+      } else {
+        console.error("Failed to update status:", await response.text());
+      }
+    } catch (error) {
+      console.error("Error updating status:", error);
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
+
+  const handleDownload = (row: any) => {
+    const doc = new jsPDF();
+    const marginX = 15;
+    let y = 20;
+
+    doc.setFontSize(16);
+    doc.text(row.rawFormName || row.formName, marginX, y);
+    y += 8;
+
+    if (row.subTitle) {
+      doc.setFontSize(11);
+      doc.setTextColor(80);
+      doc.text(row.subTitle, marginX, y);
+      y += 8;
+    }
+
+    if (row.lawText) {
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      const lawLines = doc.splitTextToSize(`Legal Notice: ${row.lawText}`, 180);
+      doc.text(lawLines, marginX, y);
+      y += lawLines.length * 5 + 4;
+    }
+
+    doc.setDrawColor(200);
+    doc.line(marginX, y, 195, y);
+    y += 10;
+
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    doc.text("Form Fields", marginX, y);
+    y += 8;
+
+    doc.setFontSize(10);
+    const sortedFields = [...(row.fields || [])].sort((a: any, b: any) => a.orderIndex - b.orderIndex);
+    sortedFields.forEach((field: any, index: number) => {
+      if (y > 280) {
+        doc.addPage();
+        y = 20;
+      }
+      const requiredMark = field.isRequired ? " *" : "";
+      doc.text(`${index + 1}. ${field.label}${requiredMark} (${field.type})`, marginX, y);
+      y += 7;
+    });
+
+    doc.save(`${(row.rawFormName || "application").replace(/\s+/g, "_")}.pdf`);
+  };
+
+  return (
+    <HeaderContainer
+      render={({ isSideNavExpanded }) => (
+        <>
+          <Header aria-label="Registry Portal System">
+            <HeaderName href="#" prefix="GSN">Registry Portal</HeaderName>
+            
+            <HeaderGlobalBar>
+              <div style={{ width: '280px', marginRight: '1rem', display: 'flex', alignItems: 'center' }}>
+                 <Search size="sm" id="search-templates" labelText="Search" placeholder="Search Templates..." />
+              </div>
+              <HeaderGlobalAction aria-label="Notifications" onClick={() => {}}>
+                <Notification size={20} />
+              </HeaderGlobalAction>
+            </HeaderGlobalBar>
+
+            <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
+              <SideNavItems>
+                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">Application Queue</SideNavLink>
+                <SideNavLink renderIcon={Catalog} href="/officer/applications" isActive>All Applications</SideNavLink>
+                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">New Application</SideNavLink>
+                <SideNavLink renderIcon={Document} href="/officer/verified-records">Verified Records</SideNavLink>
+                <SideNavLink renderIcon={Time} href="/officer/pending-reviews">Pending Reviews</SideNavLink>
+                <SideNavLink renderIcon={User} href="/officer/profile">My Profile</SideNavLink>
+                <div style={{ marginTop: 'auto', borderTop: '1px solid #393939' }}>
+                  <SideNavLink renderIcon={Logout} onClick={handleLogout} style={{ cursor: 'pointer' }}>Sign Out</SideNavLink>
+                </div>
+              </SideNavItems>
+            </SideNav>
+          </Header>
+
+          <main style={{ marginTop: '3rem', padding: '2rem', marginLeft: '16rem', backgroundColor: '#f4f4f4', minHeight: '100vh' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+              <div>
+                <h1 style={{ fontSize: '2rem', fontWeight: 400, color: '#161616' }}>Created Applications & Templates</h1>
+                <p style={{ color: '#525252', marginTop: '0.5rem' }}>Manage and review all customizable application forms created by officers.</p>
+              </div>
+              <Button renderIcon={Add} onClick={() => window.location.href = "/officer/Application_create/application_create"} style={{ backgroundColor: '#0f62fe' }}>
+                Create New Template
+              </Button>
+            </div>
+
+            <DataTable rows={rows} headers={headers}>
+              {({ rows: displayRows, headers, getTableProps, getHeaderProps, getRowProps }) => (
+                <TableContainer title="Template Directory" description="List of all application templates available in the system.">
+                  <Table {...getTableProps()}>
+                    <TableHead>
+                      <TableRow>
+                        {headers.map((header) => (
+                          <TableHeader {...getHeaderProps({ header })} key={header.key}>
+                            {header.header}
+                          </TableHeader>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {displayRows.map((row) => {
+                        const fullRow = rows.find((r) => r.id === row.id);
+                        return (
+                          <TableRow {...getRowProps({ row })} key={row.id}>
+                            {row.cells.map((cell) => {
+                              if (cell.info.header === 'status') {
+                                 return (
+                                   <TableCell key={cell.id}>
+                                     <Tag
+                                       type={cell.value === 'Active' ? 'green' : 'gray'}
+                                       style={{ cursor: 'pointer' }}
+                                       title="Click to toggle status"
+                                       onClick={() => handleToggleStatus(row.id, cell.value)}
+                                     >
+                                       {updatingStatusId === row.id ? 'Updating…' : cell.value}
+                                     </Tag>
+                                   </TableCell>
+                                 );
+                              }
+                              if (cell.info.header === 'actions') {
+                                return (
+                                  <TableCell key={cell.id} style={{ padding: '0.5rem' }}>
+                                    <Button kind="ghost" size="sm" renderIcon={Edit} iconDescription="Edit" hasIconOnly onClick={() => window.location.href = `/officer/Application_create/application_create?id=${row.id}`} />
+                                    <Button kind="ghost" size="sm" renderIcon={View} iconDescription="View" hasIconOnly onClick={() => window.location.href = `/officer/application-preview?id=${row.id}`} />
+                                    <Button kind="ghost" size="sm" renderIcon={Download} iconDescription="Download" hasIconOnly onClick={() => fullRow && handleDownload(fullRow)} />
+                                  </TableCell>
+                                );
+                              }
+                              return <TableCell key={cell.id}>{cell.value}</TableCell>;
+                            })}
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </DataTable>
+          </main>
+        </>
+      )}
+    />
+  );
+}

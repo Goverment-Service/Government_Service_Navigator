@@ -39,8 +39,8 @@ builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
 });
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IVerificationService, VerificationService>();
 builder.Services.AddScoped<ITemplateService, TemplateService>();
-
 
 // 3. Setup CORS (Crucial for Flutter/Mobile/Web app connectivity)
 builder.Services.AddCors(options =>

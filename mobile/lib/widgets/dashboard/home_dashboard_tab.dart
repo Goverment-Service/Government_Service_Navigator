@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
+import '../../services/service_api_client.dart';
+import '../../screens/procedure_detail_screen.dart';
+import '../../screens/describe_need_screen.dart';
+import '../../screens/service_discovery_screen.dart';
 
 class HomeDashboardTab extends StatefulWidget {
   const HomeDashboardTab({super.key});
@@ -11,6 +15,33 @@ class HomeDashboardTab extends StatefulWidget {
 
 class _HomeDashboardTabState extends State<HomeDashboardTab> {
   final TextEditingController _searchController = TextEditingController();
+  List<dynamic> popularServices = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPopularServices();
+  }
+
+  Future<void> _fetchPopularServices() async {
+    try {
+      final data = await ServiceApiClient.fetchServices();
+      if (mounted) {
+        setState(() {
+          popularServices = data.take(4).toList();
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          popularServices = [];
+          isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -108,7 +139,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _buildCategoriesHorizontalScroll(),
+                  _buildCategoriesHorizontalScroll(context),
                   const SizedBox(height: 24),
 
                   Row(
@@ -149,26 +180,47 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _buildPopularServiceTile(
-                    title: 'Small Business Registration',
-                    department: 'Commerce & Enterprise',
-                    fee: 'LKR 5,000',
-                    icon: CupertinoIcons.briefcase,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildPopularServiceTile(
-                    title: 'Driving Licence Renewal',
-                    department: 'Department of Motor Traffic',
-                    fee: 'LKR 3,500',
-                    icon: CupertinoIcons.car_detailed,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildPopularServiceTile(
-                    title: 'Passport Application & Renewal',
-                    department: 'Immigration & Emigration',
-                    fee: 'LKR 10,000',
-                    icon: CupertinoIcons.doc_on_clipboard,
-                  ),
+                  isLoading
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      : popularServices.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.all(12.0),
+                              child: Text('No popular services available.'),
+                            )
+                          : Column(
+                              children: popularServices.map((service) {
+                                final fees = service['feeSchedules'] as List? ?? [];
+                                final feeString = fees.isNotEmpty 
+                                    ? 'LKR ${fees[0]['amount']}' 
+                                    : 'Free';
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 10.0),
+                                  child: InkWell(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ProcedureDetailScreen(
+                                            serviceId: service['id'] ?? 1,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: _buildPopularServiceTile(
+                                      title: service['name'] ?? '',
+                                      department: service['category'] ?? '',
+                                      fee: feeString,
+                                      icon: CupertinoIcons.briefcase,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -244,7 +296,12 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const DescribeNeedScreen()),
+                );
+              },
               child: const Text(
                 'Ask Navigator Now',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
@@ -370,7 +427,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
     );
   }
 
-  Widget _buildCategoriesHorizontalScroll() {
+  Widget _buildCategoriesHorizontalScroll(BuildContext context) {
     final categories = [
       {'title': 'Commerce', 'icon': CupertinoIcons.briefcase_fill},
       {'title': 'Transport', 'icon': CupertinoIcons.car_detailed},
@@ -385,12 +442,19 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
         physics: const BouncingScrollPhysics(),
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
-        // Fixed here: replaced (_, __) with (context, index)
         separatorBuilder: (context, index) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final cat = categories[index];
+          final catTitle = cat['title'] as String;
           return GestureDetector(
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ServiceDiscoveryScreen(initialCategory: catTitle),
+                ),
+              );
+            },
             child: Container(
               width: 86,
               decoration: BoxDecoration(
@@ -415,7 +479,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    cat['title'] as String,
+                    catTitle,
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,

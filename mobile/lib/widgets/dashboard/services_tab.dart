@@ -1,9 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
+import '../../services/service_api_client.dart';
+import '../../screens/procedure_detail_screen.dart';
 
-class ServicesTab extends StatelessWidget {
+class ServicesTab extends StatefulWidget {
   const ServicesTab({super.key});
+
+  @override
+  State<ServicesTab> createState() => _ServicesTabState();
+}
+
+class _ServicesTabState extends State<ServicesTab> {
+  List services = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchServices();
+  }
+
+  Future<void> _fetchServices() async {
+    try {
+      final data = await ServiceApiClient.fetchServices();
+      setState(() {
+        services = data;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() => isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,38 +42,39 @@ class ServicesTab extends StatelessWidget {
         backgroundColor: AppColors.cardBg,
         elevation: 0,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          _buildServiceItem(
-            title: 'Small Business Registration',
-            category: 'Commerce & Enterprise',
-            fee: 'LKR 5,000',
-            icon: CupertinoIcons.briefcase,
-          ),
-          const SizedBox(height: 12),
-          _buildServiceItem(
-            title: 'Driving Licence Renewal',
-            category: 'Department of Motor Traffic',
-            fee: 'LKR 3,500',
-            icon: CupertinoIcons.car_detailed,
-          ),
-          const SizedBox(height: 12),
-          _buildServiceItem(
-            title: 'Passport Application & Renewal',
-            category: 'Immigration & Emigration',
-            fee: 'LKR 10,000',
-            icon: CupertinoIcons.doc_on_clipboard,
-          ),
-          const SizedBox(height: 12),
-          _buildServiceItem(
-            title: 'National Identity Card Replacement',
-            category: 'Department for Registration of Persons',
-            fee: 'LKR 1,500',
-            icon: CupertinoIcons.person_crop_circle_fill,
-          ),
-        ],
-      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : services.isEmpty
+              ? const Center(child: Text('No services found in database.'))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16.0),
+                  itemCount: services.length,
+                  itemBuilder: (context, index) {
+                    final service = services[index];
+                    final fees = service['feeSchedules'] ?? [];
+                    final feeString = fees.isNotEmpty ? 'LKR ${fees[0]['amount']}' : 'Free';
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProcedureDetailScreen(serviceId: service['id']),
+                            ),
+                          );
+                        },
+                        child: _buildServiceItem(
+                          title: service['name'] ?? 'Untitled Service',
+                          category: service['category'] ?? 'General',
+                          fee: feeString,
+                          icon: CupertinoIcons.briefcase,
+                        ),
+                      ),
+                    );
+                  },
+                ),
     );
   }
 

@@ -15,6 +15,10 @@ import PendingReviews from "./Officer/pending_reviews";
 import Profile from "./Officer/profile";
 import ApplicationsList from "./Officer/applications";
 import ApplicationPreview from "./Officer/application_preview";
+import ServiceCatalogManager from "./Admin/Service_Catalog/service_catalog_manager";
+import EligibilityRuleBuilder from "./Admin/Service_Catalog/eligibility_rule_builder";
+import ServiceConfigurationTabs from "./Admin/Service_Catalog/service_configuration_tabs";
+import EligibilitySimulator from "./Admin/Service_Catalog/eligibility_simulator";
 
 export default function App() {
   return (
@@ -27,6 +31,20 @@ export default function App() {
         <Route path="/officer/dashboard" element={<OfficerDashboard />} />
         <Route path="/admin/audit-logs" element={<AuditLogs />} />
         <Route path="/admin/system-settings" element={<SystemSettings />} />
+        <Route path="/admin/services" element={<ServiceCatalogManager />} />
+        <Route
+          path="/admin/services/rules"
+          element={<EligibilityRuleBuilder />}
+        />
+        <Route
+          path="/admin/services/config"
+          element={<ServiceConfigurationTabs />}
+        />
+
+        <Route
+          path="/admin/services/simulator"
+          element={<EligibilitySimulator />}
+        />
 
         {/* officer route */}
         <Route path="/officer/login" element={<OfficerLoginPage />} />
@@ -34,8 +52,14 @@ export default function App() {
         <Route path="/officer/verified-records" element={<VerifiedRecords />} />
         <Route path="/officer/pending-reviews" element={<PendingReviews />} />
         <Route path="/officer/profile" element={<Profile />} />
-        <Route path="/officer/Application_create/application_create" element={<ApplicationCreate />} />
-        <Route path="/officer/application-preview" element={<ApplicationPreview />} />
+        <Route
+          path="/officer/Application_create/application_create"
+          element={<ApplicationCreate />}
+        />
+        <Route
+          path="/officer/application-preview"
+          element={<ApplicationPreview />}
+        />
       </Routes>
     </BrowserRouter>
   );

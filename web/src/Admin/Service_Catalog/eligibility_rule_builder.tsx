@@ -1,0 +1,360 @@
+import "@carbon/styles/css/styles.css";
+import React, { useState, useEffect } from "react";
+import {
+  Header,
+  HeaderName,
+  HeaderGlobalBar,
+  HeaderGlobalAction,
+  SideNav,
+  SideNavItems,
+  SideNavLink,
+  Search,
+  Select,
+  SelectItem,
+  TextInput,
+  Button,
+  Tile,
+  Grid,
+  Column,
+  Loading,
+  InlineNotification,
+} from "@carbon/react";
+import {
+  Dashboard,
+  UserMultiple,
+  Security,
+  Settings,
+  Logout,
+  Notification,
+  Catalog,
+  Rule,
+  Categories,
+  TrashCan,
+} from "@carbon/icons-react";
+
+export default function EligibilityRuleBuilder() {
+  const [isSideNavExpanded] = useState(true);
+  const [services, setServices] = useState<any[]>([]);
+  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
+  const [rules, setRules] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [notification, setNotification] = useState<{
+    type: string;
+    title: string;
+    subtitle: string;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch("http://localhost:5119/api/services")
+      .then((res) => res.json())
+      .then((data) => {
+        setServices(data);
+        if (data.length > 0) {
+          setSelectedServiceId(data[0].id.toString());
+        }
+        setIsLoading(false);
+      })
+      .catch((error) => {
+        console.error("Error fetching services:", error);
+        setIsLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!selectedServiceId) return;
+
+    setIsLoading(true);
+    fetch(`http://localhost:5119/api/services/${selectedServiceId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setRules(data.eligibilityRules || []);
+        setIsLoading(false);
+      })
+      .catch((error) => {
+        console.error("Error fetching rules for service:", error);
+        setIsLoading(false);
+      });
+  }, [selectedServiceId]);
+
+  const handleRuleChange = (id: number, key: string, val: string) => {
+    setRules(rules.map((r) => (r.id === id ? { ...r, [key]: val } : r)));
+  };
+
+  const handleAddRule = () => {
+    const tempId = Date.now();
+    setRules([
+      ...rules,
+      {
+        id: tempId,
+        serviceProcedureId: parseInt(selectedServiceId),
+        field: "Age",
+        operator: ">=",
+        value: "",
+        isStrict: true,
+      },
+    ]);
+  };
+
+  const handleDeleteRule = (id: number) => {
+    setRules(rules.filter((r) => r.id !== id));
+  };
+
+  const handleSave = async () => {
+    try {
+      const payload = rules.map(({ id, ...rest }) => rest);
+
+      const response = await fetch(
+        `http://localhost:5119/api/services/${selectedServiceId}/eligibility-rules`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      if (response.ok) {
+        const updatedService = await response.json();
+        setRules(updatedService.eligibilityRules || []);
+        setNotification({
+          type: "success",
+          title: "Success",
+          subtitle: "Ruleset saved and persisted successfully!",
+        });
+      } else {
+        setNotification({
+          type: "error",
+          title: "Error",
+          subtitle: "Failed to save ruleset to database.",
+        });
+      }
+    } catch (error) {
+      console.error("Error saving ruleset:", error);
+      setNotification({
+        type: "error",
+        title: "Server Error",
+        subtitle: "Could not connect to backend server.",
+      });
+    }
+  };
+
+  const filteredRules = rules.filter(
+    (r) =>
+      r.field?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.operator?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.value?.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  return (
+    <>
+      <Header aria-label="Registry Admin System">
+        <HeaderName href="#" prefix="GSN">
+          Registry Admin
+        </HeaderName>
+        <HeaderGlobalBar>
+          <div
+            style={{
+              width: "250px",
+              marginRight: "1rem",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <Search
+              size="sm"
+              id="search-rules"
+              labelText="Search"
+              placeholder="Search rules..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onClear={() => setSearchQuery("")}
+            />
+          </div>
+          <HeaderGlobalAction aria-label="Notifications">
+            <Notification size={20} />
+          </HeaderGlobalAction>
+        </HeaderGlobalBar>
+
+        <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
+          <SideNavItems>
+            <SideNavLink renderIcon={Dashboard} href="/admin/dashboard">
+              Overview
+            </SideNavLink>
+            <SideNavLink renderIcon={Catalog} href="/admin/services">
+              Service Catalog
+            </SideNavLink>
+            <SideNavLink
+              renderIcon={Rule}
+              href="/admin/services/rules"
+              isActive
+            >
+              Eligibility Rules
+            </SideNavLink>
+            <SideNavLink renderIcon={Categories} href="/admin/services/config">
+              Service Configuration
+            </SideNavLink>
+            <SideNavLink renderIcon={Rule} href="/admin/services/simulator">
+              Eligibility Simulator
+            </SideNavLink>
+            <SideNavLink
+              renderIcon={UserMultiple}
+              href="/admin/manage-officers"
+            >
+              Manage Officers
+            </SideNavLink>
+            <SideNavLink renderIcon={Security} href="/admin/audit-logs">
+              Audit Logs
+            </SideNavLink>
+            <SideNavLink renderIcon={Settings} href="/admin/system-settings">
+              System Settings
+            </SideNavLink>
+            <div style={{ marginTop: "auto", borderTop: "1px solid #393939" }}>
+              <SideNavLink renderIcon={Logout} href="/officer/login">
+                Sign Out
+              </SideNavLink>
+            </div>
+          </SideNavItems>
+        </SideNav>
+      </Header>
+
+      <main
+        style={{
+          marginTop: "3rem",
+          padding: "2rem",
+          marginLeft: "16rem",
+          backgroundColor: "#f4f4f4",
+          minHeight: "100vh",
+        }}
+      >
+        <div style={{ marginBottom: "2rem" }}>
+          <h1 style={{ fontSize: "2rem", fontWeight: 400, color: "#161616" }}>
+            Eligibility Rule Builder
+          </h1>
+          <p style={{ color: "#525252", marginTop: "0.5rem" }}>
+            Configure business logic and prerequisites for citizen eligibility.
+          </p>
+        </div>
+
+        {notification && (
+          <div style={{ marginBottom: "1.5rem", width: "100%" }}>
+            <InlineNotification
+              kind={notification.type as any}
+              title={notification.title}
+              subtitle={notification.subtitle}
+              onClose={() => setNotification(null)}
+            />
+          </div>
+        )}
+
+        <Tile style={{ width: "100%", marginBottom: "1.5rem" }}>
+          <Select
+            id="target-service-select"
+            labelText="Target Service Procedure"
+            value={selectedServiceId}
+            onChange={(e) => setSelectedServiceId(e.target.value)}
+          >
+            {services.map((srv) => (
+              <SelectItem
+                key={srv.id}
+                value={srv.id.toString()}
+                text={`${srv.serviceId} - ${srv.name}`}
+              />
+            ))}
+          </Select>
+        </Tile>
+
+        <Tile style={{ width: "100%" }}>
+          <h3 style={{ marginBottom: "1.5rem", fontWeight: 500 }}>
+            Active Ruleset
+          </h3>
+
+          {isLoading ? (
+            <Loading description="Loading rules..." withOverlay={false} />
+          ) : filteredRules.length === 0 ? (
+            <p style={{ color: "#6f6f6f", padding: "1rem 0" }}>
+              No eligibility rules configured for this service yet.
+            </p>
+          ) : (
+            filteredRules.map((rule) => (
+              <Grid
+                key={rule.id}
+                style={{
+                  marginBottom: "1rem",
+                  alignItems: "flex-end",
+                  paddingLeft: 0,
+                  paddingRight: 0,
+                }}
+              >
+                <Column sm={1} md={3} lg={4}>
+                  <Select
+                    id={`field-${rule.id}`}
+                    labelText="Field"
+                    value={rule.field}
+                    onChange={(e) =>
+                      handleRuleChange(rule.id, "field", e.target.value)
+                    }
+                  >
+                    <SelectItem value="Age" text="Age" />
+                    <SelectItem value="Citizenship" text="Citizenship" />
+                    <SelectItem value="Income" text="Income" />
+                  </Select>
+                </Column>
+                <Column sm={1} md={2} lg={3}>
+                  <Select
+                    id={`operator-${rule.id}`}
+                    labelText="Operator"
+                    value={rule.operator}
+                    onChange={(e) =>
+                      handleRuleChange(rule.id, "operator", e.target.value)
+                    }
+                  >
+                    <SelectItem value=">=" text=">=" />
+                    <SelectItem value="<=" text="<=" />
+                    <SelectItem value="==" text="==" />
+                    <SelectItem value="!=" text="!=" />
+                  </Select>
+                </Column>
+                <Column sm={1} md={2} lg={4}>
+                  <TextInput
+                    id={`value-${rule.id}`}
+                    labelText="Value"
+                    value={rule.value}
+                    onChange={(e) =>
+                      handleRuleChange(rule.id, "value", e.target.value)
+                    }
+                  />
+                </Column>
+                <Column sm={1} md={1} lg={1}>
+                  <Button
+                    kind="danger--ghost"
+                    renderIcon={TrashCan}
+                    iconDescription="Remove"
+                    hasIconOnly
+                    onClick={() => handleDeleteRule(rule.id)}
+                  />
+                </Column>
+              </Grid>
+            ))
+          )}
+
+          <div
+            style={{
+              display: "flex",
+              gap: "1rem",
+              marginTop: "2rem",
+              borderTop: "1px solid #e0e0e0",
+              paddingTop: "1.5rem",
+            }}
+          >
+            <Button kind="secondary" onClick={handleAddRule}>
+              + Add New Condition
+            </Button>
+            <Button kind="primary" onClick={handleSave}>
+              Save Ruleset
+            </Button>
+          </div>
+        </Tile>
+      </main>
+    </>
+  );
+}

@@ -1,4 +1,4 @@
-import '@carbon/styles/css/styles.css'; // This fixes the unstyled layout!
+import "@carbon/styles/css/styles.css";
 import React, { useState, useEffect } from "react";
 import {
   Header,
@@ -21,7 +21,7 @@ import {
   TableBody,
   TableCell,
   Tag,
-  Search
+  Search,
 } from "@carbon/react";
 import {
   Dashboard,
@@ -31,7 +31,10 @@ import {
   Logout,
   Notification,
   Document,
-  Activity
+  Activity,
+  Catalog,
+  Rule,
+  Categories,
 } from "@carbon/icons-react";
 
 // Table Data
@@ -44,9 +47,30 @@ const headers = [
 ];
 
 const rows = [
-  { id: "1", officer: "Sarah Fernando", action: "Approved Application", target: "APP-8992", time: "2 mins ago", status: "Success" },
-  { id: "2", officer: "Nuwan Perera", action: "Rejected Document", target: "DOC-1029", time: "15 mins ago", status: "Flagged" },
-  { id: "3", officer: "System Auto-Sync", action: "Database Backup", target: "SYS-DB-01", time: "1 hour ago", status: "Success" },
+  {
+    id: "1",
+    officer: "Sarah Fernando",
+    action: "Approved Application",
+    target: "APP-8992",
+    time: "2 mins ago",
+    status: "Success",
+  },
+  {
+    id: "2",
+    officer: "Nuwan Perera",
+    action: "Rejected Document",
+    target: "DOC-1029",
+    time: "15 mins ago",
+    status: "Flagged",
+  },
+  {
+    id: "3",
+    officer: "System Auto-Sync",
+    action: "Database Backup",
+    target: "SYS-DB-01",
+    time: "1 hour ago",
+    status: "Success",
+  },
 ];
 
 export default function AdminDashboard() {
@@ -64,37 +88,48 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  const handleLogout = async() => {
+  const handleLogout = async () => {
     try {
       await fetch("http://localhost:5119/api/auth/logout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-        }
+        },
       });
     } catch (error) {
       console.error("Logout failed:", error);
     } finally {
-      localStorage.removeItem("officerToken"); 
+      localStorage.removeItem("officerToken");
       localStorage.removeItem("officerUser");
-      localStorage.removeItem("adminToken"); 
+      localStorage.removeItem("adminToken");
       window.location.href = "/officer/login";
-
     }
-  }
+  };
 
   return (
     <HeaderContainer
-      render={({ isSideNavExpanded, onClickSideNavExpand }) => (
+      render={({ isSideNavExpanded }) => (
         <>
           <Header aria-label="Registry Admin System">
             <HeaderName href="#" prefix="GSN">
               Registry Admin
             </HeaderName>
-            
+
             <HeaderGlobalBar>
-              <div style={{ width: '250px', marginRight: '1rem', display: 'flex', alignItems: 'center' }}>
-                 <Search size="sm" id="search-records" labelText="Search" placeholder="Search records..." />
+              <div
+                style={{
+                  width: "250px",
+                  marginRight: "1rem",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <Search
+                  size="sm"
+                  id="search-records"
+                  labelText="Search"
+                  placeholder="Search records..."
+                />
               </div>
               <HeaderGlobalAction aria-label="Notifications" onClick={() => {}}>
                 <Notification size={20} />
@@ -106,19 +141,53 @@ export default function AdminDashboard() {
                 <SideNavLink renderIcon={Dashboard} href="#" isActive>
                   Overview
                 </SideNavLink>
-                <SideNavLink renderIcon={UserMultiple} href="/admin/manage-officers">
+
+                {/* --- SUPUN'S ASSIGNED COMPONENTS --- */}
+                <SideNavLink renderIcon={Catalog} href="/admin/services">
+                  Service Catalog
+                </SideNavLink>
+                <SideNavLink renderIcon={Rule} href="/admin/services/rules">
+                  Eligibility Rules
+                </SideNavLink>
+                <SideNavLink
+                  renderIcon={Categories}
+                  href="/admin/services/config"
+                >
+                  Service Configuration
+                </SideNavLink>
+                <SideNavLink
+                  renderIcon={Rule}
+                  href="/admin/services/simulator"
+                >
+                  Eligibility Simulator
+                </SideNavLink>
+                {/* ---------------------------------- */}
+
+                <SideNavLink
+                  renderIcon={UserMultiple}
+                  href="/admin/manage-officers"
+                >
                   Manage Officers
                 </SideNavLink>
                 <SideNavLink renderIcon={Security} href="/admin/audit-logs">
                   Audit Logs
                 </SideNavLink>
-                <SideNavLink renderIcon={Settings} href="/admin/system-settings">
+                <SideNavLink
+                  renderIcon={Settings}
+                  href="/admin/system-settings"
+                >
                   System Settings
                 </SideNavLink>
-                
+
                 {/* Logout Button */}
-                <div style={{ marginTop: 'auto', borderTop: '1px solid #393939' }}>
-                  <SideNavLink renderIcon={Logout} onClick={handleLogout} style={{ cursor: 'pointer' }}>
+                <div
+                  style={{ marginTop: "auto", borderTop: "1px solid #393939" }}
+                >
+                  <SideNavLink
+                    renderIcon={Logout}
+                    onClick={handleLogout}
+                    style={{ cursor: "pointer" }}
+                  >
                     Sign Out
                   </SideNavLink>
                 </div>
@@ -127,73 +196,190 @@ export default function AdminDashboard() {
           </Header>
 
           {/* Main Content */}
-          <main style={{ marginTop: '3rem', padding: '2rem', marginLeft: '16rem', backgroundColor: '#f4f4f4', minHeight: '100vh' }}>
-            
-            <div style={{ marginBottom: '2rem' }}>
-              <h1 style={{ fontSize: '2rem', fontWeight: 400, color: '#161616' }}>
+          <main
+            style={{
+              marginTop: "3rem",
+              padding: "2rem",
+              marginLeft: "16rem",
+              backgroundColor: "#f4f4f4",
+              minHeight: "100vh",
+            }}
+          >
+            <div style={{ marginBottom: "2rem" }}>
+              <h1
+                style={{ fontSize: "2rem", fontWeight: 400, color: "#161616" }}
+              >
                 Welcome back, {adminName}
               </h1>
-              <p style={{ color: '#525252', marginTop: '0.5rem' }}>
-                Monitor system activity and manage registry officers across the platform.
+              <p style={{ color: "#525252", marginTop: "0.5rem" }}>
+                Monitor system activity and manage registry officers across the
+                platform.
               </p>
             </div>
 
             {/* Stat Cards mapped to Carbon Grid/Tiles */}
-            <Grid style={{ paddingLeft: 0, paddingRight: 0, marginBottom: '2rem' }}>
+            <Grid
+              style={{ paddingLeft: 0, paddingRight: 0, marginBottom: "2rem" }}
+            >
               <Column sm={4} md={4} lg={4}>
                 <Tile>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>Total Applications</p>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <p style={{ color: "#525252", fontSize: "0.875rem" }}>
+                      Total Applications
+                    </p>
                     <Document size={20} />
                   </div>
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>12,845</h3>
-                  <p style={{ color: '#24a148', fontSize: '0.875rem', marginTop: '1rem' }}>+14% vs last week</p>
+                  <h3
+                    style={{
+                      fontSize: "2.5rem",
+                      fontWeight: 300,
+                      margin: "0.5rem 0",
+                    }}
+                  >
+                    12,845
+                  </h3>
+                  <p
+                    style={{
+                      color: "#24a148",
+                      fontSize: "0.875rem",
+                      marginTop: "1rem",
+                    }}
+                  >
+                    +14% vs last week
+                  </p>
                 </Tile>
               </Column>
               <Column sm={4} md={4} lg={4}>
                 <Tile>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>Active Officers</p>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <p style={{ color: "#525252", fontSize: "0.875rem" }}>
+                      Active Officers
+                    </p>
                     <UserMultiple size={20} />
                   </div>
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>342</h3>
-                  <p style={{ color: '#24a148', fontSize: '0.875rem', marginTop: '1rem' }}>+2% vs last week</p>
+                  <h3
+                    style={{
+                      fontSize: "2.5rem",
+                      fontWeight: 300,
+                      margin: "0.5rem 0",
+                    }}
+                  >
+                    342
+                  </h3>
+                  <p
+                    style={{
+                      color: "#24a148",
+                      fontSize: "0.875rem",
+                      marginTop: "1rem",
+                    }}
+                  >
+                    +2% vs last week
+                  </p>
                 </Tile>
               </Column>
               <Column sm={4} md={4} lg={4}>
-                <Tile style={{ borderTop: '4px solid #da1e28' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>Pending Reviews</p>
+                <Tile style={{ borderTop: "4px solid #da1e28" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <p style={{ color: "#525252", fontSize: "0.875rem" }}>
+                      Pending Reviews
+                    </p>
                     <Activity size={20} color="#da1e28" />
                   </div>
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>1,204</h3>
-                  <p style={{ color: '#da1e28', fontSize: '0.875rem', marginTop: '1rem' }}>-5% vs last week</p>
+                  <h3
+                    style={{
+                      fontSize: "2.5rem",
+                      fontWeight: 300,
+                      margin: "0.5rem 0",
+                    }}
+                  >
+                    1,204
+                  </h3>
+                  <p
+                    style={{
+                      color: "#da1e28",
+                      fontSize: "0.875rem",
+                      marginTop: "1rem",
+                    }}
+                  >
+                    -5% vs last week
+                  </p>
                 </Tile>
               </Column>
               <Column sm={4} md={4} lg={4}>
                 <Tile>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>System Health</p>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <p style={{ color: "#525252", fontSize: "0.875rem" }}>
+                      System Health
+                    </p>
                     <Security size={20} />
                   </div>
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>99.9%</h3>
-                  <p style={{ color: '#24a148', fontSize: '0.875rem', marginTop: '1rem' }}>Stable vs last week</p>
+                  <h3
+                    style={{
+                      fontSize: "2.5rem",
+                      fontWeight: 300,
+                      margin: "0.5rem 0",
+                    }}
+                  >
+                    99.9%
+                  </h3>
+                  <p
+                    style={{
+                      color: "#24a148",
+                      fontSize: "0.875rem",
+                      marginTop: "1rem",
+                    }}
+                  >
+                    Stable vs last week
+                  </p>
                 </Tile>
               </Column>
             </Grid>
 
             {/* Data Table */}
             <DataTable rows={rows} headers={headers}>
-              {({ rows, headers, getTableProps, getHeaderProps, getRowProps }) => (
-                <TableContainer 
-                  title="Recent Officer Activity" 
+              {({
+                rows,
+                headers,
+                getTableProps,
+                getHeaderProps,
+                getRowProps,
+              }) => (
+                <TableContainer
+                  title="Recent Officer Activity"
                   description="Live audit trail of registry modifications and approvals."
                 >
                   <Table {...getTableProps()}>
                     <TableHead>
                       <TableRow>
                         {headers.map((header) => (
-                          <TableHeader {...getHeaderProps({ header })} key={header.key}>
+                          <TableHeader
+                            {...getHeaderProps({ header })}
+                            key={header.key}
+                          >
                             {header.header}
                           </TableHeader>
                         ))}
@@ -203,16 +389,22 @@ export default function AdminDashboard() {
                       {rows.map((row) => (
                         <TableRow {...getRowProps({ row })} key={row.id}>
                           {row.cells.map((cell) => {
-                            if (cell.info.header === 'status') {
+                            if (cell.info.header === "status") {
                               return (
                                 <TableCell key={cell.id}>
-                                  <Tag type={cell.value === 'Flagged' ? 'red' : 'green'}>
+                                  <Tag
+                                    type={
+                                      cell.value === "Flagged" ? "red" : "green"
+                                    }
+                                  >
                                     {cell.value}
                                   </Tag>
                                 </TableCell>
                               );
                             }
-                            return <TableCell key={cell.id}>{cell.value}</TableCell>;
+                            return (
+                              <TableCell key={cell.id}>{cell.value}</TableCell>
+                            );
                           })}
                         </TableRow>
                       ))}
@@ -221,7 +413,6 @@ export default function AdminDashboard() {
                 </TableContainer>
               )}
             </DataTable>
-
           </main>
         </>
       )}

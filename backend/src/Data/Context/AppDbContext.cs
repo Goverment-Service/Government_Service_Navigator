@@ -19,10 +19,19 @@ namespace Government_Service_Navigator.Backend.Data.Context
         public DbSet<AuditLog> AuditLogs {get; set;}
         public DbSet<Template> Templates { get; set; }
         public DbSet<FormField> FormFields { get; set; }
+        public DbSet<ServiceProcedure> ServiceProcedures { get; set; }
+        public DbSet<EligibilityRule> EligibilityRules { get; set; }
+        public DbSet<DocumentRequirement> DocumentRequirements { get; set; }
+        public DbSet<FeeSchedule> FeeSchedules { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<ServiceProcedure>()
+                .HasIndex(s => s.ServiceId)
+                .IsUnique();
             
             modelBuilder.Entity<User>(entity =>
             {

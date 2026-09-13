@@ -3,15 +3,12 @@ name: Mobile CI
 on:
   push:
     branches: [ "main", "Front-Dev" ]
-    paths:
-      - 'mobile/**'
   pull_request:
     branches: [ "main", "Front-Dev" ]
-    paths:
-      - 'mobile/**'
 
 jobs:
   build:
+    name: Mobile Build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -19,14 +16,45 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # mobile-ci.yml has no `paths:` filter (unlike before) so this check always
+    # fires and can safely be required on main. Instead, this step decides
+    # whether the actual build steps below need to run at all.
+    - name: Detect mobile changes
+      id: filter
+      working-directory: .
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+        else
+          BASE="${{ github.event.before }}"
+          HEAD="${{ github.sha }}"
+        fi
+        if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+        elif git diff --name-only "$BASE" "$HEAD" | grep -qE '^(mobile/|\.github/workflows/mobile-ci\.yml$)'; then
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Setup Flutter
+      if: steps.filter.outputs.changed == 'true'
       uses: subosito/flutter-action@v2
       with:
         channel: 'stable'
     - name: Install dependencies
+      if: steps.filter.outputs.changed == 'true'
       run: flutter pub get
     - name: Analyze
+      if: steps.filter.outputs.changed == 'true'
       run: flutter analyze
     # Note: Uncomment below if you have tests
     # - name: Run tests
     #   run: flutter test
+    - name: Skipped (no mobile changes)
+      if: steps.filter.outputs.changed != 'true'
+      run: echo "No changes under mobile/ — skipping build."

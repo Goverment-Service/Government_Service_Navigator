@@ -3,35 +3,57 @@ name: Backend CI
 on:
   push:
     branches: [ "main", "Backend-Dev" ]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend-ci.yml'
   pull_request:
     branches: [ "main", "Backend-Dev" ]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend-ci.yml'
 
 jobs:
   build:
+    name: Backend Build
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # backend-ci.yml has no `paths:` filter (unlike before) so this check always
+      # fires and can safely be required on main. Instead, this step decides
+      # whether the actual build steps below need to run at all.
+      - name: Detect backend changes
+        id: filter
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+          fi
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$BASE" "$HEAD" | grep -qE '^(backend/|\.github/workflows/backend-ci\.yml$)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Setup .NET 10
+        if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
       - name: Show .NET version
+        if: steps.filter.outputs.changed == 'true'
         run: dotnet --version
 
       - name: Show project files (debug)
+        if: steps.filter.outputs.changed == 'true'
         run: find backend -name "*.csproj" | sort
 
       - name: Cache NuGet packages
+        if: steps.filter.outputs.changed == 'true'
         uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
@@ -40,7 +62,13 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore packages
+        if: steps.filter.outputs.changed == 'true'
         run: dotnet restore backend/src/Government_Service_Navigator.Backend.csproj --verbosity normal
 
       - name: Build project
+        if: steps.filter.outputs.changed == 'true'
         run: dotnet build backend/src/Government_Service_Navigator.Backend.csproj --no-restore --configuration Release
+
+      - name: Skipped (no backend changes)
+        if: steps.filter.outputs.changed != 'true'
+        run: echo "No changes under backend/ — skipping build."

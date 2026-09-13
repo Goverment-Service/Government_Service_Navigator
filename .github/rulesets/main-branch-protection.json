@@ -34,6 +34,18 @@
         "require_last_push_approval": false,
         "required_review_thread_resolution": true
       }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          { "context": "Backend Build" },
+          { "context": "Web Build" },
+          { "context": "Mobile Build" }
+        ]
+      }
     }
   ]
 }

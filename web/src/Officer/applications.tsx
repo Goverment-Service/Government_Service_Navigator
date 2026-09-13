@@ -20,7 +20,9 @@ import {
   TableCell,
   Button,
   Search,
-  Tag
+  Tag,
+  Modal,
+  InlineNotification
 } from "@carbon/react";
 import {
   Dashboard,
@@ -33,7 +35,8 @@ import {
   Catalog,
   Edit,
   View,
-  Download
+  Download,
+  TrashCan
 } from "@carbon/icons-react";
 
 const headers = [
@@ -48,6 +51,9 @@ const headers = [
 export default function ApplicationsList() {
   const [rows, setRows] = useState<any[]>([]);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTemplates = async () => {
@@ -160,6 +166,37 @@ export default function ApplicationsList() {
     doc.save(`${(row.rawFormName || "application").replace(/\s+/g, "_")}.pdf`);
   };
 
+  const handleDeleteClick = (row: any) => {
+    setDeleteError(null);
+    setDeleteTarget(row);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const token = localStorage.getItem("officerToken");
+      const response = await fetch(`http://localhost:5119/api/templates/${deleteTarget.id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        setRows((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+        setDeleteTarget(null);
+      } else {
+        setDeleteError("Failed to delete the template. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      setDeleteError("An error occurred while deleting the template.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <HeaderContainer
       render={({ isSideNavExpanded }) => (
@@ -241,6 +278,7 @@ export default function ApplicationsList() {
                                     <Button kind="ghost" size="sm" renderIcon={Edit} iconDescription="Edit" hasIconOnly onClick={() => window.location.href = `/officer/Application_create/application_create?id=${row.id}`} />
                                     <Button kind="ghost" size="sm" renderIcon={View} iconDescription="View" hasIconOnly onClick={() => window.location.href = `/officer/application-preview?id=${row.id}`} />
                                     <Button kind="ghost" size="sm" renderIcon={Download} iconDescription="Download" hasIconOnly onClick={() => fullRow && handleDownload(fullRow)} />
+                                    <Button kind="ghost" size="sm" renderIcon={TrashCan} iconDescription="Delete" hasIconOnly onClick={() => fullRow && handleDeleteClick(fullRow)} />
                                   </TableCell>
                                 );
                               }
@@ -254,6 +292,33 @@ export default function ApplicationsList() {
                 </TableContainer>
               )}
             </DataTable>
+
+            <Modal
+              open={!!deleteTarget}
+              danger
+              modalHeading="Delete template"
+              primaryButtonText={isDeleting ? "Deleting…" : "Delete"}
+              secondaryButtonText="Cancel"
+              primaryButtonDisabled={isDeleting}
+              onRequestClose={() => { if (!isDeleting) { setDeleteTarget(null); setDeleteError(null); } }}
+              onRequestSubmit={handleConfirmDelete}
+              onSecondarySubmit={() => { setDeleteTarget(null); setDeleteError(null); }}
+            >
+              {deleteError && (
+                <InlineNotification
+                  kind="error"
+                  title="Error"
+                  subtitle={deleteError}
+                  lowContrast
+                  hideCloseButton
+                  style={{ marginBottom: '1rem' }}
+                />
+              )}
+              <p>
+                Are you sure you want to delete{" "}
+                <strong>{deleteTarget?.rawFormName || deleteTarget?.formName}</strong>? This action cannot be undone.
+              </p>
+            </Modal>
           </main>
         </>
       )}

@@ -69,5 +69,16 @@ namespace Government_Service_Navigator.Backend.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+        [HttpDelete("{id}")]
+        public async Task<IActionResult>DeleteTemplate(Guid id)
+        {
+            try {
+                var deleted = await _templateService.DeleteTemplateAsync(id);
+                if (!deleted) return NotFound();
+                return NoContent();
+            } catch (Exception ex) {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
     }
 }

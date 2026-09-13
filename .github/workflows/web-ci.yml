@@ -3,17 +3,12 @@ name: Web CI
 on:
   push:
     branches: [ "main", "Front-Dev" ]
-    paths:
-      - 'web/**'
-      - '.github/workflows/web-ci.yml'
   pull_request:
     branches: [ "main", "Front-Dev" ]
-    paths:
-      - 'web/**'
-      - '.github/workflows/web-ci.yml'
 
 jobs:
   build:
+    name: Web Build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -21,8 +16,33 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # web-ci.yml has no `paths:` filter (unlike before) so this check always
+      # fires and can safely be required on main. Instead, this step decides
+      # whether the actual build steps below need to run at all.
+      - name: Detect web changes
+        id: filter
+        working-directory: .
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+          fi
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$BASE" "$HEAD" | grep -qE '^(web/|\.github/workflows/web-ci\.yml$)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Use Node.js
+        if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
@@ -30,20 +50,29 @@ jobs:
           cache-dependency-path: 'web/package-lock.json'
 
       - name: Install dependencies
+        if: steps.filter.outputs.changed == 'true'
         run: npm ci
 
       - name: Lint
+        if: steps.filter.outputs.changed == 'true'
         run: npm run lint
 
       - name: Type check
+        if: steps.filter.outputs.changed == 'true'
         run: npx tsc --noEmit
 
       - name: Build
+        if: steps.filter.outputs.changed == 'true'
         run: npm run build
 
       - name: Upload build artifact
+        if: steps.filter.outputs.changed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: web-dist
           path: web/dist
           retention-days: 7
+
+      - name: Skipped (no web changes)
+        if: steps.filter.outputs.changed != 'true'
+        run: echo "No changes under web/ — skipping build."

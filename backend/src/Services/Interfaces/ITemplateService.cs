@@ -10,5 +10,6 @@ namespace Government_Service_Navigator.Backend.Services.Interfaces
         Task<Template?> GetTemplateByIdAsync(Guid id);
         Task<Template> UpdateTemplateAsync(Guid id, CreateTemplateRequest request);
         Task<Template> UpdateTemplateStatusAsync(Guid id, string status);
+        Task<bool> DeleteTemplateAsync(Guid id);
     }
 }

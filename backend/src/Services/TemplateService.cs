@@ -87,5 +87,15 @@ namespace Government_Service_Navigator.Backend.Services
 
             return template;
         }
+
+        public async Task<bool> DeleteTemplateAsync(Guid id)
+        {
+            var template = await _context.Templates.FirstOrDefaultAsync(t => t.Id == id);
+            if (template == null) return false;
+
+            _context.Templates.Remove(template);
+            await _context.SaveChangesAsync();
+            return true;
+        }
     }
 }

@@ -20,7 +20,6 @@ import {
   TableCell,
   Button,
   Search,
-  Tag,
   Modal,
   InlineNotification
 } from "@carbon/react";
@@ -38,6 +37,15 @@ import {
   Download,
   TrashCan
 } from "@carbon/icons-react";
+
+const STATUS_OPTIONS: { value: string; label: string; bg: string; color: string }[] = [
+  { value: "Active", label: "Active", bg: "#defbe6", color: "#0e6027" },
+  { value: "Inactive", label: "Deactive", bg: "#e0e0e0", color: "#393939" },
+  { value: "Draft", label: "Draft", bg: "#e8daff", color: "#6929c4" },
+];
+
+const getStatusStyle = (status: string) =>
+  STATUS_OPTIONS.find((s) => s.value === status) || STATUS_OPTIONS[0];
 
 const headers = [
   { key: "templateId", header: "Template ID" },
@@ -93,8 +101,7 @@ export default function ApplicationsList() {
     window.location.href = "/officer/login";
   };
 
-  const handleToggleStatus = async (id: string, currentStatus: string) => {
-    const nextStatus = currentStatus === "Active" ? "Inactive" : "Active";
+  const handleStatusChange = async (id: string, nextStatus: string) => {
     setUpdatingStatusId(id);
     try {
       const token = localStorage.getItem("officerToken");
@@ -259,16 +266,36 @@ export default function ApplicationsList() {
                           <TableRow {...getRowProps({ row })} key={row.id}>
                             {row.cells.map((cell) => {
                               if (cell.info.header === 'status') {
+                                 const statusStyle = getStatusStyle(cell.value);
                                  return (
                                    <TableCell key={cell.id}>
-                                     <Tag
-                                       type={cell.value === 'Active' ? 'green' : 'gray'}
-                                       style={{ cursor: 'pointer' }}
-                                       title="Click to toggle status"
-                                       onClick={() => handleToggleStatus(row.id, cell.value)}
+                                     <select
+                                       value={cell.value}
+                                       disabled={updatingStatusId === row.id}
+                                       title="Click to change status"
+                                       onChange={(e) => handleStatusChange(row.id, e.target.value)}
+                                       style={{
+                                         backgroundColor: statusStyle.bg,
+                                         color: statusStyle.color,
+                                         border: 'none',
+                                         borderRadius: '999px',
+                                         padding: '0.2rem 0.75rem',
+                                         fontSize: '0.75rem',
+                                         fontWeight: 600,
+                                         cursor: updatingStatusId === row.id ? 'not-allowed' : 'pointer',
+                                       }}
                                      >
-                                       {updatingStatusId === row.id ? 'Updating…' : cell.value}
-                                     </Tag>
+                                       {STATUS_OPTIONS.map((opt) => (
+                                         <option key={opt.value} value={opt.value}>
+                                           {opt.label}
+                                         </option>
+                                       ))}
+                                     </select>
+                                     {updatingStatusId === row.id && (
+                                       <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: '#525252' }}>
+                                         Updating…
+                                       </span>
+                                     )}
                                    </TableCell>
                                  );
                               }

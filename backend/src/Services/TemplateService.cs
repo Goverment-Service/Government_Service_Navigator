@@ -75,7 +75,7 @@ namespace Government_Service_Navigator.Backend.Services
 
         public async Task<Template> UpdateTemplateStatusAsync(Guid id, string status)
         {
-            var allowedStatuses = new[] { "Active", "Inactive" };
+            var allowedStatuses = new[] { "Active", "Inactive", "Draft" };
             if (!allowedStatuses.Contains(status))
                 throw new ArgumentException($"Invalid status '{status}'. Allowed values: {string.Join(", ", allowedStatuses)}");
 

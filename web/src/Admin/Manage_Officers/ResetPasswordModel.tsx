@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Modal,
   PasswordInput,
@@ -9,7 +9,7 @@ import {
 interface ResetPasswordModalProps {
   isOpen: boolean;
   onClose: () => void;
-  officer: any; 
+  officer: { id: string; name?: string } | null;
 }
 
 export default function ResetPasswordModal({ isOpen, onClose, officer }: ResetPasswordModalProps) {
@@ -19,6 +19,7 @@ export default function ResetPasswordModal({ isOpen, onClose, officer }: ResetPa
   const [newPassword, setNewPassword] = useState("");
 
   const handleSubmit = async () => {
+    if (!officer) return;
     setFormError(null);
     setSuccessMsg(null);
     setIsSubmitting(true);
@@ -47,11 +48,12 @@ export default function ResetPasswordModal({ isOpen, onClose, officer }: ResetPa
         }
         setFormError(errorMessage);
       }
-    } catch (error: any) {
-      if (error.message === "Failed to fetch") {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message === "Failed to fetch") {
          setFormError("Backend is offline. Please ensure the server is running on port 5119.");
       } else {
-         setFormError(`Request failed: ${error.message}`);
+         setFormError(`Request failed: ${message}`);
       }
     } finally {
       setIsSubmitting(false);

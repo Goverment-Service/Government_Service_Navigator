@@ -34,9 +34,21 @@ import {
   WarningFilled,
 } from "@carbon/icons-react";
 
+interface Service {
+  id: number;
+  serviceId: string;
+  name: string;
+}
+
+interface EvaluationResult {
+  isEligible: boolean;
+  matchPercentage: number;
+  missingCriteria: string[];
+}
+
 export default function EligibilitySimulator() {
   const [isSideNavExpanded] = useState(true);
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
 
   // Citizen profile test input state
@@ -45,11 +57,11 @@ export default function EligibilitySimulator() {
     citizenship: "Sri Lankan",
   });
 
-  const [evaluationResult, setEvaluationResult] = useState<any>(null);
+  const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [notification, setNotification] = useState<{
-    type: string;
+    type: "success" | "error";
     title: string;
     subtitle: string;
   } | null>(null);
@@ -215,7 +227,7 @@ export default function EligibilitySimulator() {
         {notification && (
           <div style={{ marginBottom: "1.5rem", width: "100%" }}>
             <InlineNotification
-              kind={notification.type as any}
+              kind={notification.type}
               title={notification.title}
               subtitle={notification.subtitle}
               onClose={() => setNotification(null)}

@@ -1,5 +1,5 @@
 import "@carbon/styles/css/styles.css";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Header,
   HeaderName,
@@ -32,15 +32,30 @@ import {
   TrashCan,
 } from "@carbon/icons-react";
 
+interface Service {
+  id: number;
+  serviceId: string;
+  name: string;
+}
+
+interface EligibilityRule {
+  id: number;
+  serviceProcedureId?: number;
+  field: string;
+  operator: string;
+  value: string;
+  isStrict?: boolean;
+}
+
 export default function EligibilityRuleBuilder() {
   const [isSideNavExpanded] = useState(true);
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
-  const [rules, setRules] = useState<any[]>([]);
+  const [rules, setRules] = useState<EligibilityRule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [notification, setNotification] = useState<{
-    type: string;
+    type: "success" | "error";
     title: string;
     subtitle: string;
   } | null>(null);
@@ -64,17 +79,20 @@ export default function EligibilityRuleBuilder() {
   useEffect(() => {
     if (!selectedServiceId) return;
 
-    setIsLoading(true);
-    fetch(`http://localhost:5119/api/services/${selectedServiceId}`)
-      .then((res) => res.json())
-      .then((data) => {
+    const loadRules = async () => {
+      setIsLoading(true);
+      try {
+        const res = await fetch(`http://localhost:5119/api/services/${selectedServiceId}`);
+        const data = await res.json();
         setRules(data.eligibilityRules || []);
-        setIsLoading(false);
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error("Error fetching rules for service:", error);
+      } finally {
         setIsLoading(false);
-      });
+      }
+    };
+
+    loadRules();
   }, [selectedServiceId]);
 
   const handleRuleChange = (id: number, key: string, val: string) => {
@@ -102,7 +120,13 @@ export default function EligibilityRuleBuilder() {
 
   const handleSave = async () => {
     try {
-      const payload = rules.map(({ id, ...rest }) => rest);
+      const payload = rules.map((r) => ({
+        serviceProcedureId: r.serviceProcedureId,
+        field: r.field,
+        operator: r.operator,
+        value: r.value,
+        isStrict: r.isStrict,
+      }));
 
       const response = await fetch(
         `http://localhost:5119/api/services/${selectedServiceId}/eligibility-rules`,
@@ -238,7 +262,7 @@ export default function EligibilityRuleBuilder() {
         {notification && (
           <div style={{ marginBottom: "1.5rem", width: "100%" }}>
             <InlineNotification
-              kind={notification.type as any}
+              kind={notification.type}
               title={notification.title}
               subtitle={notification.subtitle}
               onClose={() => setNotification(null)}

@@ -1,5 +1,5 @@
 import '@carbon/styles/css/styles.css';
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Header,
   HeaderContainer,
@@ -35,33 +35,36 @@ import {
   Catalog
 } from "@carbon/icons-react";
 
-export default function Profile() {
-  const [officerData, setOfficerData] = useState({
+function getStoredOfficerData() {
+  const defaults = {
     fullName: "Verifying Officer",
     email: "officer@gov.lk",
     role: "Verifying Officer",
     department: "Department of Registration"
-  });
+  };
+
+  // Retrieve the officer details stored during login
+  const storedUser = localStorage.getItem("officerUser");
+  if (storedUser) {
+    try {
+      const parsedUser = JSON.parse(storedUser);
+      return {
+        fullName: parsedUser.fullName || defaults.fullName,
+        email: parsedUser.email || defaults.email,
+        role: parsedUser.role || defaults.role,
+        department: parsedUser.department || defaults.department
+      };
+    } catch {
+      // Handle parse error silently
+    }
+  }
+  return defaults;
+}
+
+export default function Profile() {
+  const [officerData, setOfficerData] = useState(getStoredOfficerData);
 
   const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    // Retrieve the officer details stored during login
-    const storedUser = localStorage.getItem("officerUser");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setOfficerData({
-          fullName: parsedUser.fullName || "Verifying Officer",
-          email: parsedUser.email || "officer@gov.lk",
-          role: parsedUser.role || "Verifying Officer",
-          department: parsedUser.department || "Department of Registration"
-        });
-      } catch (e) {
-        // Handle parse error silently
-      }
-    }
-  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("officerToken");
@@ -81,7 +84,7 @@ export default function Profile() {
 
   return (
     <HeaderContainer
-      render={({ isSideNavExpanded, onClickSideNavExpand }) => (
+      render={({ isSideNavExpanded }) => (
         <>
           <Header aria-label="Registry Portal System">
             <HeaderName href="#" prefix="GSN">

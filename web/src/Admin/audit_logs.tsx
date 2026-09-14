@@ -1,5 +1,4 @@
 import '@carbon/styles/css/styles.css'; // This fixes the unstyled layout![cite: 5]
-import { useState, useEffect } from "react";
 import {
   Header,
   HeaderContainer,
@@ -57,20 +56,6 @@ const rows = [
 ];
 
 export default function AuditLogs() {
-  const [, setAdminName] = useState("System Admin");
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem("officerUser");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        if (parsedUser.fullName) setAdminName(parsedUser.fullName);
-      } catch {
-        // ignore parse error[cite: 5]
-      }
-    }
-  }, []);
-
   const handleLogout = () => {
     localStorage.removeItem("officerToken");
     localStorage.removeItem("officerUser");
@@ -203,13 +188,13 @@ export default function AuditLogs() {
                           {row.cells.map((cell) => {
                             if (cell.info.header === 'status') {
                               // Dynamic tag coloring based on the log status[cite: 5]
-                              let tagType = "green";
+                              let tagType: "green" | "red" | "magenta" = "green";
                               if (cell.value === "Failed" || cell.value === "Flagged") tagType = "red";
                               if (cell.value === "Warning") tagType = "magenta";
 
                               return (
                                 <TableCell key={cell.id}>
-                                  <Tag type={tagType as any}>
+                                  <Tag type={tagType}>
                                     {cell.value}
                                   </Tag>
                                 </TableCell>

@@ -1,5 +1,5 @@
 const DOMPurify = {
-  sanitize: (val: any) => val,
+  sanitize: <T>(val: T): T => val,
   isValidAttribute: () => true,
   addHook: () => {},
 };

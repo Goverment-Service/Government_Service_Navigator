@@ -16,19 +16,24 @@ import {
 import { Dashboard, Document, Time, User, Logout, ArrowLeft, Catalog, Add } from "@carbon/icons-react";
 import type { FormField } from "./Application_create/TemplateBuilder";
 
-export default function ApplicationPreview() {
-  const [template, setTemplate] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+interface TemplateField extends FormField {
+  orderIndex?: number;
+}
 
-  useEffect(() => {
-    const queryParams = new URLSearchParams(window.location.search);
-    const id = queryParams.get("id");
-    if (id) {
-      fetchTemplateData(id);
-    } else {
-      setLoading(false);
-    }
-  }, []);
+interface Template {
+  formName: string;
+  subTitle?: string;
+  lawText?: string;
+  fields?: TemplateField[];
+}
+
+function getTemplateIdFromUrl(): string | null {
+  return new URLSearchParams(window.location.search).get("id");
+}
+
+export default function ApplicationPreview() {
+  const [template, setTemplate] = useState<Template | null>(null);
+  const [loading, setLoading] = useState(() => !!getTemplateIdFromUrl());
 
   const fetchTemplateData = async (id: string) => {
     try {
@@ -43,6 +48,16 @@ export default function ApplicationPreview() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const id = getTemplateIdFromUrl();
+    if (id) {
+      const load = async () => {
+        await fetchTemplateData(id);
+      };
+      load();
+    }
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("officerToken");
@@ -115,7 +130,7 @@ export default function ApplicationPreview() {
             />
           </div>
         );
-      case 'table':
+      case 'table': {
         const cols = field.options?.split(',').map(c => c.trim()) || ['Column 1'];
         return (
           <div key={field.id} style={{ marginBottom: '1.5rem', overflowX: 'auto' }}>
@@ -141,6 +156,7 @@ export default function ApplicationPreview() {
             <Button kind="ghost" size="sm" style={{ marginTop: '0.5rem' }}>+ Add Row</Button>
           </div>
         );
+      }
       default:
         return null;
     }
@@ -200,7 +216,7 @@ export default function ApplicationPreview() {
             </div>
 
             <form onSubmit={(e) => { e.preventDefault(); alert('This is just a preview!'); }}>
-              {[...(template.fields || [])].sort((a: any, b: any) => a.orderIndex - b.orderIndex).map((field: FormField) => renderField(field))}
+              {[...(template.fields || [])].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0)).map((field) => renderField(field))}
 
               <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid #e0e0e0', display: 'flex', justifyContent: 'flex-end' }}>
                 <Button kind="secondary" style={{ marginRight: '1rem' }} onClick={() => window.location.href = "/officer/applications"}>

@@ -1,5 +1,4 @@
 import '@carbon/styles/css/styles.css';
-import { useState, useEffect } from "react";
 import {
   Header,
   HeaderContainer,
@@ -207,14 +206,14 @@ export default function PendingReviews() {
                             
                             // Format Status with Carbon Tags based on state severity
                             if (cell.info.header === 'status') {
-                              let tagColor = 'blue';
+                              let tagColor: 'blue' | 'purple' | 'red' | 'gray' = 'blue';
                               if (cell.value === 'Awaiting Citizen') tagColor = 'purple';
                               if (cell.value === 'Action Required') tagColor = 'red';
                               if (cell.value === 'External Block') tagColor = 'gray';
 
                               return (
                                 <TableCell key={cell.id}>
-                                  <Tag type={tagColor as any}>
+                                  <Tag type={tagColor}>
                                     {cell.value}
                                   </Tag>
                                 </TableCell>

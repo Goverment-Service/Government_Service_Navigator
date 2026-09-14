@@ -1,5 +1,5 @@
 import '@carbon/styles/css/styles.css'; 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Header,
   HeaderContainer,
@@ -35,24 +35,11 @@ import {
 } from "@carbon/icons-react";
 
 export default function SystemSettings() {
-  const [, setAdminName] = useState("System Admin");
   const [isSaving, setIsSaving] = useState(false);
 
   // Example Setting States
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [enforce2FA, setEnforce2FA] = useState(true);
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem("officerUser");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        if (parsedUser.fullName) setAdminName(parsedUser.fullName);
-      } catch {
-        // ignore parse error
-      }
-    }
-  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("officerToken");

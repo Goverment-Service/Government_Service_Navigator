@@ -1,5 +1,5 @@
 import '@carbon/styles/css/styles.css';
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Header,
   HeaderContainer,
@@ -52,21 +52,22 @@ const rows = [
   { id: "3", appId: "GSN-2026-9021", citizen: "Amesh Perera", service: "Character Verification", time: "1 hour ago", priority: "Normal" },
 ];
 
-export default function OfficerDashboard() {
-  const [officerName, setOfficerName] = useState("Verifying Officer");
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem("officerUser");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        if (parsedUser.fullName) setOfficerName(parsedUser.fullName);
-        else if (parsedUser.email) setOfficerName(parsedUser.email.split("@")[0]);
-      } catch (e) {
-        // Handle parse error silently
-      }
+function getStoredOfficerName(): string {
+  const storedUser = localStorage.getItem("officerUser");
+  if (storedUser) {
+    try {
+      const parsedUser = JSON.parse(storedUser);
+      if (parsedUser.fullName) return parsedUser.fullName;
+      if (parsedUser.email) return parsedUser.email.split("@")[0];
+    } catch {
+      // Handle parse error silently
     }
-  }, []);
+  }
+  return "Verifying Officer";
+}
+
+export default function OfficerDashboard() {
+  const [officerName] = useState(getStoredOfficerName);
 
   const handleLogout = () => {
     localStorage.removeItem("officerToken");
@@ -76,7 +77,7 @@ export default function OfficerDashboard() {
 
   return (
     <HeaderContainer
-      render={({ isSideNavExpanded, onClickSideNavExpand }) => (
+      render={({ isSideNavExpanded }) => (
         <>
           <Header aria-label="Registry Portal System">
             <HeaderName href="#" prefix="GSN">

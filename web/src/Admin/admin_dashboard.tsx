@@ -1,5 +1,5 @@
 import "@carbon/styles/css/styles.css";
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Header,
   HeaderContainer,
@@ -73,20 +73,21 @@ const rows = [
   },
 ];
 
-export default function AdminDashboard() {
-  const [adminName, setAdminName] = useState("System Admin");
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem("officerUser");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        if (parsedUser.fullName) setAdminName(parsedUser.fullName);
-      } catch {
-        // ignore parse error
-      }
+function getStoredAdminName(): string {
+  const storedUser = localStorage.getItem("officerUser");
+  if (storedUser) {
+    try {
+      const parsedUser = JSON.parse(storedUser);
+      if (parsedUser.fullName) return parsedUser.fullName;
+    } catch {
+      // ignore parse error
     }
-  }, []);
+  }
+  return "System Admin";
+}
+
+export default function AdminDashboard() {
+  const [adminName] = useState(getStoredAdminName);
 
   const handleLogout = async () => {
     try {

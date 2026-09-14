@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Modal,
   TextInput,
@@ -8,17 +8,26 @@ import {
   InlineNotification
 } from "@carbon/react";
 
+interface Officer {
+  id: string;
+  name?: string;
+  email?: string;
+  department?: string;
+  role?: string;
+  status?: string;
+}
+
 interface EditOfficerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  officer: any; // Pass the selected officer row data here
+  officer: Officer | null; // Pass the selected officer row data here
 }
 
 export default function EditOfficerModal({ isOpen, onClose, onSuccess, officer }: EditOfficerModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState({
     fullName: "",
     department: "",
@@ -26,7 +35,9 @@ export default function EditOfficerModal({ isOpen, onClose, onSuccess, officer }
   });
 
   // Populate form when the modal opens with a specific officer
-  useEffect(() => {
+  const [prevOfficer, setPrevOfficer] = useState(officer);
+  if (officer !== prevOfficer) {
+    setPrevOfficer(officer);
     if (officer) {
       setFormData({
         fullName: officer.name || "",
@@ -34,9 +45,10 @@ export default function EditOfficerModal({ isOpen, onClose, onSuccess, officer }
         role: officer.role || "Verifying Officer"
       });
     }
-  }, [officer]);
+  }
 
   const handleSubmit = async () => {
+    if (!officer) return;
     setFormError(null);
     setIsSubmitting(true);
 
@@ -55,7 +67,7 @@ export default function EditOfficerModal({ isOpen, onClose, onSuccess, officer }
         const errorData = await response.json();
         setFormError(errorData.message || "Failed to update officer profile.");
       }
-    } catch (error) {
+    } catch {
       setFormError("Network error. Could not connect to the server.");
     } finally {
       setIsSubmitting(false);

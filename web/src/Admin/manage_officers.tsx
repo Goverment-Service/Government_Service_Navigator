@@ -1,5 +1,5 @@
-import '@carbon/styles/css/styles.css'; 
-import React, { useState, useEffect, useCallback } from "react";
+import '@carbon/styles/css/styles.css';
+import { useState, useEffect, useCallback } from "react";
 import {
   Header,
   HeaderContainer,
@@ -41,7 +41,10 @@ import {
   Settings,
   Logout,
   Notification,
-  Add
+  Add,
+  Rule,
+  Catalog,
+  Categories,
 } from "@carbon/icons-react";
 
 // 1. Import Components 
@@ -55,12 +58,12 @@ const headers = [
   { key: "role", header: "Role / Designation" },
   { key: "department", header: "Department" },
   { key: "status", header: "Account Status" },
-  { key: "actions", header: "" }, 
+  { key: "actions", header: "" },
 ];
 
 export default function ManageOfficers() {
-  const [adminName, setAdminName] = useState("System Admin");
-  
+  const [, setAdminName] = useState("System Admin");
+
   const [officerRows, setOfficerRows] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -150,38 +153,74 @@ export default function ManageOfficers() {
   return (
     <>
       <HeaderContainer
-        render={({ isSideNavExpanded, onClickSideNavExpand }) => (
+        render={({ isSideNavExpanded }) => (
           <Header aria-label="Registry Admin System">
             <HeaderName href="#" prefix="GSN">
               Registry Admin
             </HeaderName>
-            
+
             <HeaderGlobalBar>
               <div style={{ width: '250px', marginRight: '1rem', display: 'flex', alignItems: 'center' }}>
-                 <Search size="sm" id="search-records-global" labelText="Search" placeholder="Search records..." />
+                <Search size="sm" id="search-records-global" labelText="Search" placeholder="Search records..." />
               </div>
-              <HeaderGlobalAction aria-label="Notifications" onClick={() => {}}>
+              <HeaderGlobalAction aria-label="Notifications" onClick={() => { }}>
                 <Notification size={20} />
               </HeaderGlobalAction>
             </HeaderGlobalBar>
 
             <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="/admin/dashboard">
+                <SideNavLink renderIcon={Dashboard} href="#">
                   Overview
                 </SideNavLink>
-                <SideNavLink renderIcon={UserMultiple} href="/admin/manage-officers" isActive>
+
+                {/* --- SUPUN'S ASSIGNED COMPONENTS --- */}
+                <SideNavLink renderIcon={Catalog} href="/admin/services">
+                  Service Catalog
+                </SideNavLink>
+                <SideNavLink renderIcon={Rule} href="/admin/services/rules">
+                  Eligibility Rules
+                </SideNavLink>
+                <SideNavLink
+                  renderIcon={Categories}
+                  href="/admin/services/config"
+                >
+                  Service Configuration
+                </SideNavLink>
+                <SideNavLink
+                  renderIcon={Rule}
+                  href="/admin/services/simulator"
+                >
+                  Eligibility Simulator
+                </SideNavLink>
+                {/* ---------------------------------- */}
+
+                <SideNavLink
+                  renderIcon={UserMultiple}
+                  href="/admin/manage-officers"
+                  isActive
+                >
                   Manage Officers
                 </SideNavLink>
                 <SideNavLink renderIcon={Security} href="/admin/audit-logs">
                   Audit Logs
                 </SideNavLink>
-                <SideNavLink renderIcon={Settings} href="/admin/system-settings">
+                <SideNavLink
+                  renderIcon={Settings}
+                  href="/admin/system-settings"
+                >
                   System Settings
                 </SideNavLink>
-                
-                <div style={{ marginTop: 'auto', borderTop: '1px solid #393939' }}>
-                  <SideNavLink renderIcon={Logout} onClick={handleLogout} style={{ cursor: 'pointer' }}>
+
+                {/* Logout Button */}
+                <div
+                  style={{ marginTop: "auto", borderTop: "1px solid #393939" }}
+                >
+                  <SideNavLink
+                    renderIcon={Logout}
+                    onClick={handleLogout}
+                    style={{ cursor: "pointer" }}
+                  >
                     Sign Out
                   </SideNavLink>
                 </div>
@@ -192,7 +231,7 @@ export default function ManageOfficers() {
       />
 
       <main style={{ marginTop: '3rem', padding: '2rem', marginLeft: '16rem', backgroundColor: '#f4f4f4', minHeight: '100vh' }}>
-        
+
         <div style={{ marginBottom: '2rem' }}>
           <h1 style={{ fontSize: '2rem', fontWeight: 400, color: '#161616' }}>
             Officer Directory
@@ -240,7 +279,7 @@ export default function ManageOfficers() {
                               </TableCell>
                             );
                           }
-                          
+
                           if (cell.info.header === 'actions') {
                             // 3. Find the original officer object based on the row ID
                             const currentOfficer = officerRows.find(o => o.id === row.id);
@@ -248,24 +287,24 @@ export default function ManageOfficers() {
                             return (
                               <TableCell key={cell.id} style={{ padding: 0, width: '48px' }}>
                                 <OverflowMenu flipped direction="bottom">
-                                  <OverflowMenuItem 
-                                    itemText="Edit Profile" 
+                                  <OverflowMenuItem
+                                    itemText="Edit Profile"
                                     onClick={() => {
                                       setSelectedOfficer(currentOfficer);
                                       setActiveActionModal("edit");
                                     }}
                                   />
-                                  <OverflowMenuItem 
-                                    itemText="Reset Password" 
+                                  <OverflowMenuItem
+                                    itemText="Reset Password"
                                     onClick={() => {
                                       setSelectedOfficer(currentOfficer);
                                       setActiveActionModal("reset");
                                     }}
                                   />
-                                  <OverflowMenuItem 
-                                    hasDivider 
-                                    isDelete={currentOfficer?.status !== "Suspended"} 
-                                    itemText={currentOfficer?.status === "Suspended" ? "Reactivate Account" : "Suspend Account"} 
+                                  <OverflowMenuItem
+                                    hasDivider
+                                    isDelete={currentOfficer?.status !== "Suspended"}
+                                    itemText={currentOfficer?.status === "Suspended" ? "Reactivate Account" : "Suspend Account"}
                                     onClick={() => {
                                       setSelectedOfficer(currentOfficer);
                                       setActiveActionModal("suspend");
@@ -300,7 +339,7 @@ export default function ManageOfficers() {
           <p style={{ marginBottom: '1.5rem', color: '#525252' }}>
             Fill in the details below to provision a new verifying officer account.
           </p>
-          
+
           {formError && (
             <InlineNotification
               kind="error"
@@ -320,7 +359,7 @@ export default function ManageOfficers() {
               onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
               disabled={isSubmitting}
             />
-            
+
             <TextInput
               id="email"
               type="email"
@@ -330,7 +369,7 @@ export default function ManageOfficers() {
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               disabled={isSubmitting}
             />
-            
+
             <PasswordInput
               id="password"
               labelText="Temporary Password"
@@ -339,7 +378,7 @@ export default function ManageOfficers() {
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               disabled={isSubmitting}
             />
-            
+
             <TextInput
               id="department"
               labelText="Department"

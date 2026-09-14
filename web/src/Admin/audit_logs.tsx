@@ -1,5 +1,5 @@
 import '@carbon/styles/css/styles.css'; // This fixes the unstyled layout![cite: 5]
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Header,
   HeaderContainer,
@@ -31,7 +31,10 @@ import {
   Settings,
   Logout,
   Notification,
-  Download
+  Download,
+  Catalog,
+  Rule,
+  Categories
 } from "@carbon/icons-react";
 
 // Expanded Table Data for Audit Logs
@@ -54,7 +57,7 @@ const rows = [
 ];
 
 export default function AuditLogs() {
-  const [adminName, setAdminName] = useState("System Admin");
+  const [, setAdminName] = useState("System Admin");
 
   useEffect(() => {
     const storedUser = localStorage.getItem("officerUser");
@@ -76,7 +79,7 @@ export default function AuditLogs() {
 
   return (
     <HeaderContainer
-      render={({ isSideNavExpanded, onClickSideNavExpand }) => (
+      render={({ isSideNavExpanded }) => (
         <>
           <Header aria-label="Registry Admin System">
             <HeaderName href="#" prefix="GSN">
@@ -94,23 +97,56 @@ export default function AuditLogs() {
 
             <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="/admin/dashboard">
+                <SideNavLink renderIcon={Dashboard} href="#">
                   Overview
                 </SideNavLink>
-                <SideNavLink renderIcon={UserMultiple} href="/admin/manage-officers">
+
+                {/* --- SUPUN'S ASSIGNED COMPONENTS --- */}
+                <SideNavLink renderIcon={Catalog} href="/admin/services">
+                  Service Catalog
+                </SideNavLink>
+                <SideNavLink renderIcon={Rule} href="/admin/services/rules">
+                  Eligibility Rules
+                </SideNavLink>
+                <SideNavLink
+                  renderIcon={Categories}
+                  href="/admin/services/config"
+                >
+                  Service Configuration
+                </SideNavLink>
+                <SideNavLink
+                  renderIcon={Rule}
+                  href="/admin/services/simulator"
+                >
+                  Eligibility Simulator
+                </SideNavLink>
+                {/* ---------------------------------- */}
+
+                <SideNavLink
+                  renderIcon={UserMultiple}
+                  href="/admin/manage-officers"
+                >
                   Manage Officers
                 </SideNavLink>
-                {/* Active state moved to Audit Logs[cite: 5] */}
                 <SideNavLink renderIcon={Security} href="/admin/audit-logs" isActive>
                   Audit Logs
                 </SideNavLink>
-                <SideNavLink renderIcon={Settings} href="/admin/system-settings">
+                <SideNavLink
+                  renderIcon={Settings}
+                  href="/admin/system-settings"
+                >
                   System Settings
                 </SideNavLink>
-                
+
                 {/* Logout Button */}
-                <div style={{ marginTop: 'auto', borderTop: '1px solid #393939' }}>
-                  <SideNavLink renderIcon={Logout} onClick={handleLogout} style={{ cursor: 'pointer' }}>
+                <div
+                  style={{ marginTop: "auto", borderTop: "1px solid #393939" }}
+                >
+                  <SideNavLink
+                    renderIcon={Logout}
+                    onClick={handleLogout}
+                    style={{ cursor: "pointer" }}
+                  >
                     Sign Out
                   </SideNavLink>
                 </div>

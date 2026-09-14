@@ -56,10 +56,30 @@ const headers = [
   { key: "actions", header: "Actions" },
 ];
 
+interface FormField {
+  label: string;
+  type: string;
+  isRequired: boolean;
+  orderIndex: number;
+}
+
+interface TemplateRow {
+  id: string;
+  templateId: string;
+  formName: string;
+  rawFormName: string;
+  subTitle?: string;
+  lawText?: string;
+  createdDate: string;
+  fieldsCount: number;
+  fields: FormField[];
+  status: string;
+}
+
 export default function ApplicationsList() {
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<TemplateRow[]>([]);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TemplateRow | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -74,7 +94,15 @@ export default function ApplicationsList() {
         });
         if (response.ok) {
           const data = await response.json();
-          const formattedRows = data.map((t: any) => ({
+          const formattedRows = data.map((t: {
+            id: string;
+            formName: string;
+            subTitle?: string;
+            lawText?: string;
+            createdAt: string;
+            fields?: FormField[];
+            status?: string;
+          }) => ({
             id: t.id,
             templateId: t.id.substring(0, 8).toUpperCase(),
             formName: t.formName + (t.subTitle ? ` - ${t.subTitle}` : ""),
@@ -125,7 +153,7 @@ export default function ApplicationsList() {
     }
   };
 
-  const handleDownload = (row: any) => {
+  const handleDownload = (row: TemplateRow) => {
     const doc = new jsPDF();
     const marginX = 15;
     let y = 20;
@@ -159,8 +187,8 @@ export default function ApplicationsList() {
     y += 8;
 
     doc.setFontSize(10);
-    const sortedFields = [...(row.fields || [])].sort((a: any, b: any) => a.orderIndex - b.orderIndex);
-    sortedFields.forEach((field: any, index: number) => {
+    const sortedFields = [...(row.fields || [])].sort((a, b) => a.orderIndex - b.orderIndex);
+    sortedFields.forEach((field, index: number) => {
       if (y > 280) {
         doc.addPage();
         y = 20;
@@ -173,7 +201,7 @@ export default function ApplicationsList() {
     doc.save(`${(row.rawFormName || "application").replace(/\s+/g, "_")}.pdf`);
   };
 
-  const handleDeleteClick = (row: any) => {
+  const handleDeleteClick = (row: TemplateRow) => {
     setDeleteError(null);
     setDeleteTarget(row);
   };

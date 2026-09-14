@@ -1,5 +1,5 @@
 import '@carbon/styles/css/styles.css';
-import React, { useState } from "react";
+import { useState } from "react";
 import type { FormEvent } from "react";
 import {
   TextInput,

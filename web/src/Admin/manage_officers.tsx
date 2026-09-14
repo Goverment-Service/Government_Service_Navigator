@@ -61,10 +61,17 @@ const headers = [
   { key: "actions", header: "" },
 ];
 
-export default function ManageOfficers() {
-  const [, setAdminName] = useState("System Admin");
+interface Officer {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  department: string;
+  status: string;
+}
 
-  const [officerRows, setOfficerRows] = useState<any[]>([]);
+export default function ManageOfficers() {
+  const [officerRows, setOfficerRows] = useState<Officer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Add Officer Form State
@@ -80,11 +87,10 @@ export default function ManageOfficers() {
   });
 
   // 2. State for the Action Modals
-  const [selectedOfficer, setSelectedOfficer] = useState<any>(null);
+  const [selectedOfficer, setSelectedOfficer] = useState<Officer | null>(null);
   const [activeActionModal, setActiveActionModal] = useState<"edit" | "reset" | "suspend" | null>(null);
 
   const fetchOfficers = useCallback(async () => {
-    setIsLoading(true);
     try {
       const response = await fetch("http://localhost:5119/api/admin/officers", {
         cache: "no-store"
@@ -103,17 +109,10 @@ export default function ManageOfficers() {
   }, []);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("officerUser");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        if (parsedUser.fullName) setAdminName(parsedUser.fullName);
-      } catch {
-        // ignore parse error
-      }
-    }
-
-    fetchOfficers();
+    const run = async () => {
+      await fetchOfficers();
+    };
+    run();
   }, [fetchOfficers]);
 
   const handleLogout = () => {
@@ -143,7 +142,7 @@ export default function ManageOfficers() {
         const errorData = await response.json();
         setFormError(errorData.message || "Failed to add officer. Please check the details.");
       }
-    } catch (error) {
+    } catch {
       setFormError("Network error. Could not connect to the server.");
     } finally {
       setIsSubmitting(false);
@@ -290,14 +289,14 @@ export default function ManageOfficers() {
                                   <OverflowMenuItem
                                     itemText="Edit Profile"
                                     onClick={() => {
-                                      setSelectedOfficer(currentOfficer);
+                                      setSelectedOfficer(currentOfficer ?? null);
                                       setActiveActionModal("edit");
                                     }}
                                   />
                                   <OverflowMenuItem
                                     itemText="Reset Password"
                                     onClick={() => {
-                                      setSelectedOfficer(currentOfficer);
+                                      setSelectedOfficer(currentOfficer ?? null);
                                       setActiveActionModal("reset");
                                     }}
                                   />
@@ -306,7 +305,7 @@ export default function ManageOfficers() {
                                     isDelete={currentOfficer?.status !== "Suspended"}
                                     itemText={currentOfficer?.status === "Suspended" ? "Reactivate Account" : "Suspend Account"}
                                     onClick={() => {
-                                      setSelectedOfficer(currentOfficer);
+                                      setSelectedOfficer(currentOfficer ?? null);
                                       setActiveActionModal("suspend");
                                     }}
                                   />

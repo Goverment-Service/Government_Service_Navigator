@@ -1,5 +1,5 @@
 import "@carbon/styles/css/styles.css";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Header,
   HeaderName,
@@ -45,9 +45,17 @@ const headers = [
   { key: "actions", header: "Actions" },
 ];
 
+interface ServiceRecord {
+  id: string;
+  serviceId: string;
+  name: string;
+  category: string;
+  status: string;
+}
+
 export default function ServiceCatalogManager() {
   const [isSideNavExpanded] = useState(true);
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<ServiceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -65,7 +73,7 @@ export default function ServiceCatalogManager() {
     fetch("http://localhost:5119/api/services")
       .then((res) => res.json())
       .then((data) => {
-        const formattedData = data.map((item: any) => ({
+        const formattedData = data.map((item: Omit<ServiceRecord, "id"> & { id: number }) => ({
           ...item,
           id: item.id.toString(),
         }));
@@ -94,7 +102,7 @@ export default function ServiceCatalogManager() {
     setIsModalOpen(true);
   };
 
-  const openEditModal = (service: any) => {
+  const openEditModal = (service: ServiceRecord) => {
     setIsEditMode(true);
     setCurrentServiceId(service.id);
     setFormData({

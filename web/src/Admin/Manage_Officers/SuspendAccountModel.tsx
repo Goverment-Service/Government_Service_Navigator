@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Modal, InlineNotification } from "@carbon/react";
 
 interface SuspendAccountModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  officer: any;
+  officer: { id: string; name?: string; status?: string } | null;
 }
 
 export default function SuspendAccountModal({ isOpen, onClose, onSuccess, officer }: SuspendAccountModalProps) {
@@ -46,11 +46,12 @@ export default function SuspendAccountModal({ isOpen, onClose, onSuccess, office
         }
         setFormError(errorMessage);
       }
-    } catch (error: any) {
-      if (error.message === "Failed to fetch") {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message === "Failed to fetch") {
          setFormError("Backend is offline. Please ensure the server is running on port 5119.");
       } else {
-         setFormError(`Request failed: ${error.message}`);
+         setFormError(`Request failed: ${message}`);
       }
     } finally {
       setIsSubmitting(false);

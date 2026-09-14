@@ -1,5 +1,5 @@
 import "@carbon/styles/css/styles.css";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Header,
   HeaderName,
@@ -62,18 +62,38 @@ const feeHeaders = [
   { key: "actions", header: "Actions" },
 ];
 
+interface ServiceOption {
+  id: number;
+  serviceId: string;
+  name: string;
+}
+
+interface DocumentRequirement {
+  id: string;
+  documentName: string;
+  description: string;
+  isMandatory: boolean;
+}
+
+interface FeeSchedule {
+  id: string;
+  feeType: string;
+  amount: number;
+  effectiveDate: string;
+}
+
 export default function ServiceConfigurationTabs() {
   const [isSideNavExpanded] = useState(true);
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<ServiceOption[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
   const [selectedServiceName, setSelectedServiceName] = useState<string>("");
 
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [fees, setFees] = useState<any[]>([]);
+  const [documents, setDocuments] = useState<DocumentRequirement[]>([]);
+  const [fees, setFees] = useState<FeeSchedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [notification, setNotification] = useState<{
-    type: string;
+    type: "success" | "error";
     title: string;
     subtitle: string;
   } | null>(null);
@@ -81,7 +101,7 @@ export default function ServiceConfigurationTabs() {
   // Modal State for Adding/Editing Documents
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
   const [isDocEditMode, setIsDocEditMode] = useState(false);
-  const [currentDocId, setCurrentDocId] = useState<any>(null);
+  const [currentDocId, setCurrentDocId] = useState<string | null>(null);
   const [docForm, setDocForm] = useState({
     documentName: "",
     description: "",
@@ -91,7 +111,7 @@ export default function ServiceConfigurationTabs() {
   // Modal State for Adding/Editing Fees
   const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
   const [isFeeEditMode, setIsFeeEditMode] = useState(false);
-  const [currentFeeId, setCurrentFeeId] = useState<any>(null);
+  const [currentFeeId, setCurrentFeeId] = useState<string | null>(null);
   const [feeForm, setFeeForm] = useState({
     feeType: "",
     amount: "",
@@ -120,35 +140,40 @@ export default function ServiceConfigurationTabs() {
   useEffect(() => {
     if (!selectedServiceId) return;
 
-    const currentSrv = services.find(
-      (s) => s.id.toString() === selectedServiceId,
-    );
-    if (currentSrv) {
-      setSelectedServiceName(currentSrv.name);
-    }
+    const loadConfig = async () => {
+      const currentSrv = services.find(
+        (s) => s.id.toString() === selectedServiceId,
+      );
+      if (currentSrv) {
+        setSelectedServiceName(currentSrv.name);
+      }
 
-    setIsLoading(true);
-    fetch(`http://localhost:5119/api/services/${selectedServiceId}`)
-      .then((res) => res.json())
-      .then((data) => {
+      setIsLoading(true);
+      try {
+        const res = await fetch(`http://localhost:5119/api/services/${selectedServiceId}`);
+        const data = await res.json();
         const formattedDocs = (data.documentRequirements || []).map(
-          (d: any) => ({
+          (d: Omit<DocumentRequirement, "id"> & { id: number }) => ({
             ...d,
             id: d.id.toString(),
           }),
         );
-        const formattedFees = (data.feeSchedules || []).map((f: any) => ({
-          ...f,
-          id: f.id.toString(),
-        }));
+        const formattedFees = (data.feeSchedules || []).map(
+          (f: Omit<FeeSchedule, "id"> & { id: number }) => ({
+            ...f,
+            id: f.id.toString(),
+          }),
+        );
         setDocuments(formattedDocs);
         setFees(formattedFees);
-        setIsLoading(false);
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error("Error fetching service config:", error);
+      } finally {
         setIsLoading(false);
-      });
+      }
+    };
+
+    loadConfig();
   }, [selectedServiceId, services]);
 
   // Document Handlers
@@ -159,7 +184,7 @@ export default function ServiceConfigurationTabs() {
     setIsDocModalOpen(true);
   };
 
-  const openEditDocModal = (doc: any) => {
+  const openEditDocModal = (doc: DocumentRequirement) => {
     setIsDocEditMode(true);
     setCurrentDocId(doc.id);
     setDocForm({
@@ -180,7 +205,7 @@ export default function ServiceConfigurationTabs() {
       );
     } else {
       const newDoc = {
-        id: 0,
+        id: "0",
         serviceProcedureId: parseInt(selectedServiceId),
         ...docForm,
       };
@@ -209,10 +234,12 @@ export default function ServiceConfigurationTabs() {
       if (response.ok) {
         const result = await response.json();
         setDocuments(
-          (result.documentRequirements || []).map((d: any) => ({
-            ...d,
-            id: d.id.toString(),
-          })),
+          (result.documentRequirements || []).map(
+            (d: Omit<DocumentRequirement, "id"> & { id: number }) => ({
+              ...d,
+              id: d.id.toString(),
+            }),
+          ),
         );
         setIsDocModalOpen(false);
         setDocForm({ documentName: "", description: "", isMandatory: true });
@@ -266,7 +293,7 @@ export default function ServiceConfigurationTabs() {
     setIsFeeModalOpen(true);
   };
 
-  const openEditFeeModal = (fee: any) => {
+  const openEditFeeModal = (fee: FeeSchedule) => {
     setIsFeeEditMode(true);
     setCurrentFeeId(fee.id);
     setFeeForm({
@@ -289,7 +316,7 @@ export default function ServiceConfigurationTabs() {
       );
     } else {
       const newFee = {
-        id: 0,
+        id: "0",
         serviceProcedureId: parseInt(selectedServiceId),
         feeType: feeForm.feeType,
         amount: parseFloat(feeForm.amount),
@@ -304,7 +331,7 @@ export default function ServiceConfigurationTabs() {
           !isNaN(Number(f.id)) && String(f.id).length < 15 ? parseInt(f.id) : 0,
         serviceProcedureId: parseInt(selectedServiceId),
         feeType: f.feeType,
-        amount: parseFloat(f.amount),
+        amount: f.amount,
         effectiveDate: new Date(f.effectiveDate).toISOString(),
       }));
 
@@ -320,10 +347,12 @@ export default function ServiceConfigurationTabs() {
       if (response.ok) {
         const result = await response.json();
         setFees(
-          (result.feeSchedules || []).map((f: any) => ({
-            ...f,
-            id: f.id.toString(),
-          })),
+          (result.feeSchedules || []).map(
+            (f: Omit<FeeSchedule, "id"> & { id: number }) => ({
+              ...f,
+              id: f.id.toString(),
+            }),
+          ),
         );
         setIsFeeModalOpen(false);
         setNotification({
@@ -465,7 +494,7 @@ export default function ServiceConfigurationTabs() {
         {notification && (
           <div style={{ marginBottom: "1.5rem", width: "100%" }}>
             <InlineNotification
-              kind={notification.type as any}
+              kind={notification.type}
               title={notification.title}
               subtitle={notification.subtitle}
               onClose={() => setNotification(null)}
@@ -520,7 +549,7 @@ export default function ServiceConfigurationTabs() {
                           title="Document Checklist"
                           description="Files required from citizens for this specific procedure."
                         >
-                          <Table {...getTableProps()} style={{ width: "100%" }}>
+                          <Table {...getTableProps()}>
                             <TableHead>
                               <TableRow>
                                 {headers.map((header) => (
@@ -640,7 +669,7 @@ export default function ServiceConfigurationTabs() {
                 ) : (
                   <>
                     <DataTable
-                      rows={filteredFees.map((f: any) => ({
+                      rows={filteredFees.map((f) => ({
                         ...f,
                         id: f.id.toString(),
                         effectiveDate: f.effectiveDate
@@ -660,7 +689,7 @@ export default function ServiceConfigurationTabs() {
                           title="Tiered Fee Structure"
                           description="Pricing tiers configured for this service."
                         >
-                          <Table {...getTableProps()} style={{ width: "100%" }}>
+                          <Table {...getTableProps()}>
                             <TableHead>
                               <TableRow>
                                 {headers.map((header) => (

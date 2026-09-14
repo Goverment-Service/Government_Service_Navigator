@@ -36,15 +36,6 @@ export default function TemplateBuilder() {
   const [newFieldRequired, setNewFieldRequired] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    const queryParams = new URLSearchParams(window.location.search);
-    const id = queryParams.get("id");
-    if (id) {
-      setTemplateId(id);
-      fetchTemplateData(id);
-    }
-  }, []);
-
   const fetchTemplateData = async (id: string) => {
     try {
       const response = await fetch(`http://localhost:5119/api/templates/${id}`);
@@ -54,7 +45,7 @@ export default function TemplateBuilder() {
         setSubTitle(data.subTitle || "");
         setLawText(data.lawText || "");
         if (data.fields) {
-          setCustomFields(data.fields.map((f: any) => ({
+          setCustomFields(data.fields.map((f: { id?: string; label: string; type: FieldType; options?: string; isRequired?: boolean }) => ({
             id: f.id || Date.now().toString() + Math.random(),
             label: f.label,
             type: f.type,
@@ -67,6 +58,18 @@ export default function TemplateBuilder() {
       console.error("Error fetching template", error);
     }
   };
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const id = queryParams.get("id");
+    if (id) {
+      const load = async () => {
+        setTemplateId(id);
+        await fetchTemplateData(id);
+      };
+      load();
+    }
+  }, []);
 
   const handleSaveTemplate = async () => {
     try {
@@ -151,7 +154,7 @@ export default function TemplateBuilder() {
       case 'paragraph':
         return <p style={{ marginBottom: '1rem', fontStyle: 'italic', fontSize: '0.9rem' }}>{field.label}</p>;
       
-      case 'table':
+      case 'table': {
         const columns = field.options ? field.options.split(',').map(s => s.trim()) : ['Col 1', 'Col 2'];
         return (
           <div style={{ marginBottom: '1.5rem', width: '100%', overflowX: 'auto' }}>
@@ -179,7 +182,8 @@ export default function TemplateBuilder() {
             </table>
           </div>
         );
-      
+      }
+
       case 'file':
         return (
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>

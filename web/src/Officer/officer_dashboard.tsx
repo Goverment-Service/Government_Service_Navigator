@@ -199,7 +199,13 @@ export default function OfficerDashboard() {
                 <SideNavLink renderIcon={Dashboard} href="/officer/dashboard" isActive>
                   Application Queue
                 </SideNavLink>
-                <SideNavLink renderIcon={Catalog} href="/officer/applications">
+                                <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification">
+                  Bulk Verification
+                </SideNavLink>
+                <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes">
+                  Rejection Codes
+                </SideNavLink>
+<SideNavLink renderIcon={Catalog} href="/officer/applications">
                   All Applications
                 </SideNavLink>
                 {/* Updated: Navigates to the new page instead of opening a modal */}
@@ -344,7 +350,7 @@ export default function OfficerDashboard() {
                                     <TableCell key={cell.id} style={{ padding: '0.5rem', textAlign: 'right' }}>
                                       <Button
                                         size="sm"
-                                        onClick={() => alert(`Reviewing application ${row.cells.find(c => c.info.header === 'appId')?.value}`)}
+                                        onClick={() => window.location.href = `/officer/verification-workspace/${row.id}`}
                                       >
                                         Review
                                       </Button>
@@ -369,3 +375,4 @@ export default function OfficerDashboard() {
     />
   );
 }
+

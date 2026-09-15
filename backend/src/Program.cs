@@ -168,6 +168,19 @@ using (var scope = app.Services.CreateScope())
         var context = services.GetRequiredService<AppDbContext>();
         context.Database.Migrate(); 
         Console.WriteLine("Database migrations applied successfully.");
+
+        // Seed mock VerificationTasks if empty so the UI has something to show!
+        if (!context.VerificationTasks.Any())
+        {
+            context.VerificationTasks.AddRange(
+                new Government_Service_Navigator.Backend.Models.Entities.VerificationTask { ApplicationId = 9088, Status = "Pending", CreatedDate = DateTime.UtcNow.AddHours(-1) },
+                new Government_Service_Navigator.Backend.Models.Entities.VerificationTask { ApplicationId = 9102, Status = "Pending", CreatedDate = DateTime.UtcNow.AddDays(-3) },
+                new Government_Service_Navigator.Backend.Models.Entities.VerificationTask { ApplicationId = 8895, Status = "Approved", CreatedDate = DateTime.UtcNow.AddDays(-5) },
+                new Government_Service_Navigator.Backend.Models.Entities.VerificationTask { ApplicationId = 8850, Status = "Rejected", CreatedDate = DateTime.UtcNow.AddDays(-6) }
+            );
+            context.SaveChanges();
+            Console.WriteLine("Seeded mock VerificationTasks into the database.");
+        }
     }
     catch (Exception ex)
     {

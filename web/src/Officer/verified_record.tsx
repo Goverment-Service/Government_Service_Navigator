@@ -1,4 +1,5 @@
 import '@carbon/styles/css/styles.css';
+import { useState, useEffect } from 'react';
 import {
   Header,
   HeaderContainer,
@@ -25,21 +26,26 @@ import {
   TableToolbarSearch,
   Tag,
   Search,
-  Button
+  Button,
+  Modal,
+  Select,
+  SelectItem,
+  TextInput
 } from "@carbon/react";
 import {
+  CheckmarkOutline,
+  CloseOutline,
   Dashboard,
+  Catalog,
+  DataStructured,
+  Download,
   Document,
   Time,
   User,
   Logout,
-  Notification,
-  Download,
-  CheckmarkOutline,
-  CloseOutline,
   Add,
-  Catalog
-} from "@carbon/icons-react";
+  Notification
+} from '@carbon/icons-react';
 
 // Table Data for Verified Records
 const headers = [
@@ -59,6 +65,95 @@ const rows = [
 ];
 
 export default function VerifiedRecords() {
+  const [rows, setRows] = useState<any[]>([]);
+  const [editingRecord, setEditingRecord] = useState<any>(null);
+  const [viewingRecord, setViewingRecord] = useState<any>(null);
+  const [editStatus, setEditStatus] = useState('Approved');
+  const [editComments, setEditComments] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const fetchVerifiedTasks = async () => {
+    const token = localStorage.getItem('officerToken');
+    try {
+      const response = await fetch(`http://localhost:5119/api/Verification/tasks/verified`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const mappedRows = data.map((t: any) => {
+          return {
+            id: t.id.toString(),
+            appId: `GSN-2026-${t.applicationId}`,
+            citizen: `User ${t.applicationId}`,
+            service: 'General Verification',
+            dateVerified: new Date(t.createdDate).toISOString().split('T')[0],
+            status: t.status,
+            comments: t.comments || ''
+          };
+        });
+        setRows(mappedRows);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    fetchVerifiedTasks();
+  }, []);
+
+  const handleSaveEdit = async () => {
+    if (!editingRecord) return;
+    setIsSaving(true);
+    const token = localStorage.getItem('officerToken');
+    try {
+      const response = await fetch(`http://localhost:5119/api/Verification/tasks/${editingRecord.id}/decision`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          Status: editStatus,
+          Comments: editComments
+        })
+      });
+      if (response.ok) {
+        await fetchVerifiedTasks();
+        setEditingRecord(null);
+      } else {
+        console.error('Failed to update');
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleExport = () => {
+    if (rows.length === 0) return;
+    const csvRows = [];
+    const csvHeaders = ['App ID', 'Citizen Name', 'Service Type', 'Date Verified', 'Status'];
+    csvRows.push(csvHeaders.join(','));
+    
+    for (const row of rows) {
+      csvRows.push([
+        row.appId,
+        row.citizen,
+        row.service,
+        row.dateVerified,
+        row.status
+      ].join(','));
+    }
+    
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('href', url);
+    a.setAttribute('download', 'verified_records.csv');
+    a.click();
+  };
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
@@ -106,6 +201,12 @@ export default function VerifiedRecords() {
               <SideNavItems>
                 <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">
                   Application Queue
+                </SideNavLink>
+                <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification">
+                  Bulk Verification
+                </SideNavLink>
+                <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes">
+                  Rejection Codes
                 </SideNavLink>
                 <SideNavLink renderIcon={Catalog} href="/officer/applications">
                   All Applications
@@ -197,7 +298,7 @@ export default function VerifiedRecords() {
                       <Button 
                         kind="ghost" 
                         renderIcon={Download} 
-                        onClick={() => console.log('Exporting Data...')}
+                        onClick={handleExport}
                       >
                         Export
                       </Button>
@@ -231,14 +332,26 @@ export default function VerifiedRecords() {
                               );
                             }
                             
-                            // Format the actions column with a View button[cite: 6]
+                            // Format the actions column with a View button and Edit button
                             if (cell.info.header === 'actions') {
                               return (
                                 <TableCell key={cell.id} style={{ padding: '0.5rem', textAlign: 'right' }}>
                                   <Button 
                                     size="sm" 
+                                    kind="primary"
+                                    onClick={() => {
+                                      setEditingRecord(row);
+                                      setEditStatus(row.cells.find((c: any) => c.info.header === 'status')?.value || 'Approved');
+                                      setEditComments(row.comments || '');
+                                    }}
+                                    style={{ marginRight: '0.5rem' }}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
                                     kind="ghost"
-                                    onClick={() => alert(`Viewing details for ${row.cells.find(c => c.info.header === 'appId')?.value}`)}
+                                    onClick={() => setViewingRecord(row)}
                                   >
                                     View Record
                                   </Button>
@@ -258,6 +371,78 @@ export default function VerifiedRecords() {
             </DataTable>
 
           </main>
+
+          {/* Edit Record Modal */}
+          <Modal
+            open={!!editingRecord}
+            onRequestClose={() => setEditingRecord(null)}
+            onRequestSubmit={handleSaveEdit}
+            modalHeading={`Edit Decision: ${editingRecord?.cells.find((c: any) => c.info.header === 'appId')?.value}`}
+            primaryButtonText={isSaving ? "Saving..." : "Save Changes"}
+            secondaryButtonText="Cancel"
+            primaryButtonDisabled={isSaving}
+          >
+            <div style={{ marginBottom: '1rem' }}>
+              <Select
+                id="edit-status"
+                labelText="Decision Status"
+                value={editStatus}
+                onChange={(e) => setEditStatus(e.target.value)}
+              >
+                <SelectItem value="Approved" text="Approved" />
+                <SelectItem value="Rejected" text="Rejected" />
+              </Select>
+            </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <TextInput
+                id="edit-comments"
+                labelText="Comments/Reasons"
+                value={editComments}
+                onChange={(e) => setEditComments(e.target.value)}
+              />
+            </div>
+          </Modal>
+
+          {/* View Record Modal */}
+          <Modal
+            open={!!viewingRecord}
+            onRequestClose={() => setViewingRecord(null)}
+            passiveModal
+            modalHeading={`Application Details: ${viewingRecord?.cells.find((c: any) => c.info.header === 'appId')?.value}`}
+          >
+            {viewingRecord && (
+              <div style={{ padding: '1rem 0', fontSize: '1rem', color: '#161616' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: '#525252', textTransform: 'uppercase', letterSpacing: '0.32px' }}>Citizen Name</span>
+                    <p style={{ marginTop: '0.25rem', fontWeight: 600 }}>{viewingRecord.cells.find((c: any) => c.info.header === 'citizen')?.value}</p>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: '#525252', textTransform: 'uppercase', letterSpacing: '0.32px' }}>Service Type</span>
+                    <p style={{ marginTop: '0.25rem', fontWeight: 600 }}>{viewingRecord.cells.find((c: any) => c.info.header === 'service')?.value}</p>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: '#525252', textTransform: 'uppercase', letterSpacing: '0.32px' }}>Date Verified</span>
+                    <p style={{ marginTop: '0.25rem', fontWeight: 600 }}>{viewingRecord.cells.find((c: any) => c.info.header === 'dateVerified')?.value}</p>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: '#525252', textTransform: 'uppercase', letterSpacing: '0.32px' }}>Decision Status</span>
+                    <div style={{ marginTop: '0.25rem' }}>
+                      <Tag type={viewingRecord.cells.find((c: any) => c.info.header === 'status')?.value === 'Approved' ? 'green' : 'red'}>
+                        {viewingRecord.cells.find((c: any) => c.info.header === 'status')?.value}
+                      </Tag>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '1rem' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#525252', textTransform: 'uppercase', letterSpacing: '0.32px' }}>Officer Comments</span>
+                  <p style={{ marginTop: '0.5rem', fontStyle: viewingRecord.comments ? 'normal' : 'italic', color: viewingRecord.comments ? '#161616' : '#8d8d8d' }}>
+                    {viewingRecord.comments || 'No additional comments provided during verification.'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </Modal>
         </>
       )}
     />

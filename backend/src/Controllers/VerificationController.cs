@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Government_Service_Navigator.Backend.DTOs.Requests;
 using Government_Service_Navigator.Backend.Services.Interfaces;
+using Government_Service_Navigator.Backend.Models.Entities;
 
 namespace Government_Service_Navigator.Backend.Controllers
 {
@@ -83,6 +84,40 @@ namespace Government_Service_Navigator.Backend.Controllers
 
             if (!result) return BadRequest("Bulk verification failed");
             return Ok();
+        }
+
+        // --- Rejection Reason CRUD Endpoints ---
+
+        [HttpGet("rejection-reasons")]
+        public async Task<IActionResult> GetRejectionReasons()
+        {
+            var reasons = await _verificationService.GetRejectionReasonsAsync();
+            return Ok(reasons);
+        }
+
+        [HttpPost("rejection-reasons")]
+        public async Task<IActionResult> CreateRejectionReason([FromBody] RejectionReason reason)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            var created = await _verificationService.CreateRejectionReasonAsync(reason);
+            return Ok(created);
+        }
+
+        [HttpPut("rejection-reasons/{id}")]
+        public async Task<IActionResult> UpdateRejectionReason(int id, [FromBody] RejectionReason reason)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            var result = await _verificationService.UpdateRejectionReasonAsync(id, reason);
+            if (!result) return NotFound();
+            return Ok();
+        }
+
+        [HttpDelete("rejection-reasons/{id}")]
+        public async Task<IActionResult> DeleteRejectionReason(int id)
+        {
+            var result = await _verificationService.DeleteRejectionReasonAsync(id);
+            if (!result) return NotFound();
+            return NoContent();
         }
     }
 }

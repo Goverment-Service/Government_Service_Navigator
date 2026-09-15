@@ -90,11 +90,21 @@ export default function ServiceCatalogManager() {
     fetchServices();
   }, []);
 
+  const generateNextServiceId = () => {
+    const maxNumber = services.reduce((max, service) => {
+      const match = service.serviceId?.match(/GSN-SRV-(\d+)$/i);
+      const num = match ? parseInt(match[1], 10) : 0;
+      return num > max ? num : max;
+    }, 0);
+    const nextNumber = maxNumber + 1;
+    return `GSN-SRV-${String(nextNumber).padStart(3, "0")}`;
+  };
+
   const openCreateModal = () => {
     setIsEditMode(false);
     setCurrentServiceId(null);
     setFormData({
-      serviceId: "",
+      serviceId: generateNextServiceId(),
       name: "",
       category: "Commerce",
       status: "Draft",
@@ -270,11 +280,9 @@ export default function ServiceCatalogManager() {
             <TextInput
               id="serviceId"
               labelText="Service ID"
-              placeholder="e.g., GSN-SRV-004"
+              helperText="Auto-generated based on existing services."
               value={formData.serviceId}
-              onChange={(e) =>
-                setFormData({ ...formData, serviceId: e.target.value })
-              }
+              readOnly
             />
             <TextInput
               id="name"

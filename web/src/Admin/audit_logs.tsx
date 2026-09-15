@@ -79,7 +79,7 @@ export default function AuditLogs() {
     const fetchAuditLogs = async () => {
       try {
         const token = localStorage.getItem("officerToken");
-        const response = await fetch("http://localhost:5119/api/verification/audit-logs/all", {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/verification/audit-logs/all`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (response.ok) {
@@ -109,7 +109,7 @@ export default function AuditLogs() {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch("http://localhost:5119/api/auth/logout", {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

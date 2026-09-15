@@ -94,7 +94,7 @@ export default function ServiceCatalogManager() {
   });
 
   const fetchServices = () => {
-    fetch("http://localhost:5119/api/services")
+    fetch(`${import.meta.env.VITE_API_URL}/api/services`)
       .then((res) => res.json())
       .then((data) => {
         const formattedData = data.map(
@@ -155,7 +155,7 @@ export default function ServiceCatalogManager() {
       const method = isEditMode ? "PUT" : "POST";
       const endpoint = isEditMode
         ? `http://localhost:5119/api/services/${currentServiceId}`
-        : "http://localhost:5119/api/services";
+        : `${import.meta.env.VITE_API_URL}/api/services`;
 
       const response = await fetch(endpoint, {
         method: method,
@@ -217,7 +217,7 @@ export default function ServiceCatalogManager() {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch("http://localhost:5119/api/auth/logout", {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -519,3 +519,4 @@ export default function ServiceCatalogManager() {
     </>
   );
 }
+

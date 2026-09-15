@@ -58,7 +58,7 @@ export default function BulkVerification() {
     // In a real scenario, this would fetch only tasks eligible for bulk approval
     const token = localStorage.getItem("officerToken");
     try {
-      const response = await fetch("http://localhost:5119/api/Verification/tasks/pending", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/Verification/tasks/pending`, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {})
         }
@@ -77,7 +77,7 @@ export default function BulkVerification() {
     setIsSubmitting(true);
     const token = localStorage.getItem("officerToken");
     try {
-      const response = await fetch("http://localhost:5119/api/Verification/tasks/bulk-verify", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/Verification/tasks/bulk-verify`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -280,5 +280,6 @@ export default function BulkVerification() {
     />
   );
 }
+
 
 

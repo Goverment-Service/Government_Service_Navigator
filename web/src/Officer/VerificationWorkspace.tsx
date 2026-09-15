@@ -40,7 +40,7 @@ export default function VerificationWorkspace() {
     const fetchReasons = async () => {
       try {
         const token = localStorage.getItem("officerToken");
-        const response = await fetch("http://localhost:5119/api/Verification/rejection-reasons", {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/Verification/rejection-reasons`, {
           headers: {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -308,3 +308,4 @@ export default function VerificationWorkspace() {
     />
   );
 }
+

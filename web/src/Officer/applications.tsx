@@ -88,7 +88,7 @@ export default function ApplicationsList() {
     const fetchTemplates = async () => {
       try {
         const token = localStorage.getItem("officerToken");
-        const response = await fetch("http://localhost:5119/api/templates/all", {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/templates/all`, {
           headers: {
             "Authorization": `Bearer ${token}`
           }
@@ -127,7 +127,7 @@ export default function ApplicationsList() {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch("http://localhost:5119/api/auth/logout", {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -421,5 +421,6 @@ export default function ApplicationsList() {
     />
   );
 }
+
 
 

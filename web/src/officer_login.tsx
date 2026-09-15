@@ -90,15 +90,14 @@ export default function OfficerLoginPage() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f4f4f4' }}>
+    <div className="flex flex-col lg:flex-row" style={{ minHeight: '100vh', backgroundColor: '#f4f4f4' }}>
       {/* Left Column: Form */}
-      <div style={{ 
-        flex: '1 1 50%', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        justifyContent: 'center', 
+      <div className="lg:flex-1" style={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
         alignItems: 'center',
-        padding: '2rem'
+        padding: '2rem 1.25rem'
       }}>
         <div style={{ width: '100%', maxWidth: '400px' }}>
           
@@ -193,12 +192,10 @@ export default function OfficerLoginPage() {
         </div>
       </div>
 
-      {/* Right Column: Decorative Banner */}
-      <div style={{ 
-        flex: '1 1 50%', 
-        backgroundColor: '#161616', 
-        color: '#f4f4f4', 
-        display: 'flex', 
+      {/* Right Column: Decorative Banner (hidden on small screens to prioritize the form) */}
+      <div className="hidden lg:flex lg:flex-1" style={{
+        backgroundColor: '#161616',
+        color: '#f4f4f4',
         flexDirection: 'column',
         justifyContent: 'center', 
         alignItems: 'center',

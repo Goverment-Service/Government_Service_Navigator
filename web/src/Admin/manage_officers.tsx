@@ -6,6 +6,7 @@ import {
   HeaderName,
   HeaderGlobalBar,
   HeaderGlobalAction,
+  HeaderMenuButton,
   SideNav,
   SideNavItems,
   SideNavLink,
@@ -186,14 +187,20 @@ export default function ManageOfficers() {
   return (
     <>
       <HeaderContainer
-        render={({ isSideNavExpanded }) => (
+        render={({ isSideNavExpanded, onClickSideNavExpand }) => (
           <Header aria-label="Registry Admin System">
+            <HeaderMenuButton
+              aria-label={isSideNavExpanded ? "Close menu" : "Open menu"}
+              onClick={onClickSideNavExpand}
+              isActive={isSideNavExpanded}
+              isCollapsible
+            />
             <HeaderName href="#" prefix="GSN">
               Registry Admin
             </HeaderName>
 
             <HeaderGlobalBar>
-              <div style={{ width: '250px', marginRight: '1rem', display: 'flex', alignItems: 'center' }}>
+              <div className="flex items-center w-[120px] sm:w-[250px] mr-2 sm:mr-4">
                 <Search size="sm" id="search-records-global" labelText="Search" placeholder="Search records..." />
               </div>
               <HeaderGlobalAction aria-label="Notifications" onClick={() => { }}>
@@ -263,7 +270,7 @@ export default function ManageOfficers() {
         )}
       />
 
-      <main style={{ marginTop: '3rem', padding: '2rem', marginLeft: '16rem', backgroundColor: '#f4f4f4', minHeight: '100vh' }}>
+      <main className="mt-12 min-h-screen p-4 min-[66rem]:p-8 ml-0 min-[66rem]:ml-64" style={{ backgroundColor: '#f4f4f4' }}>
 
         <div style={{ marginBottom: '2rem' }}>
           {isDepartmentAdmin && (

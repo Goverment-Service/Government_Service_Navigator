@@ -8,7 +8,8 @@ import {
   SideNav,
   SideNavItems,
   SideNavLink,
-  Search
+  Search,
+  HeaderMenuButton
 } from "@carbon/react";
 import { Dashboard, Document, Time, User, Logout, Notification, Add, Catalog } from "@carbon/icons-react";
 
@@ -23,12 +24,18 @@ export default function ApplicationCreate() {
 
   return (
     <HeaderContainer
-      render={({ isSideNavExpanded }) => (
+      render={({ isSideNavExpanded, onClickSideNavExpand }) => (
         <>
           <Header aria-label="Registry Portal System">
+            <HeaderMenuButton
+              aria-label={isSideNavExpanded ? "Close menu" : "Open menu"}
+              onClick={onClickSideNavExpand}
+              isActive={isSideNavExpanded}
+              isCollapsible
+            />
             <HeaderName href="#" prefix="GSN">Registry Portal</HeaderName>
             <HeaderGlobalBar>
-              <div style={{ width: '280px', marginRight: '1rem', display: 'flex', alignItems: 'center' }}>
+              <div className="gsn-header-search">
                  <Search size="sm" id="search-queue-create" labelText="Search" placeholder="Search..." />
               </div>
               <HeaderGlobalAction aria-label="Notifications" onClick={() => {}}>

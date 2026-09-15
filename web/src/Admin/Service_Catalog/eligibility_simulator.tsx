@@ -5,6 +5,7 @@ import {
   HeaderName,
   HeaderGlobalBar,
   HeaderGlobalAction,
+  HeaderMenuButton,
   SideNav,
   SideNavItems,
   SideNavLink,
@@ -47,7 +48,7 @@ interface EvaluationResult {
 }
 
 export default function EligibilitySimulator() {
-  const [isSideNavExpanded] = useState(true);
+  const [isSideNavExpanded, setIsSideNavExpanded] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
 
@@ -141,13 +142,19 @@ export default function EligibilitySimulator() {
   return (
     <>
       <Header aria-label="Registry Admin System">
+        <HeaderMenuButton
+          aria-label={isSideNavExpanded ? "Close menu" : "Open menu"}
+          onClick={() => setIsSideNavExpanded((prev) => !prev)}
+          isActive={isSideNavExpanded}
+          isCollapsible
+        />
         <HeaderName href="#" prefix="GSN">
           Registry Admin
         </HeaderName>
         <HeaderGlobalBar>
           <div
+            className="w-[120px] sm:w-[250px]"
             style={{
-              width: "250px",
               marginRight: "1rem",
               display: "flex",
               alignItems: "center",
@@ -208,12 +215,9 @@ export default function EligibilitySimulator() {
       </Header>
 
       <main
+        className="mt-12 min-h-screen p-4 min-[66rem]:p-8 ml-0 min-[66rem]:ml-64"
         style={{
-          marginTop: "3rem",
-          padding: "2rem",
-          marginLeft: "16rem",
           backgroundColor: "#f4f4f4",
-          minHeight: "100vh",
         }}
       >
         <div style={{ marginBottom: "2rem" }}>
@@ -343,10 +347,12 @@ export default function EligibilitySimulator() {
                   }}
                 >
                   <div
+                    className="flex-wrap"
                     style={{
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
+                      gap: "0.75rem",
                       padding: "1rem",
                       backgroundColor: "#f4f4f4",
                       borderLeft: `4px solid ${evaluationResult.isEligible ? "#24a148" : "#da1e28"}`,

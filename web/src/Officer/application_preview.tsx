@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {
   Header,
   HeaderName,
+  HeaderMenuButton,
   SideNav,
   SideNavItems,
   SideNavLink,
@@ -34,6 +35,7 @@ function getTemplateIdFromUrl(): string | null {
 export default function ApplicationPreview() {
   const [template, setTemplate] = useState<Template | null>(null);
   const [loading, setLoading] = useState(() => !!getTemplateIdFromUrl());
+  const [isSideNavExpanded, setIsSideNavExpanded] = useState(false);
 
   const fetchTemplateData = async (id: string) => {
     try {
@@ -165,10 +167,16 @@ export default function ApplicationPreview() {
   return (
     <>
       <Header aria-label="Government Service Navigator">
+        <HeaderMenuButton
+          aria-label={isSideNavExpanded ? "Close menu" : "Open menu"}
+          onClick={() => setIsSideNavExpanded((prev) => !prev)}
+          isActive={isSideNavExpanded}
+          isCollapsible
+        />
         <HeaderName href="#" prefix="Gov">
           Service Navigator
         </HeaderName>
-        <SideNav aria-label="Side navigation" expanded={true} isFixedNav>
+        <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
           <SideNavItems>
             <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">Application Queue</SideNavLink>
             <SideNavLink renderIcon={Catalog} href="/officer/applications" isActive>All Applications</SideNavLink>
@@ -183,7 +191,7 @@ export default function ApplicationPreview() {
         </SideNav>
       </Header>
 
-      <main style={{ marginTop: '3rem', padding: '2rem', marginLeft: '16rem', backgroundColor: '#f4f4f4', minHeight: '100vh' }}>
+      <main className="mt-12 min-h-screen p-4 sm:p-6 min-[66rem]:p-8 ml-0 min-[66rem]:ml-64" style={{ backgroundColor: '#f4f4f4' }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2rem' }}>
           <Button 
             kind="ghost" 
@@ -204,7 +212,7 @@ export default function ApplicationPreview() {
         ) : !template ? (
           <p>Template not found.</p>
         ) : (
-          <div style={{ backgroundColor: '#ffffff', padding: '3rem', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', maxWidth: '800px', margin: '0 auto' }}>
+          <div className="p-6 sm:p-8 min-[66rem]:p-12" style={{ backgroundColor: '#ffffff', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', maxWidth: '800px', margin: '0 auto' }}>
             <div style={{ textAlign: 'center', marginBottom: '3rem', paddingBottom: '2rem', borderBottom: '2px solid #0f62fe' }}>
               <h2 style={{ fontSize: '2.5rem', color: '#161616', marginBottom: '1rem' }}>{template.formName}</h2>
               {template.subTitle && <h3 style={{ fontSize: '1.25rem', color: '#525252', fontWeight: 400 }}>{template.subTitle}</h3>}
@@ -218,7 +226,7 @@ export default function ApplicationPreview() {
             <form onSubmit={(e) => { e.preventDefault(); alert('This is just a preview!'); }}>
               {[...(template.fields || [])].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0)).map((field) => renderField(field))}
 
-              <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid #e0e0e0', display: 'flex', justifyContent: 'flex-end' }}>
+              <div className="flex-wrap gap-2" style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid #e0e0e0', display: 'flex', justifyContent: 'flex-end' }}>
                 <Button kind="secondary" style={{ marginRight: '1rem' }} onClick={() => window.location.href = "/officer/applications"}>
                   Close Preview
                 </Button>

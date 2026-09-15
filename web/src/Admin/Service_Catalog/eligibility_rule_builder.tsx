@@ -5,6 +5,7 @@ import {
   HeaderName,
   HeaderGlobalBar,
   HeaderGlobalAction,
+  HeaderMenuButton,
   SideNav,
   SideNavItems,
   SideNavLink,
@@ -48,7 +49,7 @@ interface EligibilityRule {
 }
 
 export default function EligibilityRuleBuilder() {
-  const [isSideNavExpanded] = useState(true);
+  const [isSideNavExpanded, setIsSideNavExpanded] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
   const [rules, setRules] = useState<EligibilityRule[]>([]);
@@ -174,13 +175,19 @@ export default function EligibilityRuleBuilder() {
   return (
     <>
       <Header aria-label="Registry Admin System">
+        <HeaderMenuButton
+          aria-label={isSideNavExpanded ? "Close menu" : "Open menu"}
+          onClick={() => setIsSideNavExpanded((prev) => !prev)}
+          isActive={isSideNavExpanded}
+          isCollapsible
+        />
         <HeaderName href="#" prefix="GSN">
           Registry Admin
         </HeaderName>
         <HeaderGlobalBar>
           <div
+            className="w-[120px] sm:w-[250px]"
             style={{
-              width: "250px",
               marginRight: "1rem",
               display: "flex",
               alignItems: "center",
@@ -244,12 +251,9 @@ export default function EligibilityRuleBuilder() {
       </Header>
 
       <main
+        className="mt-12 min-h-screen p-4 min-[66rem]:p-8 ml-0 min-[66rem]:ml-64"
         style={{
-          marginTop: "3rem",
-          padding: "2rem",
-          marginLeft: "16rem",
           backgroundColor: "#f4f4f4",
-          minHeight: "100vh",
         }}
       >
         <div style={{ marginBottom: "2rem" }}>
@@ -311,7 +315,7 @@ export default function EligibilityRuleBuilder() {
                   paddingRight: 0,
                 }}
               >
-                <Column sm={1} md={3} lg={4}>
+                <Column sm={4} md={3} lg={4}>
                   <Select
                     id={`field-${rule.id}`}
                     labelText="Field"
@@ -325,7 +329,7 @@ export default function EligibilityRuleBuilder() {
                     <SelectItem value="Income" text="Income" />
                   </Select>
                 </Column>
-                <Column sm={1} md={2} lg={3}>
+                <Column sm={4} md={2} lg={3}>
                   <Select
                     id={`operator-${rule.id}`}
                     labelText="Operator"
@@ -340,7 +344,7 @@ export default function EligibilityRuleBuilder() {
                     <SelectItem value="!=" text="!=" />
                   </Select>
                 </Column>
-                <Column sm={1} md={2} lg={4}>
+                <Column sm={4} md={2} lg={4}>
                   <TextInput
                     id={`value-${rule.id}`}
                     labelText="Value"
@@ -350,7 +354,7 @@ export default function EligibilityRuleBuilder() {
                     }
                   />
                 </Column>
-                <Column sm={1} md={1} lg={1}>
+                <Column sm={4} md={1} lg={1} className="flex justify-end min-[66rem]:justify-start">
                   <Button
                     kind="danger--ghost"
                     renderIcon={TrashCan}
@@ -364,8 +368,8 @@ export default function EligibilityRuleBuilder() {
           )}
 
           <div
+            className="flex flex-wrap"
             style={{
-              display: "flex",
               gap: "1rem",
               marginTop: "2rem",
               borderTop: "1px solid #e0e0e0",

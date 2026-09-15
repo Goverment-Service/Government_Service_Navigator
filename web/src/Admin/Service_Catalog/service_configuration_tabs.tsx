@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import {
   Header,
   HeaderName,
+  HeaderMenuButton,
   HeaderGlobalBar,
   HeaderGlobalAction,
   SideNav,
@@ -83,7 +84,7 @@ interface FeeSchedule {
 }
 
 export default function ServiceConfigurationTabs() {
-  const [isSideNavExpanded] = useState(true);
+  const [isSideNavExpanded, setIsSideNavExpanded] = useState(false);
   const [services, setServices] = useState<ServiceOption[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
   const [selectedServiceName, setSelectedServiceName] = useState<string>("");
@@ -402,13 +403,19 @@ export default function ServiceConfigurationTabs() {
   return (
     <>
       <Header aria-label="Registry Admin System">
+        <HeaderMenuButton
+          aria-label={isSideNavExpanded ? "Close menu" : "Open menu"}
+          onClick={() => setIsSideNavExpanded((prev) => !prev)}
+          isActive={isSideNavExpanded}
+          isCollapsible
+        />
         <HeaderName href="#" prefix="GSN">
           Registry Admin
         </HeaderName>
         <HeaderGlobalBar>
           <div
+            className="w-[120px] sm:w-[200px] lg:w-[250px]"
             style={{
-              width: "250px",
               marginRight: "1rem",
               display: "flex",
               alignItems: "center",
@@ -429,7 +436,11 @@ export default function ServiceConfigurationTabs() {
           </HeaderGlobalAction>
         </HeaderGlobalBar>
 
-        <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
+        <SideNav
+          aria-label="Side navigation"
+          expanded={isSideNavExpanded}
+          onOverlayClick={() => setIsSideNavExpanded(false)}
+        >
           <SideNavItems>
             <SideNavLink renderIcon={Dashboard} href="/admin/dashboard">
               Overview
@@ -473,12 +484,9 @@ export default function ServiceConfigurationTabs() {
       </Header>
 
       <main
+        className="mt-12 min-h-screen p-4 min-[66rem]:p-8 ml-0 min-[66rem]:ml-64"
         style={{
-          marginTop: "3rem",
-          padding: "2rem",
-          marginLeft: "16rem",
           backgroundColor: "#f4f4f4",
-          minHeight: "100vh",
         }}
       >
         <div style={{ marginBottom: "2rem" }}>

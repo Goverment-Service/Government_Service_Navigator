@@ -1,0 +1,288 @@
+import "@carbon/styles/css/styles.css";
+import { useState } from "react";
+import { useParams, Navigate } from "react-router-dom";
+import {
+  Header,
+  HeaderContainer,
+  HeaderName,
+  HeaderGlobalBar,
+  HeaderGlobalAction,
+  SideNav,
+  SideNavItems,
+  SideNavLink,
+  Grid,
+  Column,
+  Tile,
+  Tag,
+  Search,
+} from "@carbon/react";
+import {
+  Dashboard,
+  UserMultiple,
+  Security,
+  Settings,
+  Logout,
+  Notification,
+  Document,
+  Activity,
+  Catalog,
+  Rule,
+  Categories,
+} from "@carbon/icons-react";
+import { getDepartmentLabel } from "../constants/departments";
+
+function getStoredOfficer(): { fullName?: string; department?: string } {
+  const storedUser = localStorage.getItem("officerUser");
+  if (storedUser) {
+    try {
+      return JSON.parse(storedUser);
+    } catch {
+      // ignore parse error
+    }
+  }
+  return {};
+}
+
+export default function DepartmentAdminDashboard() {
+  const { deptSlug } = useParams<{ deptSlug: string }>();
+  const [officer] = useState(getStoredOfficer);
+
+  const departmentName = (deptSlug && getDepartmentLabel(deptSlug)) || null;
+
+  // Unknown department slug - send back to the generic dashboard instead of a broken page.
+  if (!departmentName) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+
+  const officerName = officer.fullName || "Department Admin";
+
+  const handleLogout = async () => {
+    try {
+      await fetch("http://localhost:5119/api/auth/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      localStorage.removeItem("officerToken");
+      localStorage.removeItem("officerUser");
+      window.location.href = "/officer/login";
+    }
+  };
+
+  return (
+    <HeaderContainer
+      render={({ isSideNavExpanded }) => (
+        <>
+          <Header aria-label={`${departmentName} Admin System`}>
+            <HeaderName href="#" prefix="GSN">
+              {departmentName} Admin
+            </HeaderName>
+
+            <HeaderGlobalBar>
+              <div
+                style={{
+                  width: "250px",
+                  marginRight: "1rem",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <Search
+                  size="sm"
+                  id="search-records"
+                  labelText="Search"
+                  placeholder="Search records..."
+                />
+              </div>
+              <HeaderGlobalAction aria-label="Notifications" onClick={() => {}}>
+                <Notification size={20} />
+              </HeaderGlobalAction>
+            </HeaderGlobalBar>
+
+            <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
+              <SideNavItems>
+                <SideNavLink renderIcon={Dashboard} href="#" isActive>
+                  Overview
+                </SideNavLink>
+
+                <SideNavLink renderIcon={Catalog} href="/admin/services">
+                  Service Catalog
+                </SideNavLink>
+                <SideNavLink renderIcon={Rule} href="/admin/services/rules">
+                  Eligibility Rules
+                </SideNavLink>
+                <SideNavLink
+                  renderIcon={Categories}
+                  href="/admin/services/config"
+                >
+                  Service Configuration
+                </SideNavLink>
+
+                <SideNavLink
+                  renderIcon={UserMultiple}
+                  href="/admin/manage-officers"
+                >
+                  Manage Officers
+                </SideNavLink>
+                <SideNavLink renderIcon={Security} href="/admin/audit-logs">
+                  Audit Logs
+                </SideNavLink>
+                <SideNavLink
+                  renderIcon={Settings}
+                  href="/admin/system-settings"
+                >
+                  System Settings
+                </SideNavLink>
+
+                <div
+                  style={{ marginTop: "auto", borderTop: "1px solid #393939" }}
+                >
+                  <SideNavLink
+                    renderIcon={Logout}
+                    onClick={handleLogout}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Sign Out
+                  </SideNavLink>
+                </div>
+              </SideNavItems>
+            </SideNav>
+          </Header>
+
+          <main
+            style={{
+              marginTop: "3rem",
+              padding: "2rem",
+              marginLeft: "16rem",
+              backgroundColor: "#f4f4f4",
+              minHeight: "100vh",
+            }}
+          >
+            <div style={{ marginBottom: "2rem" }}>
+              <Tag type="blue" style={{ marginBottom: "0.5rem" }}>
+                {departmentName}
+              </Tag>
+              <h1
+                style={{ fontSize: "2rem", fontWeight: 400, color: "#161616" }}
+              >
+                Welcome back, {officerName}
+              </h1>
+              <p style={{ color: "#525252", marginTop: "0.5rem" }}>
+                Monitor activity and manage officers within the {departmentName}.
+              </p>
+            </div>
+
+            <Grid
+              style={{ paddingLeft: 0, paddingRight: 0, marginBottom: "2rem" }}
+            >
+              <Column sm={4} md={4} lg={4}>
+                <Tile>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <p style={{ color: "#525252", fontSize: "0.875rem" }}>
+                      Department Applications
+                    </p>
+                    <Document size={20} />
+                  </div>
+                  <h3
+                    style={{
+                      fontSize: "2.5rem",
+                      fontWeight: 300,
+                      margin: "0.5rem 0",
+                    }}
+                  >
+                    —
+                  </h3>
+                  <p
+                    style={{
+                      color: "#525252",
+                      fontSize: "0.875rem",
+                      marginTop: "1rem",
+                    }}
+                  >
+                    Total applications routed here
+                  </p>
+                </Tile>
+              </Column>
+              <Column sm={4} md={4} lg={4}>
+                <Tile>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <p style={{ color: "#525252", fontSize: "0.875rem" }}>
+                      Department Officers
+                    </p>
+                    <UserMultiple size={20} />
+                  </div>
+                  <h3
+                    style={{
+                      fontSize: "2.5rem",
+                      fontWeight: 300,
+                      margin: "0.5rem 0",
+                    }}
+                  >
+                    —
+                  </h3>
+                  <p
+                    style={{
+                      color: "#525252",
+                      fontSize: "0.875rem",
+                      marginTop: "1rem",
+                    }}
+                  >
+                    Verifying officers in this department
+                  </p>
+                </Tile>
+              </Column>
+              <Column sm={4} md={4} lg={4}>
+                <Tile style={{ borderTop: "4px solid #da1e28" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <p style={{ color: "#525252", fontSize: "0.875rem" }}>
+                      Pending Reviews
+                    </p>
+                    <Activity size={20} color="#da1e28" />
+                  </div>
+                  <h3
+                    style={{
+                      fontSize: "2.5rem",
+                      fontWeight: 300,
+                      margin: "0.5rem 0",
+                    }}
+                  >
+                    —
+                  </h3>
+                  <p
+                    style={{
+                      color: "#da1e28",
+                      fontSize: "0.875rem",
+                      marginTop: "1rem",
+                    }}
+                  >
+                    Awaiting department review
+                  </p>
+                </Tile>
+              </Column>
+            </Grid>
+          </main>
+        </>
+      )}
+    />
+  );
+}

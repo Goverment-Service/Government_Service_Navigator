@@ -39,8 +39,9 @@ import {
   Email,
   Flag,
   Add,
-  Catalog
-} from "@carbon/icons-react";
+  Catalog,
+  CheckmarkOutline
+, DataStructured } from "@carbon/icons-react";
 
 // Table Data for Pending Reviews
 const headers = [
@@ -60,7 +61,11 @@ const rows = [
   { id: "4", appId: "GSN-2026-8745", citizen: "Tharindu Perera", service: "Character Verification", reason: "Pending Police Clearance", days: "14 Days", status: "External Block" },
 ];
 
+import { useNavigate } from 'react-router-dom';
+
 export default function PendingReviews() {
+  const navigate = useNavigate();
+
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
@@ -104,29 +109,33 @@ export default function PendingReviews() {
               </HeaderGlobalAction>
             </HeaderGlobalBar>
 
-            <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
+                        <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">
+                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard" isActive={window.location.pathname.includes('dashboard')}>
                   Application Queue
                 </SideNavLink>
-                <SideNavLink renderIcon={Catalog} href="/officer/applications">
+                <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification" isActive={window.location.pathname.includes('bulk-verification')}>
+                  Bulk Verification
+                </SideNavLink>
+                <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes" isActive={window.location.pathname.includes('rejection-codes')}>
+                  Rejection Codes
+                </SideNavLink>
+                <SideNavLink renderIcon={Catalog} href="/officer/applications" isActive={window.location.pathname.includes('applications')}>
                   All Applications
                 </SideNavLink>
-                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">
+                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create" isActive={window.location.pathname.includes('application_create')}>
                   New Application
                 </SideNavLink>
-                <SideNavLink renderIcon={Document} href="/officer/verified-records">
+                <SideNavLink renderIcon={Document} href="/officer/verified-records" isActive={window.location.pathname.includes('verified-records')}>
                   Verified Records
                 </SideNavLink>
-                {/* Active state moved to Pending Reviews */}
-                <SideNavLink renderIcon={Time} href="/officer/pending-reviews" isActive>
+                <SideNavLink renderIcon={Time} href="/officer/pending-reviews" isActive={window.location.pathname.includes('pending-reviews')}>
                   Pending Reviews
                 </SideNavLink>
-                <SideNavLink renderIcon={User} href="/officer/profile">
+                <SideNavLink renderIcon={User} href="/officer/profile" isActive={window.location.pathname.includes('profile')}>
                   My Profile
                 </SideNavLink>
                 
-                {/* Logout Button */}
                 <div style={{ marginTop: 'auto', borderTop: '1px solid #393939' }}>
                   <SideNavLink renderIcon={Logout} onClick={handleLogout} style={{ cursor: 'pointer' }}>
                     Sign Out
@@ -249,7 +258,13 @@ export default function PendingReviews() {
                                   <Button 
                                     size="sm" 
                                     kind={status === 'Awaiting Citizen' ? "secondary" : "primary"}
-                                    onClick={() => alert(`Taking action on ${row.cells.find(c => c.info.header === 'appId')?.value}`)}
+                                    onClick={() => {
+                                      if (status === 'Awaiting Citizen') {
+                                        alert(`Sending reminder to citizen for ${row.cells.find(c => c.info.header === 'appId')?.value}`);
+                                      } else {
+                                        navigate(`/officer/workspace/${row.id}`);
+                                      }
+                                    }}
                                   >
                                     {status === 'Awaiting Citizen' ? "Send Reminder" : "Resume Review"}
                                   </Button>
@@ -273,3 +288,4 @@ export default function PendingReviews() {
     />
   );
 }
+

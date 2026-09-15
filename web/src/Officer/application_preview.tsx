@@ -14,7 +14,7 @@ import {
   Checkbox,
   FileUploader
 } from "@carbon/react";
-import { Dashboard, Document, Time, User, Logout, ArrowLeft, Catalog, Add } from "@carbon/icons-react";
+import { Dashboard, Document, Time, User, Logout, ArrowLeft, Catalog, Add , CheckmarkOutline, DataStructured } from "@carbon/icons-react";
 import type { FormField } from "./Application_create/TemplateBuilder";
 
 interface TemplateField extends FormField {
@@ -189,19 +189,40 @@ export default function ApplicationPreview() {
         <HeaderName href="#" prefix="Gov">
           Service Navigator
         </HeaderName>
-        <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
-          <SideNavItems>
-            <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">Application Queue</SideNavLink>
-            <SideNavLink renderIcon={Catalog} href="/officer/applications" isActive>All Applications</SideNavLink>
-            <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">New Application</SideNavLink>
-            <SideNavLink renderIcon={Document} href="/officer/verified-records">Verified Records</SideNavLink>
-            <SideNavLink renderIcon={Time} href="/officer/pending-reviews">Pending Reviews</SideNavLink>
-            <SideNavLink renderIcon={User} href="/officer/profile">My Profile</SideNavLink>
-            <div style={{ marginTop: 'auto', borderTop: '1px solid #393939' }}>
-              <SideNavLink renderIcon={Logout} onClick={handleLogout} style={{ cursor: 'pointer' }}>Sign Out</SideNavLink>
-            </div>
-          </SideNavItems>
-        </SideNav>
+                    <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
+              <SideNavItems>
+                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard" isActive={window.location.pathname.includes('dashboard')}>
+                  Application Queue
+                </SideNavLink>
+                <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification" isActive={window.location.pathname.includes('bulk-verification')}>
+                  Bulk Verification
+                </SideNavLink>
+                <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes" isActive={window.location.pathname.includes('rejection-codes')}>
+                  Rejection Codes
+                </SideNavLink>
+                <SideNavLink renderIcon={Catalog} href="/officer/applications" isActive={window.location.pathname.includes('applications')}>
+                  All Applications
+                </SideNavLink>
+                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create" isActive={window.location.pathname.includes('application_create')}>
+                  New Application
+                </SideNavLink>
+                <SideNavLink renderIcon={Document} href="/officer/verified-records" isActive={window.location.pathname.includes('verified-records')}>
+                  Verified Records
+                </SideNavLink>
+                <SideNavLink renderIcon={Time} href="/officer/pending-reviews" isActive={window.location.pathname.includes('pending-reviews')}>
+                  Pending Reviews
+                </SideNavLink>
+                <SideNavLink renderIcon={User} href="/officer/profile" isActive={window.location.pathname.includes('profile')}>
+                  My Profile
+                </SideNavLink>
+                
+                <div style={{ marginTop: 'auto', borderTop: '1px solid #393939' }}>
+                  <SideNavLink renderIcon={Logout} onClick={handleLogout} style={{ cursor: 'pointer' }}>
+                    Sign Out
+                  </SideNavLink>
+                </div>
+              </SideNavItems>
+            </SideNav>
       </Header>
 
       <main className="mt-12 min-h-screen p-4 sm:p-6 min-[66rem]:p-8 ml-0 min-[66rem]:ml-64" style={{ backgroundColor: '#f4f4f4' }}>
@@ -254,3 +275,5 @@ export default function ApplicationPreview() {
     </>
   );
 }
+
+

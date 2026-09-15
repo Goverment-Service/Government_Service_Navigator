@@ -37,7 +37,7 @@ import {
   CheckmarkOutline,
   Add,
   Catalog
-} from "@carbon/icons-react";
+, DataStructured } from "@carbon/icons-react";
 
 const headers = [
   { key: "appId", header: "Application ID" },
@@ -194,25 +194,30 @@ export default function OfficerDashboard() {
               </HeaderGlobalAction>
             </HeaderGlobalBar>
 
-            <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
+                        <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard" isActive>
+                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard" isActive={window.location.pathname.includes('dashboard')}>
                   Application Queue
                 </SideNavLink>
-                <SideNavLink renderIcon={Catalog} href="/officer/applications">
+                <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification" isActive={window.location.pathname.includes('bulk-verification')}>
+                  Bulk Verification
+                </SideNavLink>
+                <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes" isActive={window.location.pathname.includes('rejection-codes')}>
+                  Rejection Codes
+                </SideNavLink>
+                <SideNavLink renderIcon={Catalog} href="/officer/applications" isActive={window.location.pathname.includes('applications')}>
                   All Applications
                 </SideNavLink>
-                {/* Updated: Navigates to the new page instead of opening a modal */}
-                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">
+                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create" isActive={window.location.pathname.includes('application_create')}>
                   New Application
                 </SideNavLink>
-                <SideNavLink renderIcon={Document} href="/officer/verified-records">
+                <SideNavLink renderIcon={Document} href="/officer/verified-records" isActive={window.location.pathname.includes('verified-records')}>
                   Verified Records
                 </SideNavLink>
-                <SideNavLink renderIcon={Time} href="/officer/pending-reviews">
+                <SideNavLink renderIcon={Time} href="/officer/pending-reviews" isActive={window.location.pathname.includes('pending-reviews')}>
                   Pending Reviews
                 </SideNavLink>
-                <SideNavLink renderIcon={User} href="/officer/profile">
+                <SideNavLink renderIcon={User} href="/officer/profile" isActive={window.location.pathname.includes('profile')}>
                   My Profile
                 </SideNavLink>
                 
@@ -369,3 +374,4 @@ export default function OfficerDashboard() {
     />
   );
 }
+

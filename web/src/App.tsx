@@ -20,6 +20,9 @@ import ServiceCatalogManager from "./Admin/Service_Catalog/service_catalog_manag
 import EligibilityRuleBuilder from "./Admin/Service_Catalog/eligibility_rule_builder";
 import ServiceConfigurationTabs from "./Admin/Service_Catalog/service_configuration_tabs";
 import EligibilitySimulator from "./Admin/Service_Catalog/eligibility_simulator";
+import FinanceDashboard from "./Finance/finance_dashboard";
+import FinanceLedger from "./Finance/finance_ledger";
+import FinanceProfile from "./Finance/finance_profile";
 
 export default function App() {
   return (
@@ -65,6 +68,11 @@ export default function App() {
           path="/officer/application-preview"
           element={<ApplicationPreview />}
         />
+
+        {/* finance officer routes */}
+        <Route path="/finance/dashboard" element={<FinanceDashboard />} />
+        <Route path="/finance/ledger" element={<FinanceLedger />} />
+        <Route path="/finance/profile" element={<FinanceProfile />} />
       </Routes>
     </BrowserRouter>
   );

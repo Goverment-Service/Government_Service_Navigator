@@ -16,13 +16,21 @@ namespace Government_Service_Navigator.Backend.Controllers
             _catalogService = catalogService;
         }
 
-        // Admin adds a new service/procedure
-        [HttpPost]
-        public async Task<IActionResult> CreateService([FromBody] ServiceProcedure service)
-        {
-            var createdService = await _catalogService.CreateServiceAsync(service);
-            return CreatedAtAction(nameof(GetService), new { id = createdService.Id }, createdService);
-        }
+       // Admin adds a new service/procedure
+[HttpPost]
+public async Task<IActionResult> CreateService([FromBody] ServiceProcedure service)
+{
+    try
+    {
+        var createdService = await _catalogService.CreateServiceAsync(service);
+        return CreatedAtAction(nameof(GetService), new { id = createdService.Id }, createdService);
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { message = ex.Message, inner = ex.InnerException?.Message });
+    }
+}
+
 
         // Fetch procedure details + document checklist
         [HttpGet("{id}")]

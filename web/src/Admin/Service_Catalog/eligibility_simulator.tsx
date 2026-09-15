@@ -67,13 +67,14 @@ export default function EligibilitySimulator() {
   } | null>(null);
 
   // 1. Fetch services on mount to populate the procedure dropdown
-  useEffect(() => {
+   useEffect(() => {
     fetch("http://localhost:5119/api/services")
       .then((res) => res.json())
       .then((data) => {
-        setServices(data);
-        if (data.length > 0) {
-          setSelectedServiceId(data[0].id.toString());
+        const activeServices = data.filter((srv: any) => srv.status !== "Retired");
+        setServices(activeServices);
+        if (activeServices.length > 0) {
+          setSelectedServiceId(activeServices[0].id.toString());
         }
         setIsLoading(false);
       })
@@ -82,6 +83,7 @@ export default function EligibilitySimulator() {
         setIsLoading(false);
       });
   }, []);
+
 
   // 2. Call POST /api/services/eligibility-score
   const handleEvaluate = async (e: React.FormEvent) => {

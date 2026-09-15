@@ -26,8 +26,10 @@ namespace Government_Service_Navigator.Backend.Services
             return await _context.ServiceProcedures
                 .Include(s => s.DocumentRequirements)
                 .Include(s => s.FeeSchedules)
+                .Where(s => s.Status != "Retired") // Exclude deleted/retired services
                 .ToListAsync();
         }
+
 
 
         public async Task<ServiceProcedure?> GetServiceByIdAsync(int id)
@@ -229,7 +231,7 @@ namespace Government_Service_Navigator.Backend.Services
             await _context.SaveChangesAsync();
             return true;
         }
-       
+
 
     }
 }

@@ -35,6 +35,8 @@ import {
   Catalog,
   Rule,
   Categories,
+  TrashCan,
+  Edit,
 } from "@carbon/icons-react";
 
 const headers = [
@@ -73,10 +75,12 @@ export default function ServiceCatalogManager() {
     fetch("http://localhost:5119/api/services")
       .then((res) => res.json())
       .then((data) => {
-        const formattedData = data.map((item: Omit<ServiceRecord, "id"> & { id: number }) => ({
-          ...item,
-          id: item.id.toString(),
-        }));
+        const formattedData = data.map(
+          (item: Omit<ServiceRecord, "id"> & { id: number }) => ({
+            ...item,
+            id: item.id.toString(),
+          }),
+        );
         setServices(formattedData);
         setIsLoading(false);
       })
@@ -154,12 +158,38 @@ export default function ServiceCatalogManager() {
     }
   };
 
-  const filteredServices = services.filter(
-    (service) =>
-      service.serviceId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      service.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      service.category?.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const handleDeleteService = async (id: string) => {
+    if (
+      !window.confirm("Are you sure you want to delete this service procedure?")
+    ) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5119/api/services/${id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        // Immediately update local state to filter out the retired/deleted service
+        setServices((prev) => prev.filter((s) => s.id !== id));
+      } else {
+        console.error("Failed to delete service");
+      }
+    } catch (error) {
+      console.error("Error deleting service:", error);
+    }
+  };
+
+  // Filter out retired services so they don't clutter the active catalog view, plus apply search query
+  const filteredServices = services
+    .filter((service) => service.status !== "Retired")
+    .filter(
+      (service) =>
+        service.serviceId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        service.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        service.category?.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
 
   return (
     <>
@@ -202,7 +232,6 @@ export default function ServiceCatalogManager() {
             <SideNavLink renderIcon={Rule} href="/admin/services/rules">
               Eligibility Rules
             </SideNavLink>
-
             <SideNavLink renderIcon={Categories} href="/admin/services/config">
               Service Configuration
             </SideNavLink>
@@ -383,19 +412,38 @@ export default function ServiceCatalogManager() {
                             if (cell.info.header === "actions") {
                               return (
                                 <TableCell key={cell.id}>
-                                  <Button
-                                    size="sm"
-                                    kind="tertiary"
-                                    onClick={() => {
-                                      const serviceToEdit = services.find(
-                                        (s) => s.id === row.id,
-                                      );
-                                      if (serviceToEdit)
-                                        openEditModal(serviceToEdit);
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      gap: "0.5rem",
+                                      alignItems: "center",
                                     }}
                                   >
-                                    Edit
-                                  </Button>
+                                    <Button
+                                      size="sm"
+                                      kind="tertiary"
+                                      renderIcon={Edit}
+                                      iconDescription="Edit"
+                                      hasIconOnly
+                                      onClick={() => {
+                                        const serviceToEdit = services.find(
+                                          (s) => s.id === row.id,
+                                        );
+                                        if (serviceToEdit)
+                                          openEditModal(serviceToEdit);
+                                      }}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      kind="danger--ghost"
+                                      renderIcon={TrashCan}
+                                      iconDescription="Delete"
+                                      hasIconOnly
+                                      onClick={() =>
+                                        handleDeleteService(row.id)
+                                      }
+                                    />
+                                  </div>
                                 </TableCell>
                               );
                             }

@@ -60,13 +60,14 @@ export default function EligibilityRuleBuilder() {
     subtitle: string;
   } | null>(null);
 
-  useEffect(() => {
+    useEffect(() => {
     fetch("http://localhost:5119/api/services")
       .then((res) => res.json())
       .then((data) => {
-        setServices(data);
-        if (data.length > 0) {
-          setSelectedServiceId(data[0].id.toString());
+        const activeServices = data.filter((srv: any) => srv.status !== "Retired");
+        setServices(activeServices);
+        if (activeServices.length > 0) {
+          setSelectedServiceId(activeServices[0].id.toString());
         }
         setIsLoading(false);
       })
@@ -75,6 +76,7 @@ export default function EligibilityRuleBuilder() {
         setIsLoading(false);
       });
   }, []);
+
 
   useEffect(() => {
     if (!selectedServiceId) return;

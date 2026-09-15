@@ -119,14 +119,15 @@ export default function ServiceConfigurationTabs() {
   });
 
   // 1. Fetch all services on mount
-  useEffect(() => {
+    useEffect(() => {
     fetch("http://localhost:5119/api/services")
       .then((res) => res.json())
       .then((data) => {
-        setServices(data);
-        if (data.length > 0) {
-          setSelectedServiceId(data[0].id.toString());
-          setSelectedServiceName(data[0].name);
+        const activeServices = data.filter((srv: any) => srv.status !== "Retired");
+        setServices(activeServices);
+        if (activeServices.length > 0) {
+          setSelectedServiceId(activeServices[0].id.toString());
+          setSelectedServiceName(activeServices[0].name);
         }
         setIsLoading(false);
       })
@@ -135,6 +136,7 @@ export default function ServiceConfigurationTabs() {
         setIsLoading(false);
       });
   }, []);
+
 
   // 2. Fetch procedure details (documents and fees) when selected procedure changes
   useEffect(() => {

@@ -14,7 +14,6 @@ import {
 export default function OfficerLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  // showPassword state is removed because Carbon's PasswordInput handles it automatically
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +32,7 @@ export default function OfficerLoginPage() {
 
     setIsLoading(true);
     try {
+      // 1. Attempt Officer Login
       let response = await fetch("http://localhost:5119/api/auth/officer-login", {
         method: "POST",
         headers: {
@@ -47,10 +47,19 @@ export default function OfficerLoginPage() {
         localStorage.setItem("officerToken", resData.token);
         localStorage.setItem("officerUser", JSON.stringify(resData.officer));
         
-        window.location.href = "/officer/dashboard"; 
+        // Check officer role / designation to route Department Admins to admin dashboard
+        const role = resData.officer.role || resData.officer.designation || "";
+        const isDepartmentAdmin = role.toLowerCase().includes("admin") || role === "Department Admin";
+
+        if (isDepartmentAdmin) {
+          window.location.href = "/admin/dashboard";
+        } else {
+          window.location.href = "/officer/dashboard";
+        }
         return; 
       }
 
+      // 2. Fallback to System Admin Login
       response = await fetch("http://localhost:5119/api/auth/admin-login", {
         method: "POST",
         headers: {

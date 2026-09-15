@@ -448,7 +448,16 @@ export default function ManageOfficers() {
               labelText="Department"
               helperText={isDepartmentAdmin ? "Officers you create are added to your own department." : undefined}
               value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+              onChange={(e) => {
+                const nextDepartment = e.target.value;
+                setFormData((prev) => ({
+                  ...prev,
+                  department: nextDepartment,
+                  role: nextDepartment === "Finance Department" || prev.role !== "Finance Officer"
+                    ? prev.role
+                    : "Verifying Officer",
+                }));
+              }}
               disabled={isSubmitting || isDepartmentAdmin}
             >
               <SelectItem value="" text="Choose a department" />
@@ -470,6 +479,9 @@ export default function ManageOfficers() {
                 <SelectItem value="Department Admin" text="Department Admin" />
               )}
               <SelectItem value="Auditor" text="Auditor" />
+              {formData.department === "Finance Department" && (
+                <SelectItem value="Finance Officer" text="Finance Officer" />
+              )}
             </Select>
           </Stack>
         </Modal>

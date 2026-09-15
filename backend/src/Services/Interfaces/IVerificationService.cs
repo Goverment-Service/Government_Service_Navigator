@@ -13,6 +13,11 @@ namespace Government_Service_Navigator.Backend.Services.Interfaces
         Task<List<AuditLog>> GetAuditLogsAsync(int applicationId);
         Task<List<AuditLog>> GetAllAuditLogsAsync();
         Task<List<VerificationTask>> GetPendingTasksAsync();
+        Task<List<VerificationTask>> GetVerifiedTasksAsync();
         Task<OfficerStatsDto> GetOfficerStatsAsync(string officerId);
+        Task<List<RejectionReason>> GetRejectionReasonsAsync();
+        Task<RejectionReason> CreateRejectionReasonAsync(RejectionReason reason);
+        Task<bool> UpdateRejectionReasonAsync(int id, RejectionReason reason);
+        Task<bool> DeleteRejectionReasonAsync(int id);
     }
 }

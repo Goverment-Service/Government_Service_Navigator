@@ -30,6 +30,13 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(tasks);
         }
 
+        [HttpGet("tasks/verified")]
+        public async Task<IActionResult> GetVerifiedTasks()
+        {
+            var tasks = await _verificationService.GetVerifiedTasksAsync();
+            return Ok(tasks);
+        }
+
         [HttpGet("stats")]
         public async Task<IActionResult> GetOfficerStats()
         {
@@ -83,6 +90,53 @@ namespace Government_Service_Navigator.Backend.Controllers
 
             if (!result) return BadRequest("Bulk verification failed");
             return Ok();
+        }
+        [HttpGet("rejection-reasons")]
+        public async Task<IActionResult> GetRejectionReasons()
+        {
+            var reasons = await _verificationService.GetRejectionReasonsAsync();
+            return Ok(reasons);
+        }
+
+        [HttpPost("rejection-reasons")]
+        public async Task<IActionResult> CreateRejectionReason([FromBody] Government_Service_Navigator.Backend.Models.Entities.RejectionReason reason)
+        {
+            var created = await _verificationService.CreateRejectionReasonAsync(reason);
+            return Ok(created);
+        }
+
+        [HttpPut("rejection-reasons/{id}")]
+        public async Task<IActionResult> UpdateRejectionReason(int id, [FromBody] Government_Service_Navigator.Backend.Models.Entities.RejectionReason reason)
+        {
+            var success = await _verificationService.UpdateRejectionReasonAsync(id, reason);
+            if (!success) return NotFound();
+            return Ok();
+        }
+
+        [HttpDelete("rejection-reasons/{id}")]
+        public async Task<IActionResult> DeleteRejectionReason(int id)
+        {
+            var success = await _verificationService.DeleteRejectionReasonAsync(id);
+            if (!success) return NotFound();
+            return NoContent();
+        }
+        [AllowAnonymous]
+        [HttpGet("seed")]
+        public async Task<IActionResult> SeedTasks()
+        {
+            var db = HttpContext.RequestServices.GetRequiredService<Government_Service_Navigator.Backend.Data.Context.AppDbContext>();
+            var random = new Random();
+            for (int i = 0; i < 5; i++)
+            {
+                db.VerificationTasks.Add(new Government_Service_Navigator.Backend.Models.Entities.VerificationTask
+                {
+                    ApplicationId = random.Next(1000, 9999),
+                    Status = "Pending",
+                    CreatedDate = DateTime.UtcNow.AddHours(-random.Next(1, 48))
+                });
+            }
+            await db.SaveChangesAsync();
+            return Ok("5 new Pending tasks seeded! Go back to Pending Reviews page and refresh.");
         }
     }
 }

@@ -14,7 +14,10 @@ import {
   Checkbox,
   FileUploader
 } from "@carbon/react";
-import { Dashboard, Document, Time, User, Logout, ArrowLeft, Catalog, Add } from "@carbon/icons-react";
+import { Dashboard, Document, Time, User, Logout, ArrowLeft, Catalog, Add ,
+  CheckmarkOutline,
+  DataStructured
+} from '@carbon/icons-react';
 import type { FormField } from "./Application_create/TemplateBuilder";
 
 interface TemplateField extends FormField {
@@ -192,7 +195,13 @@ export default function ApplicationPreview() {
         <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
           <SideNavItems>
             <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">Application Queue</SideNavLink>
-            <SideNavLink renderIcon={Catalog} href="/officer/applications" isActive>All Applications</SideNavLink>
+                            <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification">
+                  Bulk Verification
+                </SideNavLink>
+                <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes">
+                  Rejection Codes
+                </SideNavLink>
+<SideNavLink renderIcon={Catalog} href="/officer/applications" isActive>All Applications</SideNavLink>
             <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">New Application</SideNavLink>
             <SideNavLink renderIcon={Document} href="/officer/verified-records">Verified Records</SideNavLink>
             <SideNavLink renderIcon={Time} href="/officer/pending-reviews">Pending Reviews</SideNavLink>
@@ -254,3 +263,4 @@ export default function ApplicationPreview() {
     </>
   );
 }
+

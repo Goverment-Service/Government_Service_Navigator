@@ -1,4 +1,5 @@
 import '@carbon/styles/css/styles.css';
+import { useState, useEffect } from 'react';
 import {
   Header,
   HeaderContainer,
@@ -39,7 +40,9 @@ import {
   Email,
   Flag,
   Add,
-  Catalog
+  Catalog,
+  CheckmarkOutline,
+  DataStructured
 } from "@carbon/icons-react";
 
 // Table Data for Pending Reviews
@@ -53,14 +56,41 @@ const headers = [
   { key: "actions", header: "" },
 ];
 
-const rows = [
-  { id: "1", appId: "GSN-2026-9102", citizen: "Amila Kumara", service: "Business Registration", reason: "Missing NIC Upload", days: "3 Days", status: "Awaiting Citizen" },
-  { id: "2", appId: "GSN-2026-9088", citizen: "Nethmi Silva", service: "Income Certificate", reason: "Requires Supervisor Approval", days: "1 Day", status: "In Progress" },
-  { id: "3", appId: "GSN-2026-8799", citizen: "Dinesh Bandara", service: "Residence Certificate", reason: "Mismatched Address Details", days: "5 Days", status: "Action Required" },
-  { id: "4", appId: "GSN-2026-8745", citizen: "Tharindu Perera", service: "Character Verification", reason: "Pending Police Clearance", days: "14 Days", status: "External Block" },
-];
+
 
 export default function PendingReviews() {
+  const [rows, setRows] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchPendingTasks();
+  }, []);
+
+  const fetchPendingTasks = async () => {
+    const token = localStorage.getItem("officerToken");
+    try {
+      const response = await fetch(`http://localhost:5119/api/Verification/tasks/pending`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const mappedRows = data.map((t: any) => {
+          const ageDays = Math.floor((Date.now() - new Date(t.createdDate).getTime()) / (1000 * 3600 * 24));
+          return {
+            id: t.id.toString(),
+            appId: `GSN-2026-${t.applicationId}`,
+            citizen: `User ${t.applicationId}`,
+            service: "General Verification",
+            reason: t.status === "Pending" ? "Awaiting Review" : t.status,
+            days: `${ageDays} Days`,
+            status: t.status === "Pending" ? "Action Required" : t.status
+          };
+        });
+        setRows(mappedRows);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
@@ -108,6 +138,12 @@ export default function PendingReviews() {
               <SideNavItems>
                 <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">
                   Application Queue
+                </SideNavLink>
+                <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification">
+                  Bulk Verification
+                </SideNavLink>
+                <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes">
+                  Rejection Codes
                 </SideNavLink>
                 <SideNavLink renderIcon={Catalog} href="/officer/applications">
                   All Applications
@@ -249,7 +285,7 @@ export default function PendingReviews() {
                                   <Button 
                                     size="sm" 
                                     kind={status === 'Awaiting Citizen' ? "secondary" : "primary"}
-                                    onClick={() => alert(`Taking action on ${row.cells.find(c => c.info.header === 'appId')?.value}`)}
+                                    onClick={() => window.location.href = `/officer/verification-workspace/${row.id}`}
                                   >
                                     {status === 'Awaiting Citizen' ? "Send Reminder" : "Resume Review"}
                                   </Button>

@@ -34,7 +34,10 @@ import {
   Security,
   Add,
   Catalog
-} from "@carbon/icons-react";
+,
+  CheckmarkOutline,
+  DataStructured
+} from '@carbon/icons-react';
 
 function getStoredOfficerData() {
   const defaults = {
@@ -125,7 +128,13 @@ export default function Profile() {
                 <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">
                   Application Queue
                 </SideNavLink>
-                <SideNavLink renderIcon={Catalog} href="/officer/applications">
+                                <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification">
+                  Bulk Verification
+                </SideNavLink>
+                <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes">
+                  Rejection Codes
+                </SideNavLink>
+<SideNavLink renderIcon={Catalog} href="/officer/applications">
                   All Applications
                 </SideNavLink>
                 <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">
@@ -284,3 +293,4 @@ export default function Profile() {
     />
   );
 }
+

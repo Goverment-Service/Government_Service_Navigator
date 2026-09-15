@@ -36,7 +36,9 @@ import {
   Edit,
   View,
   Download,
-  TrashCan
+  TrashCan,
+  CheckmarkOutline,
+  DataStructured
 } from "@carbon/icons-react";
 
 const STATUS_OPTIONS: { value: string; label: string; bg: string; color: string }[] = [
@@ -83,6 +85,8 @@ export default function ApplicationsList() {
   const [deleteTarget, setDeleteTarget] = useState<TemplateRow | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedApp, setSelectedApp] = useState<TemplateRow | null>(null);
 
   useEffect(() => {
     const fetchTemplates = async () => {
@@ -271,6 +275,8 @@ export default function ApplicationsList() {
             <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
                 <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">Application Queue</SideNavLink>
+                <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification">Bulk Verification</SideNavLink>
+                <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes">Rejection Codes</SideNavLink>
                 <SideNavLink renderIcon={Catalog} href="/officer/applications" isActive>All Applications</SideNavLink>
                 <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">New Application</SideNavLink>
                 <SideNavLink renderIcon={Document} href="/officer/verified-records">Verified Records</SideNavLink>
@@ -351,7 +357,7 @@ export default function ApplicationsList() {
                                 return (
                                   <TableCell key={cell.id} style={{ padding: '0.5rem' }}>
                                     <Button kind="ghost" size="sm" renderIcon={Edit} iconDescription="Edit" hasIconOnly onClick={() => window.location.href = `/officer/Application_create/application_create?id=${row.id}`} />
-                                    <Button kind="ghost" size="sm" renderIcon={View} iconDescription="View" hasIconOnly onClick={() => window.location.href = `/officer/application-preview?id=${row.id}`} />
+                                    <Button kind="ghost" size="sm" renderIcon={View} iconDescription="View Details" hasIconOnly onClick={() => { setSelectedApp(fullRow || null); setDetailsModalOpen(true); }} />
                                     <Button kind="ghost" size="sm" renderIcon={Download} iconDescription="Download" hasIconOnly onClick={() => fullRow && handleDownload(fullRow)} />
                                     <Button kind="ghost" size="sm" renderIcon={TrashCan} iconDescription="Delete" hasIconOnly onClick={() => fullRow && handleDeleteClick(fullRow)} />
                                   </TableCell>
@@ -394,9 +400,56 @@ export default function ApplicationsList() {
                 <strong>{deleteTarget?.rawFormName || deleteTarget?.formName}</strong>? This action cannot be undone.
               </p>
             </Modal>
+
+            <Modal
+              open={detailsModalOpen}
+              passiveModal
+              modalHeading="Application Template Details"
+              onRequestClose={() => { setDetailsModalOpen(false); setSelectedApp(null); }}
+            >
+              {selectedApp && (
+                <div style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: '#ffffff', border: '1px solid #e0e0e0' }}>
+                  <h3 style={{ marginBottom: '1rem', fontSize: '1.5rem', fontWeight: 400 }}>{selectedApp.formName}</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <div>
+                      <p style={{ fontSize: '0.75rem', color: '#525252' }}>Template ID</p>
+                      <p style={{ fontWeight: 600 }}>{selectedApp.templateId}</p>
+                    </div>
+                    <div>
+                      <p style={{ fontSize: '0.75rem', color: '#525252' }}>Created Date</p>
+                      <p style={{ fontWeight: 600 }}>{selectedApp.createdDate}</p>
+                    </div>
+                    <div>
+                      <p style={{ fontSize: '0.75rem', color: '#525252' }}>Status</p>
+                      <p style={{ fontWeight: 600 }}>{selectedApp.status}</p>
+                    </div>
+                  </div>
+                  
+                  <h4 style={{ marginTop: '1.5rem', marginBottom: '0.5rem', fontSize: '1rem', fontWeight: 600 }}>Form Fields ({selectedApp.fieldsCount})</h4>
+                  {selectedApp.fields && selectedApp.fields.length > 0 ? (
+                    <ul style={{ listStyleType: 'disc', paddingLeft: '1.5rem', marginBottom: '2rem' }}>
+                      {selectedApp.fields.map((f, i) => (
+                        <li key={i} style={{ marginBottom: '0.5rem' }}>
+                          <strong>{f.label}</strong> <span style={{ color: '#525252' }}>({f.type}{f.isRequired ? ', required' : ''})</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p style={{ color: '#525252', marginBottom: '2rem' }}>No fields defined.</p>
+                  )}
+                  
+                  <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
+                    <Button onClick={() => window.location.href = `/officer/Application_create/application_create?id=${selectedApp.id}`}>
+                      Edit in Builder
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Modal>
           </main>
         </>
       )}
     />
   );
 }
+

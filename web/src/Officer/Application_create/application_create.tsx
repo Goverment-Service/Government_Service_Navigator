@@ -11,7 +11,10 @@ import {
   Search,
   HeaderMenuButton
 } from "@carbon/react";
-import { Dashboard, Document, Time, User, Logout, Notification, Add, Catalog } from "@carbon/icons-react";
+import { Dashboard, Document, Time, User, Logout, Notification, Add, Catalog ,
+  CheckmarkOutline,
+  DataStructured
+} from '@carbon/icons-react';
 
 import TemplateBuilder from "./TemplateBuilder";
 
@@ -59,7 +62,13 @@ export default function ApplicationCreate() {
             <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
                 <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">Application Queue</SideNavLink>
-                <SideNavLink renderIcon={Catalog} href="/officer/applications">All Applications</SideNavLink>
+                                <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification">
+                  Bulk Verification
+                </SideNavLink>
+                <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes">
+                  Rejection Codes
+                </SideNavLink>
+<SideNavLink renderIcon={Catalog} href="/officer/applications">All Applications</SideNavLink>
                 <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create" isActive>Create Template</SideNavLink>
                 <SideNavLink renderIcon={Document} href="/officer/verified-records">Verified Records</SideNavLink>
                 <SideNavLink renderIcon={Time} href="/officer/pending-reviews">Pending Reviews</SideNavLink>
@@ -77,3 +86,4 @@ export default function ApplicationCreate() {
     />
   );
 }
+

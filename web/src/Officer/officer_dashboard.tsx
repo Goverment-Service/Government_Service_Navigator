@@ -1,5 +1,5 @@
 import '@carbon/styles/css/styles.css';
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Header,
   HeaderContainer,
@@ -22,7 +22,8 @@ import {
   TableCell,
   Tag,
   Search,
-  Button
+  Button,
+  Loading
 } from "@carbon/react";
 import {
   Dashboard,
@@ -38,19 +39,38 @@ import {
 } from "@carbon/icons-react";
 
 const headers = [
-  { key: "appId", header: "App ID" },
-  { key: "citizen", header: "Citizen Name" },
-  { key: "service", header: "Service Type" },
+  { key: "appId", header: "Application ID" },
+  { key: "status", header: "Status" },
   { key: "time", header: "Submitted" },
   { key: "priority", header: "Priority" },
   { key: "actions", header: "" },
 ];
 
-const rows = [
-  { id: "1", appId: "GSN-2026-9012", citizen: "Kasun Bandara", service: "Business Registration", time: "15 mins ago", priority: "High" },
-  { id: "2", appId: "GSN-2026-9015", citizen: "Chamari Silva", service: "Residence Certificate", time: "42 mins ago", priority: "Normal" },
-  { id: "3", appId: "GSN-2026-9021", citizen: "Amesh Perera", service: "Character Verification", time: "1 hour ago", priority: "Normal" },
-];
+interface QueueRow {
+  id: string;
+  appId: string;
+  status: string;
+  time: string;
+  priority: string;
+}
+
+interface OfficerStats {
+  reviewedToday: number;
+  reviewedYesterday: number;
+  approvedThisMonth: number;
+  approvalRate: number | null;
+}
+
+function formatRelativeTime(dateStr: string): string {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins} min${diffMins === 1 ? "" : "s"} ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+}
 
 function getStoredOfficerName(): string {
   const storedUser = localStorage.getItem("officerUser");
@@ -68,6 +88,67 @@ function getStoredOfficerName(): string {
 
 export default function OfficerDashboard() {
   const [officerName] = useState(getStoredOfficerName);
+  const [rows, setRows] = useState<QueueRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState<OfficerStats | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("officerToken");
+    const authHeaders = { Authorization: `Bearer ${token}` };
+
+    const fetchQueue = async () => {
+      try {
+        const response = await fetch("http://localhost:5119/api/verification/tasks/pending", {
+          headers: authHeaders,
+        });
+        if (response.ok) {
+          const data: { id: number; applicationId: number; status: string; createdDate: string }[] = await response.json();
+          setRows(
+            data.map((task) => {
+              const ageHours = (Date.now() - new Date(task.createdDate).getTime()) / 3_600_000;
+              return {
+                id: task.id.toString(),
+                appId: `APP-${task.applicationId}`,
+                status: task.status,
+                time: formatRelativeTime(task.createdDate),
+                priority: ageHours > 24 ? "High" : "Normal",
+              };
+            })
+          );
+        } else {
+          console.error("Failed to fetch verification queue");
+        }
+      } catch (error) {
+        console.error("Error fetching verification queue:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const fetchStats = async () => {
+      try {
+        const response = await fetch("http://localhost:5119/api/verification/stats", {
+          headers: authHeaders,
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setStats({
+            reviewedToday: data.reviewedToday,
+            reviewedYesterday: data.reviewedYesterday,
+            approvedThisMonth: data.approvedThisMonth,
+            approvalRate: data.approvalRate,
+          });
+        } else {
+          console.error("Failed to fetch officer stats");
+        }
+      } catch (error) {
+        console.error("Error fetching officer stats:", error);
+      }
+    };
+
+    fetchQueue();
+    fetchStats();
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("officerToken");
@@ -154,8 +235,14 @@ export default function OfficerDashboard() {
                     <p style={{ color: '#525252', fontSize: '0.875rem' }}>Reviewed Today</p>
                     <CheckmarkOutline size={20} />
                   </div>
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>18</h3>
-                  <p style={{ color: '#525252', fontSize: '0.875rem', marginTop: '1rem' }}>+4 from yesterday</p>
+                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>
+                    {stats ? stats.reviewedToday : '—'}
+                  </h3>
+                  <p style={{ color: '#525252', fontSize: '0.875rem', marginTop: '1rem' }}>
+                    {stats
+                      ? `${stats.reviewedToday - stats.reviewedYesterday >= 0 ? '+' : ''}${stats.reviewedToday - stats.reviewedYesterday} from yesterday`
+                      : 'Loading…'}
+                  </p>
                 </Tile>
               </Column>
               <Column sm={4} md={4} lg={4}>
@@ -164,72 +251,97 @@ export default function OfficerDashboard() {
                     <p style={{ color: '#525252', fontSize: '0.875rem' }}>Approved Total</p>
                     <Document size={20} />
                   </div>
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>482</h3>
+                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>
+                    {stats ? stats.approvedThisMonth : '—'}
+                  </h3>
                   <p style={{ color: '#525252', fontSize: '0.875rem', marginTop: '1rem' }}>This month</p>
                 </Tile>
               </Column>
               <Column sm={4} md={4} lg={4}>
                 <Tile>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>Accuracy Rating</p>
+                    <p style={{ color: '#525252', fontSize: '0.875rem' }}>Approval Rate</p>
                     <User size={20} />
                   </div>
-                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>99.4%</h3>
-                  <p style={{ color: '#24a148', fontSize: '0.875rem', marginTop: '1rem' }}>Audit compliant</p>
+                  <h3 style={{ fontSize: '2.5rem', fontWeight: 300, margin: '0.5rem 0' }}>
+                    {stats && stats.approvalRate !== null ? `${stats.approvalRate}%` : '—'}
+                  </h3>
+                  <p style={{ color: '#525252', fontSize: '0.875rem', marginTop: '1rem' }}>
+                    {stats && stats.approvalRate !== null ? 'Share of your decisions approved' : 'No decisions recorded yet'}
+                  </p>
                 </Tile>
               </Column>
             </Grid>
 
-            <DataTable rows={rows} headers={headers}>
-              {({ rows, headers, getTableProps, getHeaderProps, getRowProps }) => (
-                <TableContainer 
-                  title="Active Verification Queue" 
-                  description="Citizen submissions waiting for departmental review and timestamping."
-                >
-                  <Table {...getTableProps()}>
-                    <TableHead>
-                      <TableRow>
-                        {headers.map((header) => (
-                          <TableHeader {...getHeaderProps({ header })} key={header.key}>
-                            {header.header}
-                          </TableHeader>
-                        ))}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {rows.map((row) => (
-                        <TableRow {...getRowProps({ row })} key={row.id}>
-                          {row.cells.map((cell) => {
-                            if (cell.info.header === 'priority') {
-                              return (
-                                <TableCell key={cell.id}>
-                                  <Tag type={cell.value === 'High' ? 'red' : 'blue'}>
-                                    {cell.value}
-                                  </Tag>
-                                </TableCell>
-                              );
-                            }
-                            if (cell.info.header === 'actions') {
-                              return (
-                                <TableCell key={cell.id} style={{ padding: '0.5rem', textAlign: 'right' }}>
-                                  <Button 
-                                    size="sm" 
-                                    onClick={() => alert(`Reviewing application ${row.cells.find(c => c.info.header === 'appId')?.value}`)}
-                                  >
-                                    Review
-                                  </Button>
-                                </TableCell>
-                              );
-                            }
-                            return <TableCell key={cell.id}>{cell.value}</TableCell>;
-                          })}
+            {isLoading ? (
+              <Loading description="Loading verification queue" withOverlay={false} />
+            ) : (
+              <DataTable rows={rows} headers={headers}>
+                {({ rows, headers, getTableProps, getHeaderProps, getRowProps }) => (
+                  <TableContainer
+                    title="Active Verification Queue"
+                    description="Pending verification tasks waiting for departmental review and timestamping."
+                  >
+                    <Table {...getTableProps()}>
+                      <TableHead>
+                        <TableRow>
+                          {headers.map((header) => (
+                            <TableHeader {...getHeaderProps({ header })} key={header.key}>
+                              {header.header}
+                            </TableHeader>
+                          ))}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </DataTable>
+                      </TableHead>
+                      <TableBody>
+                        {rows.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={headers.length} style={{ textAlign: 'center', padding: '2rem' }}>
+                              No pending applications in the queue.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          rows.map((row) => (
+                            <TableRow {...getRowProps({ row })} key={row.id}>
+                              {row.cells.map((cell) => {
+                                if (cell.info.header === 'status') {
+                                  return (
+                                    <TableCell key={cell.id}>
+                                      <Tag type="blue">{cell.value}</Tag>
+                                    </TableCell>
+                                  );
+                                }
+                                if (cell.info.header === 'priority') {
+                                  return (
+                                    <TableCell key={cell.id}>
+                                      <Tag type={cell.value === 'High' ? 'red' : 'blue'}>
+                                        {cell.value}
+                                      </Tag>
+                                    </TableCell>
+                                  );
+                                }
+                                if (cell.info.header === 'actions') {
+                                  return (
+                                    <TableCell key={cell.id} style={{ padding: '0.5rem', textAlign: 'right' }}>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => alert(`Reviewing application ${row.cells.find(c => c.info.header === 'appId')?.value}`)}
+                                      >
+                                        Review
+                                      </Button>
+                                    </TableCell>
+                                  );
+                                }
+                                return <TableCell key={cell.id}>{cell.value}</TableCell>;
+                              })}
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </DataTable>
+            )}
 
           </main>
         </>

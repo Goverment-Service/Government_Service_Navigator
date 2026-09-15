@@ -1,4 +1,5 @@
 import '@carbon/styles/css/styles.css'; // This fixes the unstyled layout![cite: 5]
+import { useState, useEffect } from "react";
 import {
   Header,
   HeaderContainer,
@@ -21,7 +22,8 @@ import {
   TableToolbarSearch,
   Button,
   Tag,
-  Search
+  Search,
+  Loading
 } from "@carbon/react";
 import {
   Dashboard,
@@ -36,26 +38,70 @@ import {
   Categories
 } from "@carbon/icons-react";
 
-// Expanded Table Data for Audit Logs
+// Columns reflect only fields the backend AuditLog table actually stores.
+// There's no IP address capture anywhere in this system, so that column was dropped
+// rather than showing a fabricated value.
 const headers = [
   { key: "time", header: "Timestamp" },
-  { key: "officer", header: "User / System" },
+  { key: "officer", header: "Performed By" },
   { key: "action", header: "Event Action" },
   { key: "target", header: "Target ID" },
-  { key: "ip", header: "IP Address" },
   { key: "status", header: "Status" },
 ];
 
-const rows = [
-  { id: "1", time: "2026-08-12 18:05:12", officer: "Sarah Fernando", action: "Approved Application", target: "APP-8992", ip: "192.168.1.45", status: "Success" },
-  { id: "2", time: "2026-08-12 17:50:01", officer: "Nuwan Perera", action: "Rejected Document", target: "DOC-1029", ip: "192.168.1.102", status: "Flagged" },
-  { id: "3", time: "2026-08-12 17:00:00", officer: "System Auto-Sync", action: "Database Backup", target: "SYS-DB-01", ip: "Internal System", status: "Success" },
-  { id: "4", time: "2026-08-12 16:45:22", officer: "Unknown", action: "Failed Login Attempt", target: "admin@gov.lk", ip: "103.24.55.12", status: "Failed" },
-  { id: "5", time: "2026-08-12 15:30:10", officer: "Priyanka Silva", action: "Modified Global Settings", target: "SET-GLOBAL", ip: "192.168.1.88", status: "Success" },
-  { id: "6", time: "2026-08-12 14:12:05", officer: "Kamal Dissanayake", action: "Suspended User Account", target: "USR-4091", ip: "192.168.1.22", status: "Warning" },
-];
+interface AuditLogRow {
+  id: string;
+  time: string;
+  officer: string;
+  action: string;
+  target: string;
+  status: string;
+}
+
+// The Action text is the only signal we have for outcome - the AuditLog table has no
+// dedicated status column, so this is derived, not fabricated.
+function deriveStatus(action: string): string {
+  const normalized = action.toLowerCase();
+  if (normalized.includes("fail") || normalized.includes("reject")) return "Failed";
+  if (normalized.includes("suspend") || normalized.includes("delete") || normalized.includes("revised")) return "Warning";
+  return "Success";
+}
 
 export default function AuditLogs() {
+  const [rows, setRows] = useState<AuditLogRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAuditLogs = async () => {
+      try {
+        const token = localStorage.getItem("officerToken");
+        const response = await fetch("http://localhost:5119/api/verification/audit-logs/all", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data: { id: number; applicationId: number; action: string; performedBy: string; timestamp: string }[] = await response.json();
+          setRows(
+            data.map((log) => ({
+              id: log.id.toString(),
+              time: new Date(log.timestamp).toLocaleString(),
+              officer: log.performedBy || "Unknown",
+              action: log.action,
+              target: `APP-${log.applicationId}`,
+              status: deriveStatus(log.action),
+            }))
+          );
+        } else {
+          console.error("Failed to fetch audit logs");
+        }
+      } catch (error) {
+        console.error("Error fetching audit logs:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchAuditLogs();
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem("officerToken");
     localStorage.removeItem("officerUser");
@@ -152,73 +198,84 @@ export default function AuditLogs() {
             </div>
 
             {/* Data Table with Toolbar */}
-            <DataTable rows={rows} headers={headers}>
-              {({ rows, headers, getTableProps, getHeaderProps, getRowProps, onInputChange }) => (
-                <TableContainer>
-                  <TableToolbar>
-                    <TableToolbarContent>
-                      <TableToolbarSearch 
-                        onChange={onInputChange} 
-                        persistent 
-                        placeholder="Filter by officer, action, or IP..." 
-                      />
-                      <Button 
-                        kind="ghost" 
-                        renderIcon={Download} 
-                        onClick={() => console.log('Exporting CSV...')}
-                      >
-                        Export CSV
-                      </Button>
-                    </TableToolbarContent>
-                  </TableToolbar>
+            {isLoading ? (
+              <Loading description="Loading audit logs" withOverlay={false} />
+            ) : (
+              <DataTable rows={rows} headers={headers}>
+                {({ rows, headers, getTableProps, getHeaderProps, getRowProps, onInputChange }) => (
+                  <TableContainer>
+                    <TableToolbar>
+                      <TableToolbarContent>
+                        <TableToolbarSearch
+                          onChange={onInputChange}
+                          persistent
+                          placeholder="Filter by officer, action, or target..."
+                        />
+                        <Button
+                          kind="ghost"
+                          renderIcon={Download}
+                          onClick={() => console.log('Exporting CSV...')}
+                        >
+                          Export CSV
+                        </Button>
+                      </TableToolbarContent>
+                    </TableToolbar>
 
-                  <Table {...getTableProps()}>
-                    <TableHead>
-                      <TableRow>
-                        {headers.map((header) => (
-                          <TableHeader {...getHeaderProps({ header })} key={header.key}>
-                            {header.header}
-                          </TableHeader>
-                        ))}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {rows.map((row) => (
-                        <TableRow {...getRowProps({ row })} key={row.id}>
-                          {row.cells.map((cell) => {
-                            if (cell.info.header === 'status') {
-                              // Dynamic tag coloring based on the log status[cite: 5]
-                              let tagType: "green" | "red" | "magenta" = "green";
-                              if (cell.value === "Failed" || cell.value === "Flagged") tagType = "red";
-                              if (cell.value === "Warning") tagType = "magenta";
-
-                              return (
-                                <TableCell key={cell.id}>
-                                  <Tag type={tagType}>
-                                    {cell.value}
-                                  </Tag>
-                                </TableCell>
-                              );
-                            }
-                            
-                            // Render monospace font for IPs and Target IDs for better readability
-                            if (cell.info.header === 'target' || cell.info.header === 'ip') {
-                              return (
-                                <TableCell key={cell.id} style={{ fontFamily: 'monospace', fontSize: '13px' }}>
-                                  {cell.value}
-                                </TableCell>
-                              );
-                            }
-
-                            return <TableCell key={cell.id}>{cell.value}</TableCell>;
-                          })}
+                    <Table {...getTableProps()}>
+                      <TableHead>
+                        <TableRow>
+                          {headers.map((header) => (
+                            <TableHeader {...getHeaderProps({ header })} key={header.key}>
+                              {header.header}
+                            </TableHeader>
+                          ))}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </DataTable>
+                      </TableHead>
+                      <TableBody>
+                        {rows.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={headers.length} style={{ textAlign: 'center', padding: '2rem' }}>
+                              No audit log entries recorded yet.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          rows.map((row) => (
+                            <TableRow {...getRowProps({ row })} key={row.id}>
+                              {row.cells.map((cell) => {
+                                if (cell.info.header === 'status') {
+                                  let tagType: "green" | "red" | "magenta" = "green";
+                                  if (cell.value === "Failed") tagType = "red";
+                                  if (cell.value === "Warning") tagType = "magenta";
+
+                                  return (
+                                    <TableCell key={cell.id}>
+                                      <Tag type={tagType}>
+                                        {cell.value}
+                                      </Tag>
+                                    </TableCell>
+                                  );
+                                }
+
+                                // Render monospace font for Target IDs for better readability
+                                if (cell.info.header === 'target') {
+                                  return (
+                                    <TableCell key={cell.id} style={{ fontFamily: 'monospace', fontSize: '13px' }}>
+                                      {cell.value}
+                                    </TableCell>
+                                  );
+                                }
+
+                                return <TableCell key={cell.id}>{cell.value}</TableCell>;
+                              })}
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </DataTable>
+            )}
 
           </main>
         </>

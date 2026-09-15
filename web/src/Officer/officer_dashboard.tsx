@@ -37,7 +37,7 @@ import {
   CheckmarkOutline,
   Add,
   Catalog
-, DataStructured } from "@carbon/icons-react";
+} from "@carbon/icons-react";
 
 const headers = [
   { key: "appId", header: "Application ID" },
@@ -99,7 +99,7 @@ export default function OfficerDashboard() {
 
     const fetchQueue = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/verification/tasks/pending`, {
+        const response = await fetch("http://localhost:5119/api/verification/tasks/pending", {
           headers: authHeaders,
         });
         if (response.ok) {
@@ -128,7 +128,7 @@ export default function OfficerDashboard() {
 
     const fetchStats = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/verification/stats`, {
+        const response = await fetch("http://localhost:5119/api/verification/stats", {
           headers: authHeaders,
         });
         if (response.ok) {
@@ -154,7 +154,7 @@ export default function OfficerDashboard() {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, {
+      await fetch("http://localhost:5119/api/auth/logout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -194,30 +194,25 @@ export default function OfficerDashboard() {
               </HeaderGlobalAction>
             </HeaderGlobalBar>
 
-                        <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
+            <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard" isActive={window.location.pathname.includes('dashboard')}>
+                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard" isActive>
                   Application Queue
                 </SideNavLink>
-                <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification" isActive={window.location.pathname.includes('bulk-verification')}>
-                  Bulk Verification
-                </SideNavLink>
-                <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes" isActive={window.location.pathname.includes('rejection-codes')}>
-                  Rejection Codes
-                </SideNavLink>
-                <SideNavLink renderIcon={Catalog} href="/officer/applications" isActive={window.location.pathname.includes('applications')}>
+                <SideNavLink renderIcon={Catalog} href="/officer/applications">
                   All Applications
                 </SideNavLink>
-                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create" isActive={window.location.pathname.includes('application_create')}>
+                {/* Updated: Navigates to the new page instead of opening a modal */}
+                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">
                   New Application
                 </SideNavLink>
-                <SideNavLink renderIcon={Document} href="/officer/verified-records" isActive={window.location.pathname.includes('verified-records')}>
+                <SideNavLink renderIcon={Document} href="/officer/verified-records">
                   Verified Records
                 </SideNavLink>
-                <SideNavLink renderIcon={Time} href="/officer/pending-reviews" isActive={window.location.pathname.includes('pending-reviews')}>
+                <SideNavLink renderIcon={Time} href="/officer/pending-reviews">
                   Pending Reviews
                 </SideNavLink>
-                <SideNavLink renderIcon={User} href="/officer/profile" isActive={window.location.pathname.includes('profile')}>
+                <SideNavLink renderIcon={User} href="/officer/profile">
                   My Profile
                 </SideNavLink>
                 
@@ -374,5 +369,3 @@ export default function OfficerDashboard() {
     />
   );
 }
-
-

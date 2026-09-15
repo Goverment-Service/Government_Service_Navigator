@@ -129,7 +129,7 @@ export default function ServiceConfigurationTabs() {
 
   // 1. Fetch all services on mount
     useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/api/services`)
+    fetch("http://localhost:5119/api/services")
       .then((res) => res.json())
       .then((data) => {
         const activeServices = data.filter((srv: any) => srv.status === "Active");
@@ -418,7 +418,7 @@ export default function ServiceConfigurationTabs() {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, {
+      await fetch("http://localhost:5119/api/auth/logout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -938,4 +938,3 @@ export default function ServiceConfigurationTabs() {
     </>
   );
 }
-

@@ -204,23 +204,6 @@ namespace Government_Service_Navigator.Backend.Services
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<object>> GetVerifiedTasksAsync()
-        {
-            return await _context.VerificationTasks
-                .Where(t => t.Status == "Approved" || t.Status == "Rejected" || t.Status == "Revised")
-                .Include(t => t.Reviews)
-                .OrderByDescending(t => t.CreatedDate)
-                .Select(t => new
-                {
-                    t.Id,
-                    t.ApplicationId,
-                    t.CreatedDate,
-                    t.Status,
-                    Comments = t.Reviews.OrderByDescending(r => r.ReviewDate).Select(r => r.Comments).FirstOrDefault() ?? ""
-                })
-                .ToListAsync();
-        }
-
         public async Task<OfficerStatsDto> GetOfficerStatsAsync(string officerId)
         {
             var today = DateTime.UtcNow.Date;
@@ -251,41 +234,6 @@ namespace Government_Service_Navigator.Backend.Services
                 ApprovedThisMonth = approvedThisMonth,
                 ApprovalRate = approvalRate
             };
-        }
-
-        // --- Rejection Reason CRUD ---
-        
-        public async Task<List<RejectionReason>> GetRejectionReasonsAsync()
-        {
-            return await _context.RejectionReasons.ToListAsync();
-        }
-
-        public async Task<RejectionReason> CreateRejectionReasonAsync(RejectionReason reason)
-        {
-            _context.RejectionReasons.Add(reason);
-            await _context.SaveChangesAsync();
-            return reason;
-        }
-
-        public async Task<bool> UpdateRejectionReasonAsync(int id, RejectionReason reason)
-        {
-            var existing = await _context.RejectionReasons.FindAsync(id);
-            if (existing == null) return false;
-
-            existing.Code = reason.Code;
-            existing.Description = reason.Description;
-            await _context.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> DeleteRejectionReasonAsync(int id)
-        {
-            var existing = await _context.RejectionReasons.FindAsync(id);
-            if (existing == null) return false;
-
-            _context.RejectionReasons.Remove(existing);
-            await _context.SaveChangesAsync();
-            return true;
         }
     }
 }

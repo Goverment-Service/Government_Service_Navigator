@@ -7,6 +7,7 @@ import {
   Stack,
   InlineNotification
 } from "@carbon/react";
+import { DEPARTMENTS } from "../../constants/departments";
 
 interface Officer {
   id: string;
@@ -24,9 +25,24 @@ interface EditOfficerModalProps {
   officer: Officer | null; // Pass the selected officer row data here
 }
 
+function getStoredOfficerUser(): { department?: string; role?: string } {
+  const storedUser = localStorage.getItem("officerUser");
+  if (storedUser) {
+    try {
+      return JSON.parse(storedUser);
+    } catch {
+      // ignore parse error
+    }
+  }
+  return {};
+}
+
 export default function EditOfficerModal({ isOpen, onClose, onSuccess, officer }: EditOfficerModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const [currentUser] = useState(getStoredOfficerUser);
+  const isDepartmentAdmin = (currentUser.role || "").toLowerCase().includes("admin") && !!currentUser.department;
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -100,22 +116,30 @@ export default function EditOfficerModal({ isOpen, onClose, onSuccess, officer }
           onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
           disabled={isSubmitting}
         />
-        <TextInput
+        <Select
           id="edit-department"
           labelText="Department"
           value={formData.department}
           onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-          disabled={isSubmitting}
-        />
+          disabled={isSubmitting || isDepartmentAdmin}
+        >
+          <SelectItem value="" text="Choose a department" />
+          {DEPARTMENTS.map((dept) => (
+            <SelectItem key={dept.slug} value={dept.label} text={dept.label} />
+          ))}
+        </Select>
         <Select
           id="edit-role"
           labelText="Role Designation"
+          helperText={isDepartmentAdmin ? "Department Admins can only assign Verifying Officer or Auditor." : undefined}
           value={formData.role}
           onChange={(e) => setFormData({ ...formData, role: e.target.value })}
           disabled={isSubmitting}
         >
           <SelectItem value="Verifying Officer" text="Verifying Officer" />
-          <SelectItem value="Department Admin" text="Department Admin" />
+          {!isDepartmentAdmin && (
+            <SelectItem value="Department Admin" text="Department Admin" />
+          )}
           <SelectItem value="Auditor" text="Auditor" />
         </Select>
       </Stack>

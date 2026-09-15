@@ -47,10 +47,11 @@ import {
   Categories,
 } from "@carbon/icons-react";
 
-// 1. Import Components 
+// 1. Import Components
 import EditOfficerModal from "./Manage_Officers/EditOfficerModel";
 import ResetPasswordModal from "./Manage_Officers/ResetPasswordModel";
 import SuspendAccountModal from "./Manage_Officers/SuspendAccountModel";
+import { DEPARTMENTS } from "../constants/departments";
 
 const headers = [
   { key: "name", header: "Officer Name" },
@@ -70,9 +71,33 @@ interface Officer {
   status: string;
 }
 
+interface StoredOfficerUser {
+  fullName?: string;
+  department?: string;
+  role?: string;
+}
+
+function getStoredOfficerUser(): StoredOfficerUser {
+  const storedUser = localStorage.getItem("officerUser");
+  if (storedUser) {
+    try {
+      return JSON.parse(storedUser);
+    } catch {
+      // ignore parse error
+    }
+  }
+  return {};
+}
+
 export default function ManageOfficers() {
   const [officerRows, setOfficerRows] = useState<Officer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // The signed-in officer/admin. Department Admins are scoped to their own department.
+  const [currentUser] = useState(getStoredOfficerUser);
+  const currentRole = currentUser.role || "";
+  const isDepartmentAdmin = currentRole.toLowerCase().includes("admin") && !!currentUser.department;
+  const scopedDepartment = currentUser.department || "";
 
   // Add Officer Form State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -82,7 +107,7 @@ export default function ManageOfficers() {
     fullName: "",
     email: "",
     password: "",
-    department: "",
+    department: isDepartmentAdmin ? scopedDepartment : "",
     role: "Verifying Officer"
   });
 
@@ -92,7 +117,10 @@ export default function ManageOfficers() {
 
   const fetchOfficers = useCallback(async () => {
     try {
-      const response = await fetch("http://localhost:5119/api/admin/officers", {
+      const url = isDepartmentAdmin
+        ? `http://localhost:5119/api/admin/officers?department=${encodeURIComponent(scopedDepartment)}`
+        : "http://localhost:5119/api/admin/officers";
+      const response = await fetch(url, {
         cache: "no-store"
       });
       if (response.ok) {
@@ -106,7 +134,7 @@ export default function ManageOfficers() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isDepartmentAdmin, scopedDepartment]);
 
   useEffect(() => {
     const run = async () => {
@@ -136,7 +164,13 @@ export default function ManageOfficers() {
 
       if (response.ok) {
         setIsAddModalOpen(false);
-        setFormData({ fullName: "", email: "", password: "", department: "", role: "Verifying Officer" });
+        setFormData({
+          fullName: "",
+          email: "",
+          password: "",
+          department: isDepartmentAdmin ? scopedDepartment : "",
+          role: "Verifying Officer"
+        });
         fetchOfficers();
       } else {
         const errorData = await response.json();
@@ -232,11 +266,18 @@ export default function ManageOfficers() {
       <main style={{ marginTop: '3rem', padding: '2rem', marginLeft: '16rem', backgroundColor: '#f4f4f4', minHeight: '100vh' }}>
 
         <div style={{ marginBottom: '2rem' }}>
+          {isDepartmentAdmin && (
+            <Tag type="blue" style={{ marginBottom: '0.5rem' }}>
+              {scopedDepartment}
+            </Tag>
+          )}
           <h1 style={{ fontSize: '2rem', fontWeight: 400, color: '#161616' }}>
             Officer Directory
           </h1>
           <p style={{ color: '#525252', marginTop: '0.5rem' }}>
-            Provision, modify, and manage access for all government verifying officers.
+            {isDepartmentAdmin
+              ? `Provision, modify, and manage access for officers in the ${scopedDepartment}.`
+              : 'Provision, modify, and manage access for all government verifying officers.'}
           </p>
         </div>
 
@@ -381,26 +422,29 @@ export default function ManageOfficers() {
             <Select
               id="department"
               labelText="Department"
+              helperText={isDepartmentAdmin ? "Officers you create are added to your own department." : undefined}
               value={formData.department}
               onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isDepartmentAdmin}
             >
               <SelectItem value="" text="Choose a department" />
-              <SelectItem value="Police Department" text="Police Department" />
-              <SelectItem value="Finance Department" text="Finance Department" />
-              <SelectItem value="Transport Department" text="Transport Department" />
-              <SelectItem value="Civil Department" text="Civil Department" />
+              {DEPARTMENTS.map((dept) => (
+                <SelectItem key={dept.slug} value={dept.label} text={dept.label} />
+              ))}
             </Select>
 
             <Select
               id="role"
               labelText="Role Designation"
+              helperText={isDepartmentAdmin ? "Department Admins can only add Verifying Officers or Auditors." : undefined}
               value={formData.role}
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               disabled={isSubmitting}
             >
               <SelectItem value="Verifying Officer" text="Verifying Officer" />
-              <SelectItem value="Department Admin" text="Department Admin" />
+              {!isDepartmentAdmin && (
+                <SelectItem value="Department Admin" text="Department Admin" />
+              )}
               <SelectItem value="Auditor" text="Auditor" />
             </Select>
           </Stack>

@@ -19,8 +19,12 @@ namespace Government_Service_Navigator.Backend.Services
             _context = context;
         }
 
-        public async Task<IEnumerable<OfficerDetailsDto>> GetAllOfficersAsync() {
-            var officers = await _context.Officers.ToListAsync();
+        public async Task<IEnumerable<OfficerDetailsDto>> GetAllOfficersAsync(string? department = null) {
+            var query = _context.Officers.AsQueryable();
+            if (!string.IsNullOrWhiteSpace(department)) {
+                query = query.Where(o => o.Department == department);
+            }
+            var officers = await query.ToListAsync();
             return officers.Select(o => new OfficerDetailsDto {
                 Id = o.Id.ToString(),
                 Name = o.Name,

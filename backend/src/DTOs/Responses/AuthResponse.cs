@@ -10,6 +10,8 @@ namespace Government_Service_Navigator.Backend.DTOs.Responses
     public class OfficerDto
     {
         public string Email { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public string Department { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
     }
     public class AdminDto

@@ -16,8 +16,8 @@ namespace Government_Service_Navigator.Backend.Controllers
         }
 
         [HttpGet("officers")]
-        public async Task<IActionResult> GetAllOfficers() {
-            var officers = await _adminService.GetAllOfficersAsync();
+        public async Task<IActionResult> GetAllOfficers([FromQuery] string? department) {
+            var officers = await _adminService.GetAllOfficersAsync(department);
             return Ok(officers);
         }
         [HttpPost("officers")]

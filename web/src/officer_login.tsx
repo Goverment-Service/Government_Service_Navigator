@@ -10,6 +10,7 @@ import {
   Link,
   Stack
 } from "@carbon/react";
+import { getDepartmentSlug } from "./constants/departments";
 
 export default function OfficerLoginPage() {
   const [email, setEmail] = useState("");
@@ -52,7 +53,8 @@ export default function OfficerLoginPage() {
         const isDepartmentAdmin = role.toLowerCase().includes("admin") || role === "Department Admin";
 
         if (isDepartmentAdmin) {
-          window.location.href = "/admin/dashboard";
+          const deptSlug = getDepartmentSlug(resData.officer.department || "");
+          window.location.href = deptSlug ? `/admin/${deptSlug}/dashboard` : "/admin/dashboard";
         } else {
           window.location.href = "/officer/dashboard";
         }

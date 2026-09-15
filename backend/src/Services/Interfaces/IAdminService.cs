@@ -7,7 +7,7 @@ namespace Government_Service_Navigator.Backend.Services.Interfaces
 {
     public interface IAdminService
     {
-        Task<IEnumerable<OfficerDetailsDto>> GetAllOfficersAsync();
+        Task<IEnumerable<OfficerDetailsDto>> GetAllOfficersAsync(string? department = null);
         Task<AuthResponse> CreateOfficerAsync(CreateOfficerRequest request);
         Task<bool> UpdateOfficerAsync(int id, UpdateOfficerRequest request);
         Task<bool> ResetOfficerPasswordAsync(int id, ResetPasswordRequest request);

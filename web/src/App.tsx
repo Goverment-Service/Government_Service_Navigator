@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import OfficerLoginPage from "./officer_login";
 import AdminDashboard from "./Admin/admin_dashboard";
+import DepartmentAdminDashboard from "./Admin/department_admin_dashboard";
 import ManageOfficers from "./Admin/manage_officers";
 import OfficerDashboard from "./Officer/officer_dashboard";
 import AuditLogs from "./Admin/audit_logs";
@@ -27,6 +28,10 @@ export default function App() {
         {/* admin routes */}
         <Route path="/" element={<Navigate to="/officer/login" replace />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route
+          path="/admin/:deptSlug/dashboard"
+          element={<DepartmentAdminDashboard />}
+        />
         <Route path="/admin/manage-officers" element={<ManageOfficers />} />
         <Route path="/officer/dashboard" element={<OfficerDashboard />} />
         <Route path="/admin/audit-logs" element={<AuditLogs />} />

@@ -103,6 +103,8 @@ namespace Government_Service_Navigator.Backend.Services
                 Token = token,
                 Officer = new OfficerDto {
                     Email = officer.Email,
+                    FullName = officer.Name,
+                    Department = officer.Department,
                     Role = officer.Role
                 }
             };
@@ -180,6 +182,7 @@ namespace Government_Service_Navigator.Backend.Services
                 new Claim(JwtRegisteredClaimNames.Sub, officer.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, officer.Email),
                 new Claim(ClaimTypes.Role, officer.Role),
+                new Claim("department", officer.Department),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 

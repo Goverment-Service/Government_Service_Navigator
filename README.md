@@ -38,9 +38,10 @@ Government_Service_Navigator/
 │       └── services/                # service_api_client.dart, auth_service.dart
 │
 ├── docs/
-│   ├── adr/                         # (empty — add architecture decision records here)
-│   ├── diagrams/                    # (empty — add diagrams here)
+│   ├── adr/                         # Architecture Decision Records (7 so far — see docs/adr/README.md)
+│   ├── diagrams/                    # System architecture + database ER diagrams (Mermaid)
 │   ├── reports/                     # (empty — add test/eval/perf/deployment reports here)
+│   ├── api.md                       # Full endpoint-by-endpoint API reference, incl. actual auth requirements
 │   └── Government_Service_Navigator_Project_Plan.md   # Original 9-week plan, role split, agentic AI design
 │
 ├── tui-runner/                      # Node.js split-pane TUI: runs backend + web (+ optional mobile) together
@@ -206,22 +207,22 @@ Current screens cover onboarding/landing, login/signup, a home dashboard with Ho
 
 ## Backend API Overview
 
-All routes are under `api/`, JWT-protected where noted by the frontend sending `Authorization: Bearer <token>`.
+All routes are under `api/`. **Only `VerificationController` (every action) and `AuthController`'s `logout` actually require `Authorization: Bearer <token>`** — every other endpoint below is currently reachable with no token at all, regardless of what the frontend happens to send. See [`docs/api.md`](docs/api.md) for the full endpoint-by-endpoint reference (request/response shapes, what's actually validated, known quirks) and [`docs/adr/0004`](docs/adr/0004-client-side-department-scoping.md) for why the auth gap matters beyond just missing a 401.
 
 **Auth** (`AuthController`, `api/auth`)
-`POST register`, `POST login`, `POST officer-login`, `POST admin-login`, `POST logout`
+`POST register`, `POST login`, `POST officer-login`, `POST admin-login`, `POST logout` (auth required)
 
 **Admin** (`AdminController`, `api/admin`)
 `GET officers`, `POST officers`, `PUT officers/{id}`, `POST officers/{id}/reset-password`, `PATCH officers/{id}/suspend`, `PATCH officers/{id}/activate`
 
-**Templates** (`TemplateController`, `api/templates`) — officer-created dynamic application forms
+**Templates** (`TemplateController`, `api/templates`) — officer-created dynamic application forms, optionally linked to a Service Catalog entry
 `POST create`, `GET all`, `GET {id}`, `PUT update/{id}`, `PATCH {id}/status`, `DELETE {id}`
 
 **Services / Eligibility** (`ServicesController`, `api/services`) — the Service Catalog module
 `POST` / `GET` / `GET {id}` / `PUT {id}` / `DELETE {id}` for services, `PUT {id}/eligibility-rules`, `POST eligibility-score`, `PUT {id}/documents`, `DELETE documents/{documentId}`, `PUT {id}/fees`, `DELETE fees/{feeId}`
 
-**Verification** (`VerificationController`, `api/verification`) — officer review workflow
-`POST tasks`, `GET audit-logs`, `PUT tasks/{id}/decision`, `DELETE tasks/{id}`, `POST tasks/bulk-verify`
+**Verification** (`VerificationController`, `api/verification`, auth required) — officer review workflow
+`GET tasks/pending`, `GET stats`, `POST tasks`, `GET audit-logs`, `GET audit-logs/all`, `PUT tasks/{id}/decision`, `DELETE tasks/{id}`, `POST tasks/bulk-verify`
 
 ---
 
@@ -254,8 +255,8 @@ Three separate, path-filtered GitHub Actions workflows live in `.github/workflow
 
 ## Development Notes
 
-- Single-project backend layering by folder (not separate Clean-Architecture projects): `Models/Entities` → domain, `Services` (+ `Services/Interfaces`) → business logic, `DTOs` → request/response shapes, `Data/Context` → EF Core persistence, `Controllers` → HTTP surface.
-- Keep architectural decisions in `docs/adr/`, diagrams in `docs/diagrams/`, and test/eval/perf/deployment write-ups in `docs/reports/` — all three are currently empty and worth populating as the project matures.
+- Single-project backend layering by folder (not separate Clean-Architecture projects): `Models/Entities` → domain, `Services` (+ `Services/Interfaces`) → business logic, `DTOs` → request/response shapes, `Data/Context` → EF Core persistence, `Controllers` → HTTP surface. See [`docs/adr/0002`](docs/adr/0002-single-project-folder-layering.md) for why.
+- Architectural decisions live in [`docs/adr/`](docs/adr/README.md) (7 so far, including two that document real, unresolved gaps rather than just wins — [0004](docs/adr/0004-client-side-department-scoping.md) on department scoping only being enforced client-side, and the auth-coverage gap called out in [`docs/api.md`](docs/api.md)); diagrams live in [`docs/diagrams/`](docs/diagrams/); test/eval/perf/deployment write-ups belong in `docs/reports/`, still empty and worth populating as the project matures.
 - `docs/Government_Service_Navigator_Project_Plan.md` is the original assignment plan (role split across 4 "components," the intended 4-agent Agentic AI workflow, third-party integration options). Treat it as the design target, not a description of current code — see the Roadmap section below for the gap.
 
 ---

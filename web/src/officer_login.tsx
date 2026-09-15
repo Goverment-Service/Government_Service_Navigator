@@ -48,13 +48,17 @@ export default function OfficerLoginPage() {
         localStorage.setItem("officerToken", resData.token);
         localStorage.setItem("officerUser", JSON.stringify(resData.officer));
         
-        // Check officer role / designation to route Department Admins to admin dashboard
+        // Check officer role / designation to route Department Admins and Finance
+        // Officers to their own dashboards instead of the generic officer queue.
         const role = resData.officer.role || resData.officer.designation || "";
         const isDepartmentAdmin = role.toLowerCase().includes("admin") || role === "Department Admin";
+        const isFinanceOfficer = role.toLowerCase() === "finance officer";
 
         if (isDepartmentAdmin) {
           const deptSlug = getDepartmentSlug(resData.officer.department || "");
           window.location.href = deptSlug ? `/admin/${deptSlug}/dashboard` : "/admin/dashboard";
+        } else if (isFinanceOfficer) {
+          window.location.href = "/finance/dashboard";
         } else {
           window.location.href = "/officer/dashboard";
         }

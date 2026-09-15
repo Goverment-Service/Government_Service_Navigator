@@ -23,7 +23,8 @@ import {
   Tag,
   Search,
   Button,
-  Loading
+  Loading,
+  HeaderMenuButton
 } from "@carbon/react";
 import {
   Dashboard,
@@ -158,15 +159,21 @@ export default function OfficerDashboard() {
 
   return (
     <HeaderContainer
-      render={({ isSideNavExpanded }) => (
+      render={({ isSideNavExpanded, onClickSideNavExpand }) => (
         <>
           <Header aria-label="Registry Portal System">
+            <HeaderMenuButton
+              aria-label={isSideNavExpanded ? "Close menu" : "Open menu"}
+              onClick={onClickSideNavExpand}
+              isActive={isSideNavExpanded}
+              isCollapsible
+            />
             <HeaderName href="#" prefix="GSN">
               Registry Portal
             </HeaderName>
-            
+
             <HeaderGlobalBar>
-              <div style={{ width: '280px', marginRight: '1rem', display: 'flex', alignItems: 'center' }}>
+              <div className="w-[140px] sm:w-[280px]" style={{ marginRight: '1rem', display: 'flex', alignItems: 'center' }}>
                  <Search size="sm" id="search-queue" labelText="Search" placeholder="Search NIC or Application ID..." />
               </div>
               <HeaderGlobalAction aria-label="Notifications" onClick={() => {}}>
@@ -205,9 +212,9 @@ export default function OfficerDashboard() {
             </SideNav>
           </Header>
 
-          <main style={{ marginTop: '3rem', padding: '2rem', marginLeft: '16rem', backgroundColor: '#f4f4f4', minHeight: '100vh' }}>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+          <main className="mt-12 min-h-screen p-4 min-[66rem]:p-8 ml-0 min-[66rem]:ml-64" style={{ backgroundColor: '#f4f4f4' }}>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
               <div>
                 <h1 style={{ fontSize: '2rem', fontWeight: 400, color: '#161616' }}>
                   Welcome back, {officerName}

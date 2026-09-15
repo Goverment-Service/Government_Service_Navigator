@@ -7,3 +7,38 @@
 body {
   margin: 0;
 }
+
+/*
+  Shared responsive shell layout for Carbon UI Shell pages (Header + SideNav + main).
+  The SideNav becomes a toggleable overlay below Carbon's own "lg" breakpoint (66rem),
+  so the main content must only reserve space for it at 66rem and above.
+*/
+.gsn-shell-main {
+  margin-top: 3rem;
+  margin-left: 0;
+  padding: 1rem;
+  background-color: #f4f4f4;
+  min-height: 100vh;
+}
+
+@media (min-width: 66rem) {
+  .gsn-shell-main {
+    margin-left: 16rem;
+    padding: 2rem;
+  }
+}
+
+/* Header search box: full width on mobile, fixed width on larger headers */
+.gsn-header-search {
+  width: 100%;
+  max-width: 250px;
+  margin-right: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 42rem) {
+  .gsn-header-search {
+    display: none;
+  }
+}

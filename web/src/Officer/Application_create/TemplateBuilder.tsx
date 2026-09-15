@@ -232,7 +232,7 @@ export default function TemplateBuilder() {
   };
 
   return (
-    <main style={{ marginTop: '3rem', padding: '2rem', marginLeft: '16rem', backgroundColor: '#f4f4f4', minHeight: '100vh' }}>
+    <main className="gsn-shell-main">
       <div style={{ marginBottom: '2.5rem' }}>
         <h1 style={{ fontSize: '2rem', fontWeight: 400, color: '#161616' }}>Advanced Template Builder</h1>
         <p style={{ color: '#525252', marginTop: '0.5rem' }}>Design highly customizable application forms matching official government layouts.</p>
@@ -241,7 +241,7 @@ export default function TemplateBuilder() {
       <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
         
         {/* Builder Controls (Left Side) */}
-        <div style={{ flex: '1', minWidth: '350px', maxWidth: '450px', backgroundColor: '#fff', padding: '2rem', border: '1px solid #e0e0e0', position: 'sticky', top: '5rem' }}>
+        <div className="w-full lg:flex-1 lg:min-w-[350px] lg:max-w-[450px] lg:sticky lg:top-20" style={{ backgroundColor: '#fff', padding: '1.5rem', border: '1px solid #e0e0e0' }}>
           <h3 style={{ fontSize: '1.2rem', marginBottom: '1.5rem', borderBottom: '1px solid #e0e0e0', paddingBottom: '0.5rem' }}>Document Headers</h3>
           <Stack gap={5}>
             <TextInput
@@ -329,7 +329,7 @@ export default function TemplateBuilder() {
         </div>
 
         {/* Live Form Preview (Right Side) */}
-        <div style={{ flex: '2', minWidth: '500px', backgroundColor: '#fff', padding: '2rem', border: '1px solid #e0e0e0' }}>
+        <div className="w-full lg:flex-[2] lg:min-w-[500px]" style={{ backgroundColor: '#fff', padding: '1.5rem', border: '1px solid #e0e0e0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #e0e0e0', paddingBottom: '0.5rem' }}>
             <h3 style={{ fontSize: '1.2rem', color: '#161616' }}>Live Document Preview</h3>
             <Button size="sm" kind="primary" onClick={handleSaveTemplate} disabled={isSaving}>
@@ -337,20 +337,20 @@ export default function TemplateBuilder() {
             </Button>
           </div>
           
-          <div style={{ backgroundColor: '#fff', border: '1px solid #ccc', padding: '3rem', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
-            
+          <div className="p-4 sm:p-8 lg:p-12" style={{ backgroundColor: '#fff', border: '1px solid #ccc', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
+
             {/* Form Header matching Government Style */}
             <div style={{ textAlign: 'center', marginBottom: '3rem', fontFamily: 'Arial, sans-serif' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                 <div style={{ width: '80px', height: '80px', border: '1px solid #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+              <div className="flex-wrap" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
+                 <div style={{ width: '80px', height: '80px', flexShrink: 0, border: '1px solid #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
                    <span style={{ fontSize: '0.7rem', color: '#999' }}>Logo</span>
                  </div>
-                 <div style={{ flex: 1, padding: '0 1rem' }}>
+                 <div style={{ flex: '1 1 200px', padding: '0 1rem' }}>
                     <h2 style={{ fontSize: '1.8rem', fontWeight: 'bold', margin: '0' }}>{formName || "FORM NO"}</h2>
                     <h3 style={{ fontSize: '1.2rem', margin: '0.5rem 0', textTransform: 'uppercase' }}>{subTitle || "Document Title"}</h3>
                     {lawText && <p style={{ fontSize: '0.9rem', fontStyle: 'italic', margin: 0 }}>{lawText}</p>}
                  </div>
-                 <div style={{ width: '100px', height: '80px', border: '1px solid #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                 <div style={{ width: '100px', height: '80px', flexShrink: 0, border: '1px solid #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                    <span style={{ fontSize: '0.7rem', color: '#999' }}>Emblem / QR</span>
                  </div>
               </div>

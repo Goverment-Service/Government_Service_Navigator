@@ -4,6 +4,7 @@ import {
   Header,
   HeaderContainer,
   HeaderName,
+  HeaderMenuButton,
   HeaderGlobalBar,
   HeaderGlobalAction,
   SideNav,
@@ -84,15 +85,21 @@ export default function Profile() {
 
   return (
     <HeaderContainer
-      render={({ isSideNavExpanded }) => (
+      render={({ isSideNavExpanded, onClickSideNavExpand }) => (
         <>
           <Header aria-label="Registry Portal System">
+            <HeaderMenuButton
+              aria-label={isSideNavExpanded ? "Close menu" : "Open menu"}
+              onClick={onClickSideNavExpand}
+              isActive={isSideNavExpanded}
+              isCollapsible
+            />
             <HeaderName href="#" prefix="GSN">
               Registry Portal
             </HeaderName>
-            
+
             <HeaderGlobalBar>
-              <div style={{ width: '280px', marginRight: '1rem', display: 'flex', alignItems: 'center' }}>
+              <div className="w-[120px] sm:w-[200px] md:w-[280px]" style={{ marginRight: '1rem', display: 'flex', alignItems: 'center' }}>
                  <Search size="sm" id="search-global" labelText="Search" placeholder="Search NIC or Application ID..." />
               </div>
               <HeaderGlobalAction aria-label="Notifications" onClick={() => {}}>
@@ -133,7 +140,7 @@ export default function Profile() {
           </Header>
 
           {/* Main Content */}
-          <main style={{ marginTop: '3rem', padding: '2rem', marginLeft: '16rem', backgroundColor: '#f4f4f4', minHeight: '100vh' }}>
+          <main className="mt-12 min-h-screen p-4 sm:p-6 min-[66rem]:p-8 ml-0 min-[66rem]:ml-64" style={{ backgroundColor: '#f4f4f4' }}>
             
             <div style={{ marginBottom: '2rem' }}>
               <h1 style={{ fontSize: '2rem', fontWeight: 400, color: '#161616' }}>

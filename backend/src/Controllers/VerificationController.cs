@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Government_Service_Navigator.Backend.DTOs.Requests;
@@ -17,11 +18,29 @@ namespace Government_Service_Navigator.Backend.Controllers
             _verificationService = verificationService;
         }
 
+        // The "sub" JWT claim is inbound-mapped to ClaimTypes.NameIdentifier by the JWT bearer
+        // handler; User.Identity.Name (ClaimTypes.Name) is never set, so it always reads null.
+        private string GetCurrentOfficerId() =>
+            User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.Identity?.Name ?? "Unknown";
+
+        [HttpGet("tasks/pending")]
+        public async Task<IActionResult> GetPendingTasks()
+        {
+            var tasks = await _verificationService.GetPendingTasksAsync();
+            return Ok(tasks);
+        }
+
+        [HttpGet("stats")]
+        public async Task<IActionResult> GetOfficerStats()
+        {
+            var stats = await _verificationService.GetOfficerStatsAsync(GetCurrentOfficerId());
+            return Ok(stats);
+        }
+
         [HttpPost("tasks")]
         public async Task<IActionResult> CreateVerificationTask([FromBody] CreateTaskRequest request)
         {
-            var agentId = User.Identity?.Name ?? "SystemAgent";
-            var task = await _verificationService.CreateTaskAsync(request, agentId);
+            var task = await _verificationService.CreateTaskAsync(request, GetCurrentOfficerId());
             return Ok(task);
         }
 
@@ -35,9 +54,8 @@ namespace Government_Service_Navigator.Backend.Controllers
         [HttpPut("tasks/{id}/decision")]
         public async Task<IActionResult> RecordDecision(int id, [FromBody] VerificationDecisionRequest request)
         {
-            var officerId = User.Identity?.Name ?? "Unknown"; 
-            var result = await _verificationService.RecordDecisionAsync(id, request, officerId);
-            
+            var result = await _verificationService.RecordDecisionAsync(id, request, GetCurrentOfficerId());
+
             if (!result) return NotFound("Task not found or update failed");
             return Ok();
         }
@@ -45,9 +63,8 @@ namespace Government_Service_Navigator.Backend.Controllers
         [HttpDelete("tasks/{id}")]
         public async Task<IActionResult> DeleteTask(int id)
         {
-            var officerId = User.Identity?.Name ?? "Unknown";
-            var result = await _verificationService.DeleteTaskAsync(id, officerId);
-            
+            var result = await _verificationService.DeleteTaskAsync(id, GetCurrentOfficerId());
+
             if (!result) return NotFound();
             return NoContent();
         }
@@ -55,9 +72,8 @@ namespace Government_Service_Navigator.Backend.Controllers
         [HttpPost("tasks/bulk-verify")]
         public async Task<IActionResult> BulkVerify([FromBody] BulkVerifyRequest request)
         {
-            var officerId = User.Identity?.Name ?? "Unknown";
-            var result = await _verificationService.BulkVerifyAsync(request, officerId);
-            
+            var result = await _verificationService.BulkVerifyAsync(request, GetCurrentOfficerId());
+
             if (!result) return BadRequest("Bulk verification failed");
             return Ok();
         }

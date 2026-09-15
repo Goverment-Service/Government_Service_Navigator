@@ -1,5 +1,6 @@
 using Government_Service_Navigator.Backend.Data.Context;
 using Government_Service_Navigator.Backend.DTOs.Requests;
+using Government_Service_Navigator.Backend.DTOs.Responses;
 using Government_Service_Navigator.Backend.Models.Entities;
 using Government_Service_Navigator.Backend.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -186,6 +187,46 @@ namespace Government_Service_Navigator.Backend.Services
                 .Where(a => a.ApplicationId == applicationId)
                 .OrderByDescending(a => a.Timestamp)
                 .ToListAsync();
+        }
+
+        public async Task<List<VerificationTask>> GetPendingTasksAsync()
+        {
+            return await _context.VerificationTasks
+                .Where(t => t.Status == "Pending")
+                .OrderBy(t => t.CreatedDate)
+                .ToListAsync();
+        }
+
+        public async Task<OfficerStatsDto> GetOfficerStatsAsync(string officerId)
+        {
+            var today = DateTime.UtcNow.Date;
+            var yesterday = today.AddDays(-1);
+            var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+            var reviews = await _context.OfficerReviews
+                .Where(r => r.OfficerId == officerId)
+                .Include(r => r.Task)
+                .ToListAsync();
+
+            var reviewedToday = reviews.Count(r => r.ReviewDate.Date == today);
+            var reviewedYesterday = reviews.Count(r => r.ReviewDate.Date == yesterday);
+            var approvedThisMonth = reviews.Count(r =>
+                r.ReviewDate >= monthStart && r.Task != null && r.Task.Status == "Approved");
+
+            // Approval rate over this officer's decided (Approved/Rejected) tasks - the closest
+            // real signal available, since there's no ground-truth "correctness" tracking yet.
+            var decided = reviews.Where(r => r.Task != null && (r.Task.Status == "Approved" || r.Task.Status == "Rejected")).ToList();
+            double? approvalRate = decided.Count == 0
+                ? null
+                : Math.Round(decided.Count(r => r.Task.Status == "Approved") * 100.0 / decided.Count, 1);
+
+            return new OfficerStatsDto
+            {
+                ReviewedToday = reviewedToday,
+                ReviewedYesterday = reviewedYesterday,
+                ApprovedThisMonth = approvedThisMonth,
+                ApprovalRate = approvalRate
+            };
         }
     }
 }

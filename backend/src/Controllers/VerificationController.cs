@@ -31,6 +31,13 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(tasks);
         }
 
+        [HttpGet("tasks/verified")]
+        public async Task<IActionResult> GetVerifiedTasks()
+        {
+            var tasks = await _verificationService.GetVerifiedTasksAsync();
+            return Ok(tasks);
+        }
+
         [HttpGet("stats")]
         public async Task<IActionResult> GetOfficerStats()
         {

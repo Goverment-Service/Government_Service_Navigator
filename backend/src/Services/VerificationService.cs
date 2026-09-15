@@ -204,6 +204,23 @@ namespace Government_Service_Navigator.Backend.Services
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<object>> GetVerifiedTasksAsync()
+        {
+            return await _context.VerificationTasks
+                .Where(t => t.Status == "Approved" || t.Status == "Rejected" || t.Status == "Revised")
+                .Include(t => t.Reviews)
+                .OrderByDescending(t => t.CreatedDate)
+                .Select(t => new
+                {
+                    t.Id,
+                    t.ApplicationId,
+                    t.CreatedDate,
+                    t.Status,
+                    Comments = t.Reviews.OrderByDescending(r => r.ReviewDate).Select(r => r.Comments).FirstOrDefault() ?? ""
+                })
+                .ToListAsync();
+        }
+
         public async Task<OfficerStatsDto> GetOfficerStatsAsync(string officerId)
         {
             var today = DateTime.UtcNow.Date;

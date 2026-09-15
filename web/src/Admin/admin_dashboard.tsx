@@ -1,5 +1,6 @@
 import "@carbon/styles/css/styles.css";
 import { useState } from "react";
+import CurrentUserBadge from "../components/CurrentUserBadge";
 import {
   Header,
   HeaderContainer,
@@ -136,6 +137,7 @@ export default function AdminDashboard() {
                   placeholder="Search records..."
                 />
               </div>
+              <CurrentUserBadge />
               <HeaderGlobalAction aria-label="Notifications" onClick={() => {}}>
                 <Notification size={20} />
               </HeaderGlobalAction>

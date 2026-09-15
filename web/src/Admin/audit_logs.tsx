@@ -1,5 +1,7 @@
 import '@carbon/styles/css/styles.css'; // This fixes the unstyled layout![cite: 5]
 import { useState, useEffect } from "react";
+import CurrentUserBadge from "../components/CurrentUserBadge";
+import { getStoredUser, getAdminOverviewHref } from "../utils/currentUser";
 import {
   Header,
   HeaderContainer,
@@ -71,6 +73,7 @@ function deriveStatus(action: string): string {
 export default function AuditLogs() {
   const [rows, setRows] = useState<AuditLogRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [overviewHref] = useState(() => getAdminOverviewHref(getStoredUser()));
 
   useEffect(() => {
     const fetchAuditLogs = async () => {
@@ -141,6 +144,7 @@ export default function AuditLogs() {
               <div className="flex items-center w-[120px] sm:w-[250px] mr-2 sm:mr-4">
                  <Search size="sm" id="search-records" labelText="Search" placeholder="Search records..." />
               </div>
+              <CurrentUserBadge />
               <HeaderGlobalAction aria-label="Notifications" onClick={() => {}}>
                 <Notification size={20} />
               </HeaderGlobalAction>
@@ -148,7 +152,7 @@ export default function AuditLogs() {
 
             <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="#">
+                <SideNavLink renderIcon={Dashboard} href={overviewHref}>
                   Overview
                 </SideNavLink>
 

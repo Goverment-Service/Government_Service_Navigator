@@ -1,5 +1,7 @@
 import '@carbon/styles/css/styles.css'; 
 import { useState } from "react";
+import CurrentUserBadge from "../components/CurrentUserBadge";
+import { getStoredUser, getAdminOverviewHref } from "../utils/currentUser";
 import {
   Header,
   HeaderContainer,
@@ -37,6 +39,7 @@ import {
 
 export default function SystemSettings() {
   const [isSaving, setIsSaving] = useState(false);
+  const [overviewHref] = useState(() => getAdminOverviewHref(getStoredUser()));
 
   // Example Setting States
   const [maintenanceMode, setMaintenanceMode] = useState(false);
@@ -89,6 +92,7 @@ export default function SystemSettings() {
               <div className="flex items-center w-[120px] sm:w-[250px] mr-2 sm:mr-4">
                  <Search size="sm" id="search-settings" labelText="Search" placeholder="Search settings..." />
               </div>
+              <CurrentUserBadge />
               <HeaderGlobalAction aria-label="Notifications" onClick={() => {}}>
                 <Notification size={20} />
               </HeaderGlobalAction>
@@ -96,7 +100,7 @@ export default function SystemSettings() {
 
             <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="#">
+                <SideNavLink renderIcon={Dashboard} href={overviewHref}>
                   Overview
                 </SideNavLink>
 

@@ -1,6 +1,7 @@
 import "@carbon/styles/css/styles.css";
 import { useState } from "react";
 import { useParams, Navigate } from "react-router-dom";
+import CurrentUserBadge from "../components/CurrentUserBadge";
 import {
   Header,
   HeaderContainer,
@@ -100,6 +101,7 @@ export default function DepartmentAdminDashboard() {
                   placeholder="Search records..."
                 />
               </div>
+              <CurrentUserBadge />
               <HeaderGlobalAction aria-label="Notifications" onClick={() => {}}>
                 <Notification size={20} />
               </HeaderGlobalAction>

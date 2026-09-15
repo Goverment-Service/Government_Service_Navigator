@@ -1,5 +1,7 @@
 import '@carbon/styles/css/styles.css';
 import { useState, useEffect, useCallback } from "react";
+import CurrentUserBadge from "../components/CurrentUserBadge";
+import { getAdminOverviewHref } from "../utils/currentUser";
 import {
   Header,
   HeaderContainer,
@@ -99,6 +101,7 @@ export default function ManageOfficers() {
   const currentRole = currentUser.role || "";
   const isDepartmentAdmin = currentRole.toLowerCase().includes("admin") && !!currentUser.department;
   const scopedDepartment = currentUser.department || "";
+  const overviewHref = getAdminOverviewHref(currentUser);
 
   // Add Officer Form State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -216,6 +219,7 @@ export default function ManageOfficers() {
               <div className="flex items-center w-[120px] sm:w-[250px] mr-2 sm:mr-4">
                 <Search size="sm" id="search-records-global" labelText="Search" placeholder="Search records..." />
               </div>
+              <CurrentUserBadge />
               <HeaderGlobalAction aria-label="Notifications" onClick={() => { }}>
                 <Notification size={20} />
               </HeaderGlobalAction>
@@ -223,7 +227,7 @@ export default function ManageOfficers() {
 
             <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="#">
+                <SideNavLink renderIcon={Dashboard} href={overviewHref}>
                   Overview
                 </SideNavLink>
 

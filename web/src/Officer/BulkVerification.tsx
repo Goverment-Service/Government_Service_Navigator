@@ -263,6 +263,7 @@ export default function BulkVerification() {
               modalHeading="Confirm Bulk Approval"
               primaryButtonText="Approve All"
               secondaryButtonText="Cancel"
+              primaryButtonDisabled={isSubmitting}
               onRequestSubmit={handleBulkApprove}
               onRequestClose={() => setShowConfirmModal(false)}
               danger={false}

@@ -33,19 +33,18 @@ import {
   FormGroup
 } from '@carbon/react';
 import {
-  Document,
-  Time,
-  User,
-  Logout,
-  Download,
   CheckmarkOutline,
   CloseOutline,
   Dashboard,
   Catalog,
   DataStructured,
+  Download,
+  Document,
+  Time,
+  User,
+  Logout,
   Add
 } from '@carbon/icons-react';
-import { useNavigate } from 'react-router-dom';
 
 const headers = [
   { key: 'appId', header: 'App ID' },
@@ -57,7 +56,6 @@ const headers = [
 ];
 
 export default function VerifiedRecords() {
-  const navigate = useNavigate();
   const [rows, setRows] = useState<any[]>([]);
   const [editingRecord, setEditingRecord] = useState<any>(null);
   const [editStatus, setEditStatus] = useState('Approved');

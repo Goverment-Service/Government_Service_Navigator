@@ -1,6 +1,8 @@
 using System;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Government_Service_Navigator.Backend.DTOs.Requests;
 using Government_Service_Navigator.Backend.DTOs.Responses;
@@ -107,9 +109,22 @@ namespace Government_Service_Navigator.Backend.Controllers
                 );
             }
         }
+        [Authorize]
         [HttpPost("logout")]
-        public IActionResult logout() 
+        public async Task<IActionResult> Logout()
         {
+            var jti = User.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+            var expClaim = User.FindFirst(JwtRegisteredClaimNames.Exp)?.Value;
+
+            if (!string.IsNullOrEmpty(jti))
+            {
+                var expiresAt = long.TryParse(expClaim, out var expUnixSeconds)
+                    ? DateTimeOffset.FromUnixTimeSeconds(expUnixSeconds).UtcDateTime
+                    : DateTime.UtcNow.AddDays(7);
+
+                await _authService.LogoutAsync(jti, expiresAt);
+            }
+
             return Ok(new AuthResponse {
                 Success = true,
                 ErrorMessage = "Logged out successfully"

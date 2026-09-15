@@ -23,6 +23,7 @@ namespace Government_Service_Navigator.Backend.Data.Context
         public DbSet<EligibilityRule> EligibilityRules { get; set; }
         public DbSet<DocumentRequirement> DocumentRequirements { get; set; }
         public DbSet<FeeSchedule> FeeSchedules { get; set; }
+        public DbSet<RevokedToken> RevokedTokens { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -62,6 +63,10 @@ namespace Government_Service_Navigator.Backend.Data.Context
                       .WithMany(t => t.ComplianceChecks)
                       .HasForeignKey(c => c.TaskId);
             });
+
+            modelBuilder.Entity<RevokedToken>()
+                .HasIndex(t => t.Jti)
+                .IsUnique();
 
             modelBuilder.Entity<Template>()
                 .HasMany(t => t.Fields)

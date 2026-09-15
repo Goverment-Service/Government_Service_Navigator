@@ -1,5 +1,6 @@
 using System;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
@@ -130,6 +131,31 @@ namespace Government_Service_Navigator.Backend.Services
                     Role = admin.Role
                 }
             };
+        }
+
+        public async Task LogoutAsync(string jti, DateTime expiresAt)
+        {
+            if (string.IsNullOrEmpty(jti))
+            {
+                return;
+            }
+
+            var alreadyRevoked = await _context.RevokedTokens.AnyAsync(t => t.Jti == jti);
+            if (!alreadyRevoked)
+            {
+                _context.RevokedTokens.Add(new RevokedToken
+                {
+                    Jti = jti,
+                    ExpiresAt = expiresAt
+                });
+            }
+
+            // Opportunistically prune tokens that have already expired naturally,
+            // since they no longer need to be tracked as revoked.
+            var expiredTokens = _context.RevokedTokens.Where(t => t.ExpiresAt < DateTime.UtcNow);
+            _context.RevokedTokens.RemoveRange(expiredTokens);
+
+            await _context.SaveChangesAsync();
         }
 
         private string GenerateJwtToken(User user)

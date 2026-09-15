@@ -14,5 +14,11 @@ namespace Government_Service_Navigator.Backend.Services.Interfaces
         Task<List<AuditLog>> GetAllAuditLogsAsync();
         Task<List<VerificationTask>> GetPendingTasksAsync();
         Task<OfficerStatsDto> GetOfficerStatsAsync(string officerId);
+        
+        // Rejection Reason CRUD
+        Task<List<RejectionReason>> GetRejectionReasonsAsync();
+        Task<RejectionReason> CreateRejectionReasonAsync(RejectionReason reason);
+        Task<bool> UpdateRejectionReasonAsync(int id, RejectionReason reason);
+        Task<bool> DeleteRejectionReasonAsync(int id);
     }
 }

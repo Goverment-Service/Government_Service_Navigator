@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Government_Service_Navigator.Backend.Data.Context;
 using Government_Service_Navigator.Backend.Models.Entities;
@@ -17,9 +18,27 @@ namespace Government_Service_Navigator.Backend.Services
 
         public async Task<ServiceProcedure> CreateServiceAsync(ServiceProcedure service)
         {
+            // Assign the ServiceId server-side against every existing row (retired ones included),
+            // since a client-computed preview can collide with a retired service's still-unique ServiceId.
+            service.ServiceId = await GenerateNextServiceIdAsync();
             _context.ServiceProcedures.Add(service);
             await _context.SaveChangesAsync();
             return service;
+        }
+
+        private async Task<string> GenerateNextServiceIdAsync()
+        {
+            var serviceIds = await _context.ServiceProcedures.Select(s => s.ServiceId).ToListAsync();
+            var maxNumber = 0;
+            foreach (var id in serviceIds)
+            {
+                var match = Regex.Match(id, @"GSN-SRV-(\d+)$", RegexOptions.IgnoreCase);
+                if (match.Success && int.TryParse(match.Groups[1].Value, out var num) && num > maxNumber)
+                {
+                    maxNumber = num;
+                }
+            }
+            return $"GSN-SRV-{(maxNumber + 1):D3}";
         }
         public async Task<IEnumerable<ServiceProcedure>> GetAllServicesAsync()
         {

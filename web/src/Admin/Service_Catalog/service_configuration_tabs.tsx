@@ -132,7 +132,7 @@ export default function ServiceConfigurationTabs() {
     fetch("http://localhost:5119/api/services")
       .then((res) => res.json())
       .then((data) => {
-        const activeServices = data.filter((srv: any) => srv.status !== "Retired");
+        const activeServices = data.filter((srv: any) => srv.status === "Active");
         setServices(activeServices);
         const scopedServices = activeServices.filter(
           (srv: ServiceOption) => !isDepartmentAdmin || !scopedCategory || srv.category === scopedCategory

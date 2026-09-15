@@ -2,9 +2,10 @@ namespace Government_Service_Navigator.Backend.DTOs.Requests
 {
     public class CreateTemplateRequest 
     {
-        public string FormName { get; set; } = string.Empty;    
+        public string FormName { get; set; } = string.Empty;
         public string? SubTitle { get; set; }
         public string? LawText { get; set; }
+        public int? ServiceProcedureId { get; set; }
         public List<FormFieldDto> Fields { get; set; } = new List<FormFieldDto>();
     }
     public class FormFieldDto

@@ -20,6 +20,7 @@ namespace Government_Service_Navigator.Backend.Services
                 FormName = request.FormName,
                 SubTitle = request.SubTitle,
                 LawText = request.LawText,
+                ServiceProcedureId = request.ServiceProcedureId,
                 Fields = request.Fields.Select((f, index) => new FormField
                 {
                     Label = f.Label,
@@ -33,16 +34,18 @@ namespace Government_Service_Navigator.Backend.Services
             await _context.SaveChangesAsync();
             return template;
         }
-        public async Task<IEnumerable<Template>> GetAllTemplatesAsync() 
+        public async Task<IEnumerable<Template>> GetAllTemplatesAsync()
         {
             return await _context.Templates
                 .Include(t => t.Fields.OrderBy(f=> f.OrderIndex))
+                .Include(t => t.ServiceProcedure)
                 .ToListAsync();
         }
         public async Task<Template?> GetTemplateByIdAsync(Guid id)
         {
             return await _context.Templates
                 .Include(t => t.Fields.OrderBy(f => f.OrderIndex))
+                .Include(t => t.ServiceProcedure)
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
         public async Task<Template> UpdateTemplateAsync(Guid id, CreateTemplateRequest request)
@@ -53,6 +56,7 @@ namespace Government_Service_Navigator.Backend.Services
             template.FormName = request.FormName;
             template.SubTitle = request.SubTitle;
             template.LawText = request.LawText;
+            template.ServiceProcedureId = request.ServiceProcedureId;
 
             _context.FormFields.RemoveRange(template.Fields);
             

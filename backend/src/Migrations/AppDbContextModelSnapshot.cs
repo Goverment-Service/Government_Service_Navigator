@@ -413,6 +413,9 @@ namespace Government_Service_Navigator.Backend.Migrations
                     b.Property<string>("LawText")
                         .HasColumnType("text");
 
+                    b.Property<int?>("ServiceProcedureId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -423,6 +426,8 @@ namespace Government_Service_Navigator.Backend.Migrations
                         .HasColumnType("character varying(500)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ServiceProcedureId");
 
                     b.ToTable("Templates");
                 });
@@ -553,6 +558,16 @@ namespace Government_Service_Navigator.Backend.Migrations
                     b.Navigation("RejectionReason");
 
                     b.Navigation("Task");
+                });
+
+            modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.Template", b =>
+                {
+                    b.HasOne("Government_Service_Navigator.Backend.Models.Entities.ServiceProcedure", "ServiceProcedure")
+                        .WithMany()
+                        .HasForeignKey("ServiceProcedureId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ServiceProcedure");
                 });
 
             modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.ServiceProcedure", b =>

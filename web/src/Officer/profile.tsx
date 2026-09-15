@@ -33,8 +33,9 @@ import {
   Save,
   Security,
   Add,
-  Catalog
-} from "@carbon/icons-react";
+  Catalog,
+  DataStructured
+, CheckmarkOutline } from "@carbon/icons-react";
 
 function getStoredOfficerData() {
   const defaults = {
@@ -70,7 +71,7 @@ export default function Profile() {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch("http://localhost:5119/api/auth/logout", {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -120,29 +121,33 @@ export default function Profile() {
               </HeaderGlobalAction>
             </HeaderGlobalBar>
 
-            <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
+                        <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">
+                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard" isActive={window.location.pathname.includes('dashboard')}>
                   Application Queue
                 </SideNavLink>
-                <SideNavLink renderIcon={Catalog} href="/officer/applications">
+                <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification" isActive={window.location.pathname.includes('bulk-verification')}>
+                  Bulk Verification
+                </SideNavLink>
+                <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes" isActive={window.location.pathname.includes('rejection-codes')}>
+                  Rejection Codes
+                </SideNavLink>
+                <SideNavLink renderIcon={Catalog} href="/officer/applications" isActive={window.location.pathname.includes('applications')}>
                   All Applications
                 </SideNavLink>
-                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">
+                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create" isActive={window.location.pathname.includes('application_create')}>
                   New Application
                 </SideNavLink>
-                <SideNavLink renderIcon={Document} href="/officer/verified-records">
+                <SideNavLink renderIcon={Document} href="/officer/verified-records" isActive={window.location.pathname.includes('verified-records')}>
                   Verified Records
                 </SideNavLink>
-                <SideNavLink renderIcon={Time} href="/officer/pending-reviews">
+                <SideNavLink renderIcon={Time} href="/officer/pending-reviews" isActive={window.location.pathname.includes('pending-reviews')}>
                   Pending Reviews
                 </SideNavLink>
-                {/* Active state moved to My Profile */}
-                <SideNavLink renderIcon={User} href="/officer/profile" isActive>
+                <SideNavLink renderIcon={User} href="/officer/profile" isActive={window.location.pathname.includes('profile')}>
                   My Profile
                 </SideNavLink>
                 
-                {/* Logout Button */}
                 <div style={{ marginTop: 'auto', borderTop: '1px solid #393939' }}>
                   <SideNavLink renderIcon={Logout} onClick={handleLogout} style={{ cursor: 'pointer' }}>
                     Sign Out
@@ -284,3 +289,5 @@ export default function Profile() {
     />
   );
 }
+
+

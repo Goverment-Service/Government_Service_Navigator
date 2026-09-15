@@ -1,4 +1,5 @@
 import '@carbon/styles/css/styles.css';
+import { useState, useEffect } from 'react';
 import {
   Header,
   HeaderContainer,
@@ -39,8 +40,11 @@ import {
   Email,
   Flag,
   Add,
-  Catalog
+  Catalog,
+  CheckmarkOutline,
+  DataStructured 
 } from "@carbon/icons-react";
+import { useNavigate } from 'react-router-dom';
 
 // Table Data for Pending Reviews
 const headers = [
@@ -53,22 +57,48 @@ const headers = [
   { key: "actions", header: "" },
 ];
 
-const rows = [
-  { id: "1", appId: "GSN-2026-9102", citizen: "Amila Kumara", service: "Business Registration", reason: "Missing NIC Upload", days: "3 Days", status: "Awaiting Citizen" },
-  { id: "2", appId: "GSN-2026-9088", citizen: "Nethmi Silva", service: "Income Certificate", reason: "Requires Supervisor Approval", days: "1 Day", status: "In Progress" },
-  { id: "3", appId: "GSN-2026-8799", citizen: "Dinesh Bandara", service: "Residence Certificate", reason: "Mismatched Address Details", days: "5 Days", status: "Action Required" },
-  { id: "4", appId: "GSN-2026-8745", citizen: "Tharindu Perera", service: "Character Verification", reason: "Pending Police Clearance", days: "14 Days", status: "External Block" },
-];
-
 export default function PendingReviews() {
-  const handleLogout = async () => {
+  const navigate = useNavigate();
+  const [rows, setRows] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchPendingTasks = async () => {
+      const token = localStorage.getItem("officerToken");
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/Verification/tasks/pending`, {
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const mappedRows = data.map((t: any) => {
+            const daysPending = Math.floor((new Date().getTime() - new Date(t.createdDate).getTime()) / (1000 * 3600 * 24));
+            return {
+              id: t.id.toString(),
+              appId: `GSN-2026-${t.applicationId}`,
+              citizen: `User ${t.applicationId}`,
+              service: "General Verification",
+              reason: "Requires Officer Review",
+              days: daysPending === 0 ? "Today" : `${daysPending} Days`,
+              status: t.status === "Pending" ? "Action Required" : t.status
+            };
+          });
+          setRows(mappedRows);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchPendingTasks();
+  }, []);
+
+    const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch("http://localhost:5119/api/auth/logout", {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(token ? { Authorization: "Bearer " } : {}),
         },
       });
     } catch (error) {
@@ -104,29 +134,33 @@ export default function PendingReviews() {
               </HeaderGlobalAction>
             </HeaderGlobalBar>
 
-            <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
+                        <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">
+                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard" isActive={window.location.pathname.includes('dashboard')}>
                   Application Queue
                 </SideNavLink>
-                <SideNavLink renderIcon={Catalog} href="/officer/applications">
+                <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification" isActive={window.location.pathname.includes('bulk-verification')}>
+                  Bulk Verification
+                </SideNavLink>
+                <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes" isActive={window.location.pathname.includes('rejection-codes')}>
+                  Rejection Codes
+                </SideNavLink>
+                <SideNavLink renderIcon={Catalog} href="/officer/applications" isActive={window.location.pathname.includes('applications')}>
                   All Applications
                 </SideNavLink>
-                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">
+                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create" isActive={window.location.pathname.includes('application_create')}>
                   New Application
                 </SideNavLink>
-                <SideNavLink renderIcon={Document} href="/officer/verified-records">
+                <SideNavLink renderIcon={Document} href="/officer/verified-records" isActive={window.location.pathname.includes('verified-records')}>
                   Verified Records
                 </SideNavLink>
-                {/* Active state moved to Pending Reviews */}
-                <SideNavLink renderIcon={Time} href="/officer/pending-reviews" isActive>
+                <SideNavLink renderIcon={Time} href="/officer/pending-reviews" isActive={window.location.pathname.includes('pending-reviews')}>
                   Pending Reviews
                 </SideNavLink>
-                <SideNavLink renderIcon={User} href="/officer/profile">
+                <SideNavLink renderIcon={User} href="/officer/profile" isActive={window.location.pathname.includes('profile')}>
                   My Profile
                 </SideNavLink>
                 
-                {/* Logout Button */}
                 <div style={{ marginTop: 'auto', borderTop: '1px solid #393939' }}>
                   <SideNavLink renderIcon={Logout} onClick={handleLogout} style={{ cursor: 'pointer' }}>
                     Sign Out
@@ -249,7 +283,13 @@ export default function PendingReviews() {
                                   <Button 
                                     size="sm" 
                                     kind={status === 'Awaiting Citizen' ? "secondary" : "primary"}
-                                    onClick={() => alert(`Taking action on ${row.cells.find(c => c.info.header === 'appId')?.value}`)}
+                                    onClick={() => {
+                                      if (status === 'Awaiting Citizen') {
+                                        alert(`Sending reminder to citizen for ${row.cells.find(c => c.info.header === 'appId')?.value}`);
+                                      } else {
+                                        navigate(`/officer/workspace/${row.id}`);
+                                      }
+                                    }}
                                   >
                                     {status === 'Awaiting Citizen' ? "Send Reminder" : "Resume Review"}
                                   </Button>
@@ -273,3 +313,7 @@ export default function PendingReviews() {
     />
   );
 }
+
+
+
+

@@ -94,7 +94,7 @@ export default function AdminDashboard() {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch("http://localhost:5119/api/auth/logout", {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -421,3 +421,4 @@ export default function AdminDashboard() {
     />
   );
 }
+

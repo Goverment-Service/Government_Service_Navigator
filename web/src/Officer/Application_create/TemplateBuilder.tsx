@@ -93,7 +93,7 @@ export default function TemplateBuilder() {
   const [isLoadingServiceDetail, setIsLoadingServiceDetail] = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:5119/api/services")
+    fetch(`${import.meta.env.VITE_API_URL}/api/services`)
       .then((res) => res.json())
       .then((data) => {
         setServices(data.filter((srv: ServiceOption) => srv.status === "Active"));
@@ -175,7 +175,7 @@ export default function TemplateBuilder() {
 
       const url = templateId 
         ? `http://localhost:5119/api/templates/update/${templateId}` 
-        : "http://localhost:5119/api/templates/create";
+        : `${import.meta.env.VITE_API_URL}/api/templates/create`;
       const method = templateId ? "PUT" : "POST";
 
       const response = await fetch(url, {
@@ -579,3 +579,4 @@ export default function TemplateBuilder() {
     </main>
   );
 }
+

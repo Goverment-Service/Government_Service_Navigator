@@ -34,7 +34,7 @@ export default function OfficerLoginPage() {
     setIsLoading(true);
     try {
       // 1. Attempt Officer Login
-      let response = await fetch("http://localhost:5119/api/auth/officer-login", {
+      let response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/officer-login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -66,7 +66,7 @@ export default function OfficerLoginPage() {
       }
 
       // 2. Fallback to System Admin Login
-      response = await fetch("http://localhost:5119/api/auth/admin-login", {
+      response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/admin-login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -250,3 +250,4 @@ export default function OfficerLoginPage() {
     </div>
   );
 }
+

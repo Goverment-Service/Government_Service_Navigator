@@ -64,7 +64,7 @@ export default function RejectionCodes() {
   const fetchCodes = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/Verification/rejection-reasons`, {
+      const response = await fetch(`http://localhost:5119/api/Verification/rejection-reasons`, {
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
       });
       if (response.ok) {
@@ -79,7 +79,7 @@ export default function RejectionCodes() {
   const handleCreate = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/Verification/rejection-reasons`, {
+      const response = await fetch(`http://localhost:5119/api/Verification/rejection-reasons`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

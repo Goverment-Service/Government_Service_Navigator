@@ -69,7 +69,7 @@ export default function VerifiedRecords() {
   const fetchVerifiedTasks = async () => {
     const token = localStorage.getItem('officerToken');
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/Verification/tasks/verified`, {
+      const response = await fetch(`http://localhost:5119/api/Verification/tasks/verified`, {
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
       });
       if (response.ok) {
@@ -101,7 +101,7 @@ export default function VerifiedRecords() {
     setIsSaving(true);
     const token = localStorage.getItem('officerToken');
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/Verification/tasks/${editingRecord.id}/decision`, {
+      const response = await fetch(`http://localhost:5119/api/Verification/tasks/${editingRecord.id}/decision`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

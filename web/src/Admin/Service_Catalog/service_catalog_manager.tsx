@@ -38,6 +38,7 @@ import {
   TrashCan,
   Edit,
 } from "@carbon/icons-react";
+import { DEPARTMENTS, getCategoryForDepartment } from "../../constants/departments";
 
 const headers = [
   { key: "serviceId", header: "Service ID" },
@@ -55,11 +56,28 @@ interface ServiceRecord {
   status: string;
 }
 
+function getStoredOfficerUser(): { department?: string; role?: string } {
+  const storedUser = localStorage.getItem("officerUser");
+  if (storedUser) {
+    try {
+      return JSON.parse(storedUser);
+    } catch {
+      // ignore parse error
+    }
+  }
+  return {};
+}
+
 export default function ServiceCatalogManager() {
   const [isSideNavExpanded] = useState(true);
   const [services, setServices] = useState<ServiceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Department Admins only manage the service category that belongs to their own department.
+  const [currentUser] = useState(getStoredOfficerUser);
+  const isDepartmentAdmin = (currentUser.role || "").toLowerCase().includes("admin") && !!currentUser.department;
+  const scopedCategory = currentUser.department ? getCategoryForDepartment(currentUser.department) : null;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -67,7 +85,7 @@ export default function ServiceCatalogManager() {
   const [formData, setFormData] = useState({
     serviceId: "",
     name: "",
-    category: "Commerce",
+    category: isDepartmentAdmin && scopedCategory ? scopedCategory : "Commerce",
     status: "Draft",
   });
 
@@ -110,7 +128,7 @@ export default function ServiceCatalogManager() {
     setFormData({
       serviceId: generateNextServiceId(),
       name: "",
-      category: "Commerce",
+      category: isDepartmentAdmin && scopedCategory ? scopedCategory : "Commerce",
       status: "Draft",
     });
     setIsModalOpen(true);
@@ -184,6 +202,7 @@ export default function ServiceCatalogManager() {
   // Filter out retired services so they don't clutter the active catalog view, plus apply search query
   const filteredServices = services
     .filter((service) => service.status !== "Retired")
+    .filter((service) => !isDepartmentAdmin || !scopedCategory || service.category === scopedCategory)
     .filter(
       (service) =>
         service.serviceId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -277,12 +296,18 @@ export default function ServiceCatalogManager() {
           }}
         >
           <div>
+            {isDepartmentAdmin && (
+              <Tag type="blue" style={{ marginBottom: "0.5rem" }}>
+                {currentUser.department}
+              </Tag>
+            )}
             <h1 style={{ fontSize: "2rem", fontWeight: 400, color: "#161616" }}>
               Service Catalog
             </h1>
             <p style={{ color: "#525252", marginTop: "0.5rem" }}>
-              Manage departmental procedures and maintain available registry
-              services.
+              {isDepartmentAdmin
+                ? `Manage procedures and services for the ${currentUser.department}.`
+                : "Manage departmental procedures and maintain available registry services."}
             </p>
           </div>
           <Button size="md" onClick={openCreateModal}>
@@ -325,15 +350,16 @@ export default function ServiceCatalogManager() {
             <Select
               id="category"
               labelText="Category"
+              helperText={isDepartmentAdmin ? "Locked to your department's category." : undefined}
               value={formData.category}
               onChange={(e) =>
                 setFormData({ ...formData, category: e.target.value })
               }
+              disabled={isDepartmentAdmin}
             >
-              <SelectItem value="Commerce" text="Commerce" />
-              <SelectItem value="Civil" text="Civil" />
-              <SelectItem value="Police" text="Police" />
-              <SelectItem value="Transport" text="Transport" />
+              {DEPARTMENTS.map((dept) => (
+                <SelectItem key={dept.category} value={dept.category} text={dept.category} />
+              ))}
             </Select>
             <Select
               id="status"

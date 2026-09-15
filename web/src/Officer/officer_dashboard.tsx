@@ -36,7 +36,8 @@ import {
   Warning,
   CheckmarkOutline,
   Add,
-  Catalog
+  Catalog,
+  DataStructured
 } from "@carbon/icons-react";
 
 const headers = [

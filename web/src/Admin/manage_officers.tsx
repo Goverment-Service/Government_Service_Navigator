@@ -378,14 +378,19 @@ export default function ManageOfficers() {
               disabled={isSubmitting}
             />
 
-            <TextInput
+            <Select
               id="department"
               labelText="Department"
-              placeholder="e.g. Land Registry"
               value={formData.department}
               onChange={(e) => setFormData({ ...formData, department: e.target.value })}
               disabled={isSubmitting}
-            />
+            >
+              <SelectItem value="" text="Choose a department" />
+              <SelectItem value="Police Department" text="Police Department" />
+              <SelectItem value="Finance Department" text="Finance Department" />
+              <SelectItem value="Transport Department" text="Transport Department" />
+              <SelectItem value="Civil Department" text="Civil Department" />
+            </Select>
 
             <Select
               id="role"

@@ -16,6 +16,9 @@ import PendingReviews from "./Officer/pending_reviews";
 import Profile from "./Officer/profile";
 import ApplicationsList from "./Officer/applications";
 import ApplicationPreview from "./Officer/application_preview";
+import VerificationWorkspace from "./Officer/VerificationWorkspace";
+import BulkVerification from "./Officer/BulkVerification";
+import RejectionCodes from "./Officer/RejectionCodes";
 import ServiceCatalogManager from "./Admin/Service_Catalog/service_catalog_manager";
 import EligibilityRuleBuilder from "./Admin/Service_Catalog/eligibility_rule_builder";
 import ServiceConfigurationTabs from "./Admin/Service_Catalog/service_configuration_tabs";
@@ -64,6 +67,18 @@ export default function App() {
         <Route
           path="/officer/application-preview"
           element={<ApplicationPreview />}
+        />
+        <Route
+          path="/officer/workspace/:taskId"
+          element={<VerificationWorkspace />}
+        />
+        <Route
+          path="/officer/bulk-verification"
+          element={<BulkVerification />}
+        />
+        <Route
+          path="/officer/rejection-codes"
+          element={<RejectionCodes />}
         />
       </Routes>
     </BrowserRouter>

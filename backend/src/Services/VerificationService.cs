@@ -189,6 +189,13 @@ namespace Government_Service_Navigator.Backend.Services
                 .ToListAsync();
         }
 
+        public async Task<List<AuditLog>> GetAllAuditLogsAsync()
+        {
+            return await _context.AuditLogs
+                .OrderByDescending(a => a.Timestamp)
+                .ToListAsync();
+        }
+
         public async Task<List<VerificationTask>> GetPendingTasksAsync()
         {
             return await _context.VerificationTasks

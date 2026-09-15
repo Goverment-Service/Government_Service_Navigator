@@ -51,6 +51,13 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(logs);
         }
 
+        [HttpGet("audit-logs/all")]
+        public async Task<IActionResult> GetAllAuditLogs()
+        {
+            var logs = await _verificationService.GetAllAuditLogsAsync();
+            return Ok(logs);
+        }
+
         [HttpPut("tasks/{id}/decision")]
         public async Task<IActionResult> RecordDecision(int id, [FromBody] VerificationDecisionRequest request)
         {

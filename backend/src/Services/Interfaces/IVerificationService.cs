@@ -11,6 +11,7 @@ namespace Government_Service_Navigator.Backend.Services.Interfaces
         Task<bool> DeleteTaskAsync(int taskId, string officerId);
         Task<bool> BulkVerifyAsync(BulkVerifyRequest request, string officerId);
         Task<List<AuditLog>> GetAuditLogsAsync(int applicationId);
+        Task<List<AuditLog>> GetAllAuditLogsAsync();
         Task<List<VerificationTask>> GetPendingTasksAsync();
         Task<OfficerStatsDto> GetOfficerStatsAsync(string officerId);
     }

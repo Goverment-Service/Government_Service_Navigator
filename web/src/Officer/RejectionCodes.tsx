@@ -64,7 +64,7 @@ export default function RejectionCodes() {
   const fetchCodes = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      const response = await fetch("http://localhost:5119/api/Verification/rejection-reasons", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/Verification/rejection-reasons`, {
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
       });
       if (response.ok) {
@@ -79,7 +79,7 @@ export default function RejectionCodes() {
   const handleCreate = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      const response = await fetch("http://localhost:5119/api/Verification/rejection-reasons", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/Verification/rejection-reasons`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -292,23 +292,25 @@ export default function RejectionCodes() {
                                 if (cell.info.header === 'actions') {
                                   const codeItem = codes.find(c => c.id.toString() === row.id);
                                   return (
-                                    <TableCell key={cell.id} style={{ display: 'flex', gap: '0.5rem' }}>
-                                      <Button 
-                                        kind="ghost" 
-                                        size="sm" 
-                                        hasIconOnly 
-                                        renderIcon={Edit} 
-                                        iconDescription="Edit Code"
-                                        onClick={() => openEditModal(codeItem)}
-                                      />
-                                      <Button 
-                                        kind="danger--ghost" 
-                                        size="sm" 
-                                        hasIconOnly 
-                                        renderIcon={TrashCan} 
-                                        iconDescription="Delete Code"
-                                        onClick={() => openDeleteModal(codeItem.id)}
-                                      />
+                                    <TableCell key={cell.id}>
+                                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <Button 
+                                          kind="ghost" 
+                                          size="sm" 
+                                          hasIconOnly 
+                                          renderIcon={Edit} 
+                                          iconDescription="Edit Code"
+                                          onClick={() => openEditModal(codeItem)}
+                                        />
+                                        <Button 
+                                          kind="danger--ghost" 
+                                          size="sm" 
+                                          hasIconOnly 
+                                          renderIcon={TrashCan} 
+                                          iconDescription="Delete Code"
+                                          onClick={() => openDeleteModal(parseInt(row.id))}
+                                        />
+                                      </div>
                                     </TableCell>
                                   );
                                 }
@@ -396,4 +398,5 @@ export default function RejectionCodes() {
   </>
   );
 }
+
 

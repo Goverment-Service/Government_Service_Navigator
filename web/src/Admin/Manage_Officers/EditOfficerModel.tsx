@@ -120,7 +120,16 @@ export default function EditOfficerModal({ isOpen, onClose, onSuccess, officer }
           id="edit-department"
           labelText="Department"
           value={formData.department}
-          onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+          onChange={(e) => {
+            const nextDepartment = e.target.value;
+            setFormData((prev) => ({
+              ...prev,
+              department: nextDepartment,
+              role: nextDepartment === "Finance Department" || prev.role !== "Finance Officer"
+                ? prev.role
+                : "Verifying Officer",
+            }));
+          }}
           disabled={isSubmitting || isDepartmentAdmin}
         >
           <SelectItem value="" text="Choose a department" />
@@ -141,6 +150,9 @@ export default function EditOfficerModal({ isOpen, onClose, onSuccess, officer }
             <SelectItem value="Department Admin" text="Department Admin" />
           )}
           <SelectItem value="Auditor" text="Auditor" />
+          {formData.department === "Finance Department" && (
+            <SelectItem value="Finance Officer" text="Finance Officer" />
+          )}
         </Select>
       </Stack>
     </Modal>

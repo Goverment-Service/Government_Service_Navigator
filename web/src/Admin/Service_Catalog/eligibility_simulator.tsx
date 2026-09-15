@@ -1,5 +1,8 @@
 import "@carbon/styles/css/styles.css";
 import React, { useState, useEffect } from "react";
+import CurrentUserBadge from "../../components/CurrentUserBadge";
+import { getStoredUser, getAdminOverviewHref } from "../../utils/currentUser";
+import { getCategoryForDepartment } from "../../constants/departments";
 import {
   Header,
   HeaderName,
@@ -39,6 +42,7 @@ interface Service {
   id: number;
   serviceId: string;
   name: string;
+  category?: string;
 }
 
 interface EvaluationResult {
@@ -49,6 +53,10 @@ interface EvaluationResult {
 
 export default function EligibilitySimulator() {
   const [isSideNavExpanded, setIsSideNavExpanded] = useState(false);
+  const [currentUser] = useState(getStoredUser);
+  const [overviewHref] = useState(() => getAdminOverviewHref(currentUser));
+  const isDepartmentAdmin = (currentUser?.role || "").toLowerCase().includes("admin") && !!currentUser?.department;
+  const scopedCategory = currentUser?.department ? getCategoryForDepartment(currentUser.department) : null;
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
 
@@ -74,8 +82,11 @@ export default function EligibilitySimulator() {
       .then((data) => {
         const activeServices = data.filter((srv: any) => srv.status !== "Retired");
         setServices(activeServices);
-        if (activeServices.length > 0) {
-          setSelectedServiceId(activeServices[0].id.toString());
+        const scopedServices = activeServices.filter(
+          (srv: Service) => !isDepartmentAdmin || !scopedCategory || srv.category === scopedCategory
+        );
+        if (scopedServices.length > 0) {
+          setSelectedServiceId(scopedServices[0].id.toString());
         }
         setIsLoading(false);
       })
@@ -139,6 +150,29 @@ export default function EligibilitySimulator() {
     }
   };
 
+  const handleLogout = async () => {
+    const token = localStorage.getItem("officerToken");
+    try {
+      await fetch("http://localhost:5119/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      localStorage.removeItem("officerToken");
+      localStorage.removeItem("officerUser");
+      window.location.href = "/officer/login";
+    }
+  };
+
+  const visibleServices = services.filter(
+    (srv) => !isDepartmentAdmin || !scopedCategory || srv.category === scopedCategory
+  );
+
   return (
     <>
       <Header aria-label="Registry Admin System">
@@ -167,6 +201,7 @@ export default function EligibilitySimulator() {
               placeholder="Search records..."
             />
           </div>
+          <CurrentUserBadge />
           <HeaderGlobalAction aria-label="Notifications">
             <Notification size={20} />
           </HeaderGlobalAction>
@@ -174,7 +209,7 @@ export default function EligibilitySimulator() {
 
         <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
           <SideNavItems>
-            <SideNavLink renderIcon={Dashboard} href="/admin/dashboard">
+            <SideNavLink renderIcon={Dashboard} href={overviewHref}>
               Overview
             </SideNavLink>
             <SideNavLink renderIcon={Catalog} href="/admin/services">
@@ -206,7 +241,7 @@ export default function EligibilitySimulator() {
               System Settings
             </SideNavLink>
             <div style={{ marginTop: "auto", borderTop: "1px solid #393939" }}>
-              <SideNavLink renderIcon={Logout} href="/officer/login">
+              <SideNavLink renderIcon={Logout} onClick={handleLogout} style={{ cursor: 'pointer' }}>
                 Sign Out
               </SideNavLink>
             </div>
@@ -269,7 +304,7 @@ export default function EligibilitySimulator() {
                     value={selectedServiceId}
                     onChange={(e) => setSelectedServiceId(e.target.value)}
                   >
-                    {services.map((srv) => (
+                    {visibleServices.map((srv) => (
                       <SelectItem
                         key={srv.id}
                         value={srv.id.toString()}

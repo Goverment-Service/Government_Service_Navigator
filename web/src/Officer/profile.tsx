@@ -67,10 +67,23 @@ export default function Profile() {
 
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleLogout = () => {
-    localStorage.removeItem("officerToken");
-    localStorage.removeItem("officerUser");
-    window.location.href = "/officer/login";
+  const handleLogout = async () => {
+    const token = localStorage.getItem("officerToken");
+    try {
+      await fetch("http://localhost:5119/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      localStorage.removeItem("officerToken");
+      localStorage.removeItem("officerUser");
+      window.location.href = "/officer/login";
+    }
   };
 
   const handleSaveProfile = (e: React.FormEvent) => {

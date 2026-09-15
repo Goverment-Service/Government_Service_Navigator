@@ -1,6 +1,7 @@
 import "@carbon/styles/css/styles.css";
 import { useState } from "react";
 import { useParams, Navigate } from "react-router-dom";
+import CurrentUserBadge from "../components/CurrentUserBadge";
 import {
   Header,
   HeaderContainer,
@@ -58,10 +59,14 @@ export default function DepartmentAdminDashboard() {
   const officerName = officer.fullName || "Department Admin";
 
   const handleLogout = async () => {
+    const token = localStorage.getItem("officerToken");
     try {
       await fetch("http://localhost:5119/api/auth/logout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
     } catch (error) {
       console.error("Logout failed:", error);
@@ -96,6 +101,7 @@ export default function DepartmentAdminDashboard() {
                   placeholder="Search records..."
                 />
               </div>
+              <CurrentUserBadge />
               <HeaderGlobalAction aria-label="Notifications" onClick={() => {}}>
                 <Notification size={20} />
               </HeaderGlobalAction>

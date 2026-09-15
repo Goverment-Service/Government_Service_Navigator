@@ -1,5 +1,7 @@
 import '@carbon/styles/css/styles.css';
 import { useState, useEffect, useCallback } from "react";
+import CurrentUserBadge from "../components/CurrentUserBadge";
+import { getAdminOverviewHref } from "../utils/currentUser";
 import {
   Header,
   HeaderContainer,
@@ -99,6 +101,7 @@ export default function ManageOfficers() {
   const currentRole = currentUser.role || "";
   const isDepartmentAdmin = currentRole.toLowerCase().includes("admin") && !!currentUser.department;
   const scopedDepartment = currentUser.department || "";
+  const overviewHref = getAdminOverviewHref(currentUser);
 
   // Add Officer Form State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -144,10 +147,23 @@ export default function ManageOfficers() {
     run();
   }, [fetchOfficers]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("officerToken");
-    localStorage.removeItem("officerUser");
-    window.location.href = "/officer/login";
+  const handleLogout = async () => {
+    const token = localStorage.getItem("officerToken");
+    try {
+      await fetch("http://localhost:5119/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      localStorage.removeItem("officerToken");
+      localStorage.removeItem("officerUser");
+      window.location.href = "/officer/login";
+    }
   };
 
   const handleAddOfficer = async () => {
@@ -203,6 +219,7 @@ export default function ManageOfficers() {
               <div className="flex items-center w-[120px] sm:w-[250px] mr-2 sm:mr-4">
                 <Search size="sm" id="search-records-global" labelText="Search" placeholder="Search records..." />
               </div>
+              <CurrentUserBadge />
               <HeaderGlobalAction aria-label="Notifications" onClick={() => { }}>
                 <Notification size={20} />
               </HeaderGlobalAction>
@@ -210,7 +227,7 @@ export default function ManageOfficers() {
 
             <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="#">
+                <SideNavLink renderIcon={Dashboard} href={overviewHref}>
                   Overview
                 </SideNavLink>
 
@@ -431,7 +448,16 @@ export default function ManageOfficers() {
               labelText="Department"
               helperText={isDepartmentAdmin ? "Officers you create are added to your own department." : undefined}
               value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+              onChange={(e) => {
+                const nextDepartment = e.target.value;
+                setFormData((prev) => ({
+                  ...prev,
+                  department: nextDepartment,
+                  role: nextDepartment === "Finance Department" || prev.role !== "Finance Officer"
+                    ? prev.role
+                    : "Verifying Officer",
+                }));
+              }}
               disabled={isSubmitting || isDepartmentAdmin}
             >
               <SelectItem value="" text="Choose a department" />
@@ -453,6 +479,9 @@ export default function ManageOfficers() {
                 <SelectItem value="Department Admin" text="Department Admin" />
               )}
               <SelectItem value="Auditor" text="Auditor" />
+              {formData.department === "Finance Department" && (
+                <SelectItem value="Finance Officer" text="Finance Officer" />
+              )}
             </Select>
           </Stack>
         </Modal>

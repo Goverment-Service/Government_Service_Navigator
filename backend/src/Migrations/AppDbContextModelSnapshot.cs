@@ -338,6 +338,32 @@ namespace Government_Service_Navigator.Backend.Migrations
                     b.ToTable("RejectionReasons");
                 });
 
+            modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.RevokedToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Jti")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Jti")
+                        .IsUnique();
+
+                    b.ToTable("RevokedTokens");
+                });
+
             modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.ServiceProcedure", b =>
                 {
                     b.Property<int>("Id")

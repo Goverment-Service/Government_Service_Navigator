@@ -6,9 +6,13 @@ import {
   Button,
   Stack,
   Checkbox,
-  TextArea
+  TextArea,
+  Tag,
+  InlineNotification,
 } from "@carbon/react";
 import { TrashCan, UpToTop, DownToBottom } from "@carbon/icons-react";
+import { getStoredUser } from "../../utils/currentUser";
+import { getCategoryForDepartment } from "../../constants/departments";
 
 export type FieldType = 
   | 'text' | 'textarea' | 'number' | 'select' | 'multiselect' 
@@ -20,6 +24,45 @@ export interface FormField {
   type: FieldType;
   options?: string; // Comma separated for select/table
   required?: boolean;
+}
+
+interface ServiceOption {
+  id: number;
+  serviceId: string;
+  name: string;
+  category: string;
+  status: string;
+}
+
+interface EligibilityRuleInfo {
+  id: number;
+  field: string;
+  operator: string;
+  value: string;
+}
+
+interface DocumentRequirementInfo {
+  id: number;
+  documentName: string;
+  description?: string;
+  isMandatory: boolean;
+}
+
+interface FeeScheduleInfo {
+  id: number;
+  feeType: string;
+  amount: number;
+  effectiveDate: string;
+}
+
+interface ServiceDetail {
+  id: number;
+  serviceId: string;
+  name: string;
+  category: string;
+  eligibilityRules: EligibilityRuleInfo[];
+  documentRequirements: DocumentRequirementInfo[];
+  feeSchedules: FeeScheduleInfo[];
 }
 
 export default function TemplateBuilder() {
@@ -36,6 +79,46 @@ export default function TemplateBuilder() {
   const [newFieldRequired, setNewFieldRequired] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Linking this template to a Service Catalog entry so its Eligibility
+  // Rules and Document/Fee configuration can be shown as reference while
+  // the officer builds the form. Every officer belongs to one department, so
+  // (unlike the Admin-side pages, which also allow a departmentless System
+  // Admin through) any signed-in officer with a department only sees that
+  // department's services here.
+  const [currentUser] = useState(getStoredUser);
+  const scopedCategory = currentUser?.department ? getCategoryForDepartment(currentUser.department) : null;
+  const [services, setServices] = useState<ServiceOption[]>([]);
+  const [linkedServiceId, setLinkedServiceId] = useState<string>("");
+  const [linkedServiceDetail, setLinkedServiceDetail] = useState<ServiceDetail | null>(null);
+  const [isLoadingServiceDetail, setIsLoadingServiceDetail] = useState(false);
+
+  useEffect(() => {
+    fetch("http://localhost:5119/api/services")
+      .then((res) => res.json())
+      .then((data) => {
+        setServices(data.filter((srv: ServiceOption) => srv.status === "Active"));
+      })
+      .catch((error) => {
+        console.error("Error fetching services:", error);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!linkedServiceId) {
+      setLinkedServiceDetail(null);
+      return;
+    }
+    setIsLoadingServiceDetail(true);
+    fetch(`http://localhost:5119/api/services/${linkedServiceId}`)
+      .then((res) => res.json())
+      .then((data) => setLinkedServiceDetail(data))
+      .catch((error) => {
+        console.error("Error fetching linked service details:", error);
+        setLinkedServiceDetail(null);
+      })
+      .finally(() => setIsLoadingServiceDetail(false));
+  }, [linkedServiceId]);
+
   const fetchTemplateData = async (id: string) => {
     try {
       const response = await fetch(`http://localhost:5119/api/templates/${id}`);
@@ -44,6 +127,7 @@ export default function TemplateBuilder() {
         setFormName(data.formName || "");
         setSubTitle(data.subTitle || "");
         setLawText(data.lawText || "");
+        setLinkedServiceId(data.serviceProcedureId ? data.serviceProcedureId.toString() : "");
         if (data.fields) {
           setCustomFields(data.fields.map((f: { id?: string; label: string; type: FieldType; options?: string; isRequired?: boolean }) => ({
             id: f.id || Date.now().toString() + Math.random(),
@@ -80,6 +164,7 @@ export default function TemplateBuilder() {
         formName: formName,
         subTitle: subTitle,
         lawText: lawText,
+        serviceProcedureId: linkedServiceId ? Number(linkedServiceId) : null,
         fields: customFields.map(f => ({
           label: f.label,
           type: f.type,
@@ -231,6 +316,13 @@ export default function TemplateBuilder() {
     }
   };
 
+  // Keep the currently linked service visible even if it falls outside the
+  // officer's department (e.g. editing a template someone else created),
+  // so the dropdown doesn't silently blank out an existing selection.
+  const visibleServices = services.filter(
+    (srv) => !scopedCategory || srv.category === scopedCategory || srv.id.toString() === linkedServiceId
+  );
+
   return (
     <main className="gsn-shell-main">
       <div style={{ marginBottom: '2.5rem' }}>
@@ -262,6 +354,88 @@ export default function TemplateBuilder() {
               value={lawText}
               onChange={(e) => setLawText(e.target.value)}
             />
+
+            <Select
+              id="linkedService"
+              labelText="Linked Service Catalog Entry (Optional)"
+              helperText="Ties this template to a service so its eligibility rules and required documents/fees show below."
+              value={linkedServiceId}
+              onChange={(e) => setLinkedServiceId(e.target.value)}
+            >
+              <SelectItem value="" text="None" />
+              {visibleServices.map((srv) => (
+                <SelectItem key={srv.id} value={srv.id.toString()} text={`${srv.serviceId} - ${srv.name}`} />
+              ))}
+            </Select>
+
+            {linkedServiceId && (
+              <div style={{ padding: '1rem', backgroundColor: '#f4f4f4', borderLeft: '4px solid #24a148' }}>
+                <h4 style={{ marginBottom: '1rem', fontWeight: 'bold' }}>Service Requirements</h4>
+                {isLoadingServiceDetail ? (
+                  <p style={{ color: '#525252', fontSize: '0.875rem' }}>Loading...</p>
+                ) : !linkedServiceDetail ? (
+                  <InlineNotification
+                    kind="error"
+                    lowContrast
+                    hideCloseButton
+                    title="Could not load service details"
+                    subtitle="The service may have been removed from the catalog."
+                  />
+                ) : (
+                  <Stack gap={5}>
+                    <div>
+                      <p style={{ fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#525252', marginBottom: '0.5rem' }}>
+                        Eligibility Rules
+                      </p>
+                      {linkedServiceDetail.eligibilityRules.length === 0 ? (
+                        <p style={{ fontSize: '0.875rem', color: '#8d8d8d', fontStyle: 'italic' }}>None defined.</p>
+                      ) : (
+                        <ul style={{ margin: 0, paddingLeft: '1.1rem', fontSize: '0.875rem' }}>
+                          {linkedServiceDetail.eligibilityRules.map((rule) => (
+                            <li key={rule.id}>{rule.field} {rule.operator} {rule.value}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div>
+                      <p style={{ fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#525252', marginBottom: '0.5rem' }}>
+                        Required Documents
+                      </p>
+                      {linkedServiceDetail.documentRequirements.length === 0 ? (
+                        <p style={{ fontSize: '0.875rem', color: '#8d8d8d', fontStyle: 'italic' }}>None defined.</p>
+                      ) : (
+                        <Stack gap={2}>
+                          {linkedServiceDetail.documentRequirements.map((doc) => (
+                            <div key={doc.id} className="flex items-center flex-wrap" style={{ display: 'flex', gap: '0.5rem', fontSize: '0.875rem' }}>
+                              <span>{doc.documentName}</span>
+                              <Tag type={doc.isMandatory ? 'red' : 'gray'} size="sm">
+                                {doc.isMandatory ? 'Mandatory' : 'Optional'}
+                              </Tag>
+                            </div>
+                          ))}
+                        </Stack>
+                      )}
+                    </div>
+
+                    <div>
+                      <p style={{ fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#525252', marginBottom: '0.5rem' }}>
+                        Fees
+                      </p>
+                      {linkedServiceDetail.feeSchedules.length === 0 ? (
+                        <p style={{ fontSize: '0.875rem', color: '#8d8d8d', fontStyle: 'italic' }}>None defined.</p>
+                      ) : (
+                        <ul style={{ margin: 0, paddingLeft: '1.1rem', fontSize: '0.875rem' }}>
+                          {linkedServiceDetail.feeSchedules.map((fee) => (
+                            <li key={fee.id}>{fee.feeType} - LKR {fee.amount.toLocaleString()}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </Stack>
+                )}
+              </div>
+            )}
 
             <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f4f4f4', borderLeft: '4px solid #0f62fe' }}>
               <h4 style={{ marginBottom: '1rem', fontWeight: 'bold' }}>Add New Element</h4>

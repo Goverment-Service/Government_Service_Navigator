@@ -73,6 +73,14 @@ namespace Government_Service_Navigator.Backend.Data.Context
                 .WithOne(f => f.Template)
                 .HasForeignKey(f => f.TemplateId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Optional link - deleting a Service Catalog entry unlinks its templates
+            // rather than deleting them.
+            modelBuilder.Entity<Template>()
+                .HasOne(t => t.ServiceProcedure)
+                .WithMany()
+                .HasForeignKey(t => t.ServiceProcedureId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

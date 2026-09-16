@@ -113,9 +113,31 @@ namespace Government_Service_Navigator.Backend.Services
             return refund;
         }
 
-        public Task<RefundRequest> ProcessAsync(int id, string transactionRef)
+        public async Task<RefundRequest> ProcessAsync(int id, string transactionRef)
         {
-            throw new NotImplementedException();
+            var refund = await _context.RefundRequests.FindAsync(id);
+
+            if (refund == null)
+            {
+                throw new KeyNotFoundException($"Refund request {id} not found.");
+            }
+
+            if (refund.Status != RefundStatus.Approved)
+            {
+                throw new InvalidOperationException("Only approved refund requests can be processed.");
+            }
+
+            if (string.IsNullOrWhiteSpace(transactionRef))
+            {
+                throw new ArgumentException("A transaction reference is required to process a refund.");
+            }
+
+            refund.Status = RefundStatus.Processing;
+            refund.RefundTransactionRef = transactionRef;
+
+            await _context.SaveChangesAsync();
+
+            return refund;
         }
 
         public async Task<RefundRequest> CompleteAsync(int id)

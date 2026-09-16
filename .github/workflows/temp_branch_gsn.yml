@@ -28,6 +28,7 @@ jobs:
         run: dotnet build --configuration Release
 
       - name: dotnet publish
+        working-directory: ./backend/src
         run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
 
       - name: Upload artifact for deployment job
@@ -62,5 +63,5 @@ jobs:
         with:
           app-name: 'GSN'
           slot-name: 'Production'
-          package: ./backend/src
+          package: .
           

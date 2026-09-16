@@ -57,10 +57,10 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
     }
   }
 
-  Map<String, List<ServiceApplication>> _groupByCategory() {
+  Map<String, List<ServiceApplication>> _groupByDepartment() {
     final groups = <String, List<ServiceApplication>>{};
     for (final app in _applications) {
-      groups.putIfAbsent(app.category.isEmpty ? 'Other' : app.category, () => []).add(app);
+      groups.putIfAbsent(app.department.isEmpty ? 'Other' : app.department, () => []).add(app);
     }
     for (final list in groups.values) {
       list.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
@@ -70,8 +70,8 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final groups = _groupByCategory();
-    final categories = groups.keys.toList()..sort();
+    final groups = _groupByDepartment();
+    final departments = groups.keys.toList()..sort();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -97,10 +97,10 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.all(16.0),
-                        itemCount: categories.length,
+                        itemCount: departments.length,
                         itemBuilder: (context, index) {
-                          final category = categories[index];
-                          final apps = groups[category]!;
+                          final department = departments[index];
+                          final apps = groups[department]!;
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 20),
                             child: Column(
@@ -111,7 +111,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
                                   child: Row(
                                     children: [
                                       Text(
-                                        category,
+                                        department,
                                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.dark),
                                       ),
                                       const SizedBox(width: 8),

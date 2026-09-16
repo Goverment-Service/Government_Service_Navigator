@@ -1,7 +1,8 @@
 import '@carbon/styles/css/styles.css';
 import { useState, useEffect } from "react";
 import jsPDF from "jspdf";
-import { getStoredUser, getOfficerDashboardHref } from "../utils/currentUser";
+import { getStoredUser, getOfficerDashboardHref, getOfficerCategory } from "../utils/currentUser";
+import DocumentPreview from "./Application_create/documentPreview";
 import {
   Header,
   HeaderContainer,
@@ -63,6 +64,7 @@ const headers = [
 interface FormField {
   label: string;
   type: string;
+  options?: string;
   isRequired: boolean;
   orderIndex: number;
 }
@@ -93,7 +95,9 @@ export default function ApplicationsList() {
     const fetchTemplates = async () => {
       try {
         const token = localStorage.getItem("officerToken");
-        const response = await fetch("http://localhost:5119/api/templates/all", {
+        const category = getOfficerCategory(getStoredUser());
+        const params = category ? `?category=${encodeURIComponent(category)}` : "";
+        const response = await fetch(`http://localhost:5119/api/templates/all${params}`, {
           headers: {
             "Authorization": `Bearer ${token}`
           }
@@ -405,13 +409,13 @@ export default function ApplicationsList() {
             <Modal
               open={detailsModalOpen}
               passiveModal
+              size="lg"
               modalHeading="Application Template Details"
               onRequestClose={() => { setDetailsModalOpen(false); setSelectedApp(null); }}
             >
               {selectedApp && (
-                <div style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: '#ffffff', border: '1px solid #e0e0e0' }}>
-                  <h3 style={{ marginBottom: '1rem', fontSize: '1.5rem', fontWeight: 400 }}>{selectedApp.formName}</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div style={{ marginBottom: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
                     <div>
                       <p style={{ fontSize: '0.75rem', color: '#525252' }}>Template ID</p>
                       <p style={{ fontWeight: 600 }}>{selectedApp.templateId}</p>
@@ -425,20 +429,19 @@ export default function ApplicationsList() {
                       <p style={{ fontWeight: 600 }}>{selectedApp.status}</p>
                     </div>
                   </div>
-                  
-                  <h4 style={{ marginTop: '1.5rem', marginBottom: '0.5rem', fontSize: '1rem', fontWeight: 600 }}>Form Fields ({selectedApp.fieldsCount})</h4>
-                  {selectedApp.fields && selectedApp.fields.length > 0 ? (
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '1.5rem', marginBottom: '2rem' }}>
-                      {selectedApp.fields.map((f, i) => (
-                        <li key={i} style={{ marginBottom: '0.5rem' }}>
-                          <strong>{f.label}</strong> <span style={{ color: '#525252' }}>({f.type}{f.isRequired ? ', required' : ''})</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p style={{ color: '#525252', marginBottom: '2rem' }}>No fields defined.</p>
-                  )}
-                  
+
+                  <DocumentPreview
+                    formName={selectedApp.rawFormName}
+                    subTitle={selectedApp.subTitle}
+                    lawText={selectedApp.lawText}
+                    fields={selectedApp.fields.map((f) => ({
+                      label: f.label,
+                      type: f.type,
+                      options: f.options,
+                      required: f.isRequired,
+                    }))}
+                  />
+
                   <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
                     <Button onClick={() => window.location.href = `/officer/Application_create/application_create?id=${selectedApp.id}`}>
                       Edit in Builder

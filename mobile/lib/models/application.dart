@@ -56,6 +56,7 @@ class ServiceApplication {
   final int serviceProcedureId;
   final String serviceName;
   final String category;
+  final String department;
   final String status; // Pending, Approved, Rejected, Revised
   final DateTime submittedAt;
   final DateTime? decisionAt;
@@ -67,6 +68,7 @@ class ServiceApplication {
     required this.serviceProcedureId,
     required this.serviceName,
     required this.category,
+    required this.department,
     required this.status,
     required this.submittedAt,
     this.decisionAt,
@@ -79,6 +81,9 @@ class ServiceApplication {
         serviceProcedureId: json['serviceProcedureId'] as int,
         serviceName: json['serviceName'] as String? ?? '',
         category: json['category'] as String? ?? 'Other',
+        department: (json['department'] as String?)?.trim().isNotEmpty == true
+            ? json['department'] as String
+            : (json['category'] as String? ?? 'Other'),
         status: json['status'] as String? ?? 'Pending',
         submittedAt: DateTime.parse(json['submittedAt'] as String),
         decisionAt: json['decisionAt'] != null ? DateTime.parse(json['decisionAt'] as String) : null,

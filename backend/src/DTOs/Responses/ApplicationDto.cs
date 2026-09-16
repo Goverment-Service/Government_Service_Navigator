@@ -12,6 +12,11 @@ namespace Government_Service_Navigator.Backend.DTOs.Responses
         public string ServiceName { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;
 
+        // Human-readable department name (e.g. "Finance Department"), resolved
+        // automatically from the service's catalog Category - the citizen
+        // never picks a department, it's always derived from what they applied for.
+        public string Department { get; set; } = string.Empty;
+
         // Mirrors the linked VerificationTask's status: Pending, Approved, Rejected, Revised.
         public string Status { get; set; } = "Pending";
 

@@ -13,6 +13,7 @@ import {
 import { TrashCan, UpToTop, DownToBottom } from "@carbon/icons-react";
 import { getStoredUser } from "../../utils/currentUser";
 import { getCategoryForDepartment } from "../../constants/departments";
+import { renderFieldPreview } from "./documentPreview";
 
 export type FieldType = 
   | 'text' | 'textarea' | 'number' | 'select' | 'multiselect' 
@@ -229,91 +230,6 @@ export default function TemplateBuilder() {
     const swapIndex = direction === 'up' ? index - 1 : index + 1;
     [newFields[index], newFields[swapIndex]] = [newFields[swapIndex], newFields[index]];
     setCustomFields(newFields);
-  };
-
-  const renderFieldPreview = (field: FormField) => {
-    switch (field.type) {
-      case 'heading':
-        return <h4 style={{ marginTop: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold', textTransform: 'uppercase', borderBottom: '2px solid #000', paddingBottom: '4px' }}>{field.label}</h4>;
-      
-      case 'paragraph':
-        return <p style={{ marginBottom: '1rem', fontStyle: 'italic', fontSize: '0.9rem' }}>{field.label}</p>;
-      
-      case 'table': {
-        const columns = field.options ? field.options.split(',').map(s => s.trim()) : ['Col 1', 'Col 2'];
-        return (
-          <div style={{ marginBottom: '1.5rem', width: '100%', overflowX: 'auto' }}>
-            {field.label && field.label !== 'Table' && <div style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>{field.label}</div>}
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '0.85rem' }}>
-              <thead>
-                <tr>
-                  {columns.map((col, i) => (
-                    <th key={i} style={{ border: '1px solid #000', padding: '8px', backgroundColor: '#e0e0e0', textAlign: 'left' }}>{col}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  {columns.map((_, i) => (
-                    <td key={i} style={{ border: '1px solid #000', padding: '16px' }}></td>
-                  ))}
-                </tr>
-                <tr>
-                  {columns.map((_, i) => (
-                    <td key={i} style={{ border: '1px solid #000', padding: '16px' }}></td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        );
-      }
-
-      case 'file':
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-            <div style={{ fontWeight: 'bold', width: '30%' }}>{field.label} {field.required && <span style={{color: 'red'}}>*</span>} :</div>
-            <div style={{ flex: 1, border: '1px dashed #666', padding: '1rem', textAlign: 'center', backgroundColor: '#fafafa', color: '#666' }}>
-              [ Required Document Upload ]
-            </div>
-          </div>
-        );
-
-      case 'textarea':
-        return (
-          <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '1rem' }}>
-            <div style={{ fontWeight: 'bold', width: '30%', marginTop: '0.5rem' }}>{field.label} {field.required && <span style={{color: 'red'}}>*</span>} :</div>
-            <div style={{ flex: 1, minHeight: '4rem', border: '1px solid #000', backgroundColor: '#fff' }} />
-          </div>
-        );
-
-      case 'date':
-        return (
-           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-            <div style={{ fontWeight: 'bold', width: '30%' }}>{field.label} {field.required && <span style={{color: 'red'}}>*</span>} :</div>
-            <div style={{ flex: 1, borderBottom: '1px solid #000', paddingBottom: '4px', color: '#666' }}>DD / MM / YYYY</div>
-          </div>
-        );
-
-      case 'select':
-      case 'multiselect':
-         return (
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-            <div style={{ fontWeight: 'bold', width: '30%' }}>{field.label} {field.required && <span style={{color: 'red'}}>*</span>} :</div>
-            <div style={{ flex: 1, border: '1px solid #000', padding: '8px', color: '#666', backgroundColor: '#fff' }}>
-              [ Select from: {field.options || 'None'} ]
-            </div>
-          </div>
-        );
-
-      default: // text, number
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-             <div style={{ fontWeight: 'bold', width: '30%' }}>{field.label} {field.required && <span style={{color: 'red'}}>*</span>} :</div>
-             <div style={{ flex: 1, border: '1px solid #000', padding: '12px', backgroundColor: '#fff' }} />
-          </div>
-        );
-    }
   };
 
   // Keep the currently linked service visible even if it falls outside the

@@ -34,12 +34,23 @@ namespace Government_Service_Navigator.Backend.Services
             await _context.SaveChangesAsync();
             return template;
         }
-        public async Task<IEnumerable<Template>> GetAllTemplatesAsync()
+        public async Task<IEnumerable<Template>> GetAllTemplatesAsync(string? category = null)
         {
-            return await _context.Templates
-                .Include(t => t.Fields.OrderBy(f=> f.OrderIndex))
+            var query = _context.Templates
+                .Include(t => t.Fields.OrderBy(f => f.OrderIndex))
                 .Include(t => t.ServiceProcedure)
-                .ToListAsync();
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(category))
+            {
+                var normalized = category.Trim().ToLower();
+                // A template not yet linked to a service has no department -
+                // exclude it once a department filter is requested rather than
+                // showing it to every department.
+                query = query.Where(t => t.ServiceProcedure != null && t.ServiceProcedure.Category.ToLower() == normalized);
+            }
+
+            return await query.ToListAsync();
         }
         public async Task<Template?> GetTemplateByIdAsync(Guid id)
         {

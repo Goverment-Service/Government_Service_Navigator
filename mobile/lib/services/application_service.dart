@@ -19,6 +19,27 @@ class ApplicationService {
     return token != null ? {'Authorization': 'Bearer $token'} : {};
   }
 
+  /// The set of ServiceProcedure ids a Verifying Officer has actually built
+  /// an active application form (Template) for. Only these are real,
+  /// submittable applications - a raw Service Catalog entry with no
+  /// template attached isn't something a citizen can fill in and submit yet.
+  Future<Set<int>> fetchServiceIdsWithActiveTemplate() async {
+    final response = await http.get(Uri.parse('$baseUrl/templates/all'));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApplicationApiException('Could not load available applications (${response.statusCode}).');
+    }
+    final decoded = jsonDecode(response.body) as List<dynamic>;
+    final ids = <int>{};
+    for (final entry in decoded) {
+      final map = entry as Map<String, dynamic>;
+      final serviceProcedureId = map['serviceProcedureId'];
+      if (map['status'] == 'Active' && serviceProcedureId != null) {
+        ids.add(serviceProcedureId as int);
+      }
+    }
+    return ids;
+  }
+
   /// Returns null if the service has no application template configured.
   Future<ApplicationTemplate?> fetchTemplateForService(int serviceProcedureId) async {
     final response = await http.get(Uri.parse('$baseUrl/templates/by-service/$serviceProcedureId'));

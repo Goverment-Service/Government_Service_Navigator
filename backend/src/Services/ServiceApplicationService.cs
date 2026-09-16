@@ -136,6 +136,7 @@ namespace Government_Service_Navigator.Backend.Services
                 ServiceProcedureId = application.ServiceProcedureId,
                 ServiceName = service?.Name ?? string.Empty,
                 Category = service?.Category ?? string.Empty,
+                Department = DepartmentCatalog.GetDepartmentForCategory(service?.Category),
                 Status = taskInfo?.Status ?? "Pending",
                 SubmittedAt = application.SubmittedAt,
                 DecisionAt = taskInfo?.DecisionAt,

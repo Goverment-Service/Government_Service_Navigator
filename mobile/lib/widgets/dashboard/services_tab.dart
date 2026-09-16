@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
 import '../../services/service_api_client.dart';
+import '../../services/application_service.dart';
 import '../../screens/procedure_detail_screen.dart';
 
 class ServicesTab extends StatefulWidget {
@@ -12,6 +13,7 @@ class ServicesTab extends StatefulWidget {
 }
 
 class _ServicesTabState extends State<ServicesTab> {
+  final _applicationService = ApplicationService();
   List services = [];
   bool isLoading = true;
 
@@ -24,8 +26,11 @@ class _ServicesTabState extends State<ServicesTab> {
   Future<void> _fetchServices() async {
     try {
       final data = await ServiceApiClient.fetchServices();
+      // Only show services a Verifying Officer has actually built an
+      // application form for - not the raw, unfiltered Service Catalog.
+      final templatedIds = await _applicationService.fetchServiceIdsWithActiveTemplate();
       setState(() {
-        services = data;
+        services = data.where((s) => templatedIds.contains(s['id'])).toList();
         isLoading = false;
       });
     } catch (e) {
@@ -38,14 +43,14 @@ class _ServicesTabState extends State<ServicesTab> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Service Catalog'),
+        title: const Text('Applications'),
         backgroundColor: AppColors.cardBg,
         elevation: 0,
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : services.isEmpty
-              ? const Center(child: Text('No services found in database.'))
+              ? const Center(child: Text('No application forms are available yet.'))
               : ListView.builder(
                   padding: const EdgeInsets.all(16.0),
                   itemCount: services.length,

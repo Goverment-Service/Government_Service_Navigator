@@ -1,4 +1,4 @@
-import { getDepartmentSlug } from "../constants/departments";
+import { getDepartmentSlug, getCategoryForDepartment } from "../constants/departments";
 
 export interface StoredUser {
   fullName?: string;
@@ -46,4 +46,11 @@ export function getAdminOverviewHref(user: StoredUser | null): string {
 export function getOfficerDashboardHref(user: StoredUser | null): string {
   const slug = user?.department ? getDepartmentSlug(user.department) : null;
   return slug ? `/officer/${slug}/dashboard` : "/officer/dashboard";
+}
+
+// The Service Catalog "Category" a Verifying Officer's department is scoped
+// to - null if they have no department, in which case list pages should show
+// everything unfiltered rather than accidentally hiding all data.
+export function getOfficerCategory(user: StoredUser | null): string | null {
+  return user?.department ? getCategoryForDepartment(user.department) : null;
 }

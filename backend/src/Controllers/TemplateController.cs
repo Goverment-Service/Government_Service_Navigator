@@ -33,9 +33,9 @@ namespace Government_Service_Navigator.Backend.Controllers
             }
         }
         [HttpGet("all")]
-        public async Task<IActionResult>GetAllTemplates()
+        public async Task<IActionResult>GetAllTemplates([FromQuery] string? category)
         {
-            var templates = await _templateService.GetAllTemplatesAsync();
+            var templates = await _templateService.GetAllTemplatesAsync(category);
             return Ok(templates);
         }
         [HttpGet("by-service/{serviceProcedureId}")]

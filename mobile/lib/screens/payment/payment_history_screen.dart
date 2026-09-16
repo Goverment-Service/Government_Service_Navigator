@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
@@ -16,11 +17,31 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
   List<Payment> _payments = [];
   bool _loading = true;
   String? _error;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _load();
+    // A Finance Officer can verify/reject a payment at any time, so keep
+    // this list live rather than requiring a manual pull-to-refresh.
+    _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) => _silentRefresh());
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _silentRefresh() async {
+    try {
+      final payments = await _paymentService.fetchMyPayments();
+      if (!mounted) return;
+      setState(() => _payments = payments);
+    } catch (_) {
+      // Silent - a background refresh failing shouldn't interrupt the UI.
+    }
   }
 
   Future<void> _load() async {

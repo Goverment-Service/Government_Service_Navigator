@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Government_Service_Navigator.Backend.Data.Context;
 using Government_Service_Navigator.Backend.DTOs.Requests;
@@ -14,15 +17,30 @@ namespace Government_Service_Navigator.Backend.Services
 {
     public class ServiceApplicationService : IServiceApplicationService
     {
-        private readonly AppDbContext _context;
+        private const long MaxDocumentSizeBytes = 10 * 1024 * 1024; // 10 MB
+        private static readonly string[] AllowedDocumentExtensions = { ".jpg", ".jpeg", ".png", ".pdf" };
 
-        public ServiceApplicationService(AppDbContext context)
+        private readonly AppDbContext _context;
+        private readonly IWebHostEnvironment _environment;
+
+        public ServiceApplicationService(AppDbContext context, IWebHostEnvironment environment)
         {
             _context = context;
+            _environment = environment;
         }
 
         private static string GenerateReference() =>
             $"APP-{DateTime.UtcNow:yyyy}-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
+
+        private string DocumentDirectory
+        {
+            get
+            {
+                var dir = Path.Combine(_environment.ContentRootPath, "App_Data", "application-documents");
+                Directory.CreateDirectory(dir);
+                return dir;
+            }
+        }
 
         public async Task<ApplicationDto> SubmitApplicationAsync(int userId, SubmitApplicationRequest request)
         {
@@ -83,6 +101,94 @@ namespace Government_Service_Navigator.Backend.Services
             var tasksByAppId = await LoadLatestTaskInfoAsync(new List<int> { application.Id });
             return MapToDto(application, application.ServiceProcedure, tasksByAppId.GetValueOrDefault(application.Id));
         }
+
+        public async Task<ApplicationDocumentDto> UploadDocumentAsync(int applicationId, int userId, int? documentRequirementId, string documentName, IFormFile file)
+        {
+            var application = await _context.ServiceApplications
+                .FirstOrDefaultAsync(a => a.Id == applicationId && a.UserId == userId)
+                ?? throw new InvalidOperationException("Application not found.");
+
+            if (file == null || file.Length == 0)
+                throw new InvalidOperationException("A document file is required.");
+            if (file.Length > MaxDocumentSizeBytes)
+                throw new InvalidOperationException("The document must be smaller than 10 MB.");
+
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!AllowedDocumentExtensions.Contains(extension))
+                throw new InvalidOperationException("Only JPG, PNG, or PDF documents are accepted.");
+
+            var storedFileName = $"{Guid.NewGuid():N}{extension}";
+            var fullPath = Path.Combine(DocumentDirectory, storedFileName);
+            await using (var stream = new FileStream(fullPath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            var document = new ApplicationDocument
+            {
+                ServiceApplicationId = application.Id,
+                DocumentRequirementId = documentRequirementId,
+                DocumentName = documentName,
+                FilePath = storedFileName,
+                FileName = file.FileName,
+                UploadedAt = DateTime.UtcNow,
+            };
+            _context.ApplicationDocuments.Add(document);
+            await _context.SaveChangesAsync();
+
+            return MapDocumentToDto(document);
+        }
+
+        public async Task<List<ApplicationDocumentDto>> GetDocumentsForUserAsync(int applicationId, int userId)
+        {
+            var owned = await _context.ServiceApplications.AnyAsync(a => a.Id == applicationId && a.UserId == userId);
+            if (!owned) return new List<ApplicationDocumentDto>();
+
+            var documents = await _context.ApplicationDocuments
+                .Where(d => d.ServiceApplicationId == applicationId)
+                .OrderBy(d => d.UploadedAt)
+                .ToListAsync();
+            return documents.Select(MapDocumentToDto).ToList();
+        }
+
+        public async Task<SlipFileResult?> GetDocumentFileForUserAsync(int applicationId, int documentId, int userId)
+        {
+            var owned = await _context.ServiceApplications.AnyAsync(a => a.Id == applicationId && a.UserId == userId);
+            if (!owned) return null;
+
+            var document = await _context.ApplicationDocuments
+                .FirstOrDefaultAsync(d => d.Id == documentId && d.ServiceApplicationId == applicationId);
+            if (document == null) return null;
+
+            var fullPath = Path.Combine(DocumentDirectory, document.FilePath);
+            if (!File.Exists(fullPath)) return null;
+
+            var extension = Path.GetExtension(fullPath).ToLowerInvariant();
+            var contentType = extension switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".pdf" => "application/pdf",
+                _ => "application/octet-stream",
+            };
+
+            return new SlipFileResult
+            {
+                Bytes = await File.ReadAllBytesAsync(fullPath),
+                ContentType = contentType,
+                FileName = document.FileName,
+            };
+        }
+
+        private static ApplicationDocumentDto MapDocumentToDto(ApplicationDocument document) => new()
+        {
+            Id = document.Id,
+            ServiceApplicationId = document.ServiceApplicationId,
+            DocumentRequirementId = document.DocumentRequirementId,
+            DocumentName = document.DocumentName,
+            FileName = document.FileName,
+            UploadedAt = document.UploadedAt,
+        };
 
         private record TaskInfo(string Status, DateTime? DecisionAt, string? DecisionNotes);
 

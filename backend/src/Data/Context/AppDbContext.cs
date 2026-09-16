@@ -27,6 +27,7 @@ namespace Government_Service_Navigator.Backend.Data.Context
         public DbSet<Payment> Payments { get; set; }
         public DbSet<PaymentRefund> PaymentRefunds { get; set; }
         public DbSet<ServiceApplication> ServiceApplications { get; set; }
+        public DbSet<ApplicationDocument> ApplicationDocuments { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -100,6 +101,14 @@ namespace Government_Service_Navigator.Backend.Data.Context
                       .WithMany()
                       .HasForeignKey(a => a.ServiceProcedureId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<ApplicationDocument>(entity =>
+            {
+                entity.HasOne(d => d.ServiceApplication)
+                      .WithMany()
+                      .HasForeignKey(d => d.ServiceApplicationId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Template>()

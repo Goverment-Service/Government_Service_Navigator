@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
@@ -20,19 +21,42 @@ class ApplicationDetailScreen extends StatefulWidget {
 
 class _ApplicationDetailScreenState extends State<ApplicationDetailScreen> {
   final _applicationService = ApplicationService();
+  late ServiceApplication _application;
   ApplicationTemplate? _template;
   bool _loading = true;
   String? _error;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
+    _application = widget.application;
     _loadTemplate();
+    // The officer can decide on this application while the citizen is
+    // looking at it - keep the status/timeline live instead of requiring
+    // them to back out and re-open it to see the decision land.
+    _pollTimer = Timer.periodic(const Duration(seconds: 8), (_) => _silentRefresh());
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _silentRefresh() async {
+    try {
+      final refreshed = await _applicationService.fetchApplicationById(_application.id);
+      if (!mounted) return;
+      setState(() => _application = refreshed);
+    } catch (_) {
+      // Silent - a background refresh failing shouldn't interrupt the UI.
+    }
   }
 
   Future<void> _loadTemplate() async {
     try {
-      final template = await _applicationService.fetchTemplateForService(widget.application.serviceProcedureId);
+      final template = await _applicationService.fetchTemplateForService(_application.serviceProcedureId);
       if (!mounted) return;
       setState(() {
         _template = template;
@@ -62,7 +86,7 @@ class _ApplicationDetailScreenState extends State<ApplicationDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final app = widget.application;
+    final app = _application;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(

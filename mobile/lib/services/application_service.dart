@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/application.dart';
@@ -78,6 +79,41 @@ class ApplicationService {
     }
     final decoded = jsonDecode(response.body) as List<dynamic>;
     return decoded.map((e) => ServiceApplication.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<ServiceApplication> fetchApplicationById(int id) async {
+    final headers = await _authHeaders();
+    final response = await http.get(Uri.parse('$baseUrl/applications/$id'), headers: headers);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApplicationApiException('Could not refresh this application (${response.statusCode}).');
+    }
+    return ServiceApplication.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  Future<void> uploadDocument({
+    required int applicationId,
+    required int? documentRequirementId,
+    required String documentName,
+    required File file,
+  }) async {
+    final headers = await _authHeaders();
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/applications/$applicationId/documents'))
+      ..headers.addAll(headers)
+      ..fields['documentName'] = documentName;
+    if (documentRequirementId != null) {
+      request.fields['documentRequirementId'] = documentRequirementId.toString();
+    }
+    request.files.add(await http.MultipartFile.fromPath('file', file.path));
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final decoded = _tryDecode(response.body);
+      final message = decoded is Map && decoded['message'] != null
+          ? decoded['message'] as String
+          : 'Could not upload "$documentName" (${response.statusCode}).';
+      throw ApplicationApiException(message);
+    }
   }
 
   dynamic _tryDecode(String body) {

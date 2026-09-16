@@ -1,17 +1,27 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../theme/app_colors.dart';
 import '../../models/application.dart';
 import '../../services/application_service.dart';
 import '../../services/service_api_client.dart';
 import '../../services/session_store.dart';
 import '../../widgets/document_style.dart';
+import '../payment/pay_fee_screen.dart';
 
 /// Renders the officer-built Template as a fillable version of the same
 /// "official document" layout used on the web (logo, form name/subtitle/law
 /// text header, boxed fields, Presented-by/contact footer) instead of a
 /// generic mobile form, so the citizen sees the same document they'd be
 /// handed on paper - just editable.
+///
+/// Beyond the form itself, this screen enforces what the Service Catalog
+/// entry actually requires: eligibility rules are checked before submission,
+/// any required documents open a document-submission phase after
+/// submitting, and if the service has fees, it hands off straight into the
+/// payment portal - all driven by the same Service Catalog data (eligibility
+/// rules, document requirements, fee schedules) a Verifying Officer set up.
 class ApplicationSubmitScreen extends StatefulWidget {
   final int serviceId;
   final String serviceName;
@@ -21,6 +31,8 @@ class ApplicationSubmitScreen extends StatefulWidget {
   @override
   State<ApplicationSubmitScreen> createState() => _ApplicationSubmitScreenState();
 }
+
+enum _Phase { form, documents, paymentPrompt, done }
 
 class _ApplicationSubmitScreenState extends State<ApplicationSubmitScreen> {
   final _applicationService = ApplicationService();
@@ -36,11 +48,18 @@ class _ApplicationSubmitScreenState extends State<ApplicationSubmitScreen> {
   bool _loading = true;
   bool _submitting = false;
   String? _error;
-  bool _submitted = false;
 
   bool _hasEligibilityRules = false;
   final _ageController = TextEditingController();
   final _citizenshipController = TextEditingController();
+
+  List<Map<String, dynamic>> _documentRequirements = [];
+  List<Map<String, dynamic>> _feeSchedules = [];
+  final Map<int, File> _pickedDocuments = {};
+  bool _uploadingDocs = false;
+
+  _Phase _phase = _Phase.form;
+  ServiceApplication? _submittedApplication;
 
   @override
   void initState() {
@@ -65,12 +84,16 @@ class _ApplicationSubmitScreenState extends State<ApplicationSubmitScreen> {
       final user = await SessionStore.getUser();
       final serviceDetails = await ServiceApiClient.fetchServiceDetails(widget.serviceId);
       final eligibilityRules = (serviceDetails['eligibilityRules'] as List?) ?? const [];
+      final documentRequirements = (serviceDetails['documentRequirements'] as List?) ?? const [];
+      final feeSchedules = (serviceDetails['feeSchedules'] as List?) ?? const [];
       if (!mounted) return;
       setState(() {
         _template = template;
         _presentedByName = (user?['fullName'] as String?) ?? '';
         _presentedByEmail = (user?['email'] as String?) ?? '';
         _hasEligibilityRules = eligibilityRules.isNotEmpty;
+        _documentRequirements = documentRequirements.cast<Map<String, dynamic>>();
+        _feeSchedules = feeSchedules.cast<Map<String, dynamic>>();
         _loading = false;
       });
     } catch (e) {
@@ -129,6 +152,16 @@ class _ApplicationSubmitScreenState extends State<ApplicationSubmitScreen> {
     return answers;
   }
 
+  void _advancePastSubmission() {
+    if (_documentRequirements.isNotEmpty) {
+      setState(() => _phase = _Phase.documents);
+    } else if (_feeSchedules.isNotEmpty) {
+      setState(() => _phase = _Phase.paymentPrompt);
+    } else {
+      setState(() => _phase = _Phase.done);
+    }
+  }
+
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? true)) return;
 
@@ -154,12 +187,13 @@ class _ApplicationSubmitScreenState extends State<ApplicationSubmitScreen> {
         setState(() => _error = eligibilityError);
         return;
       }
-      await _applicationService.submitApplication(
+      final application = await _applicationService.submitApplication(
         serviceProcedureId: widget.serviceId,
         answers: _collectAnswers(),
       );
       if (!mounted) return;
-      setState(() => _submitted = true);
+      _submittedApplication = application;
+      _advancePastSubmission();
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString());
@@ -167,6 +201,58 @@ class _ApplicationSubmitScreenState extends State<ApplicationSubmitScreen> {
       if (mounted) setState(() => _submitting = false);
     }
   }
+
+  Future<void> _pickDocument(int requirementId) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked != null) {
+      setState(() => _pickedDocuments[requirementId] = File(picked.path));
+    }
+  }
+
+  Future<void> _uploadDocumentsAndContinue() async {
+    final missingMandatory = _documentRequirements.where((doc) {
+      final isMandatory = doc['isMandatory'] == true;
+      final id = doc['id'] as int;
+      return isMandatory && !_pickedDocuments.containsKey(id);
+    }).toList();
+
+    if (missingMandatory.isNotEmpty) {
+      setState(() => _error = 'Please attach: ${missingMandatory.map((d) => d['documentName']).join(', ')}');
+      return;
+    }
+
+    setState(() {
+      _uploadingDocs = true;
+      _error = null;
+    });
+    try {
+      for (final doc in _documentRequirements) {
+        final id = doc['id'] as int;
+        final file = _pickedDocuments[id];
+        if (file == null) continue;
+        await _applicationService.uploadDocument(
+          applicationId: _submittedApplication!.id,
+          documentRequirementId: id,
+          documentName: doc['documentName'] as String,
+          file: file,
+        );
+      }
+      if (!mounted) return;
+      if (_feeSchedules.isNotEmpty) {
+        setState(() => _phase = _Phase.paymentPrompt);
+      } else {
+        setState(() => _phase = _Phase.done);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _uploadingDocs = false);
+    }
+  }
+
+  double get _totalFeeAmount => _feeSchedules.fold(0.0, (sum, f) => sum + ((f['amount'] as num?)?.toDouble() ?? 0));
 
   @override
   Widget build(BuildContext context) {
@@ -179,58 +265,204 @@ class _ApplicationSubmitScreenState extends State<ApplicationSubmitScreen> {
       ),
       body: _loading
           ? const Center(child: CupertinoActivityIndicator())
-          : _submitted
-              ? _buildSuccess()
-              : SafeArea(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (_hasEligibilityRules) ...[
-                            _buildEligibilitySection(),
-                            const SizedBox(height: 16),
-                          ],
-                          if (_template == null)
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: AppColors.cardBg,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: AppColors.divider, width: 0.8),
-                              ),
-                              child: const Text(
-                                'This service has no extra form fields configured. You can submit your application now and an officer will follow up if more information is needed.',
-                                style: TextStyle(color: AppColors.secondaryLabel),
-                              ),
-                            )
-                          else
-                            _buildDocument(),
-                          if (_error != null) ...[
-                            const SizedBox(height: 12),
-                            _errorBanner(_error!),
-                          ],
-                          const SizedBox(height: 20),
-                          SizedBox(
-                            height: 50,
-                            child: ElevatedButton(
-                              onPressed: _submitting ? null : _submit,
-                              child: _submitting
-                                  ? const CupertinoActivityIndicator(color: Colors.white)
-                                  : const Text('Submit Application'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+          : switch (_phase) {
+              _Phase.form => _buildFormPhase(),
+              _Phase.documents => _buildDocumentsPhase(),
+              _Phase.paymentPrompt => _buildPaymentPromptPhase(),
+              _Phase.done => _buildDonePhase(),
+            },
     );
   }
 
-  Widget _buildSuccess() {
+  Widget _buildFormPhase() {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_hasEligibilityRules) ...[
+                _buildEligibilitySection(),
+                const SizedBox(height: 16),
+              ],
+              if (_template == null)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.cardBg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.divider, width: 0.8),
+                  ),
+                  child: const Text(
+                    'This service has no extra form fields configured. You can submit your application now and an officer will follow up if more information is needed.',
+                    style: TextStyle(color: AppColors.secondaryLabel),
+                  ),
+                )
+              else
+                _buildDocument(),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                _errorBanner(_error!),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _submitting ? null : _submit,
+                  child: _submitting
+                      ? const CupertinoActivityIndicator(color: Colors.white)
+                      : const Text('Submit Application'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDocumentsPhase() {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Icon(CupertinoIcons.checkmark_seal_fill, color: AppColors.success, size: 40),
+            const SizedBox(height: 8),
+            const Text('Application Submitted', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(
+              'Reference: ${_submittedApplication?.applicationReference ?? ''}',
+              style: const TextStyle(color: AppColors.secondaryLabel, fontSize: 13),
+            ),
+            const SizedBox(height: 20),
+            const Text('Required Documents', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            const SizedBox(height: 4),
+            const Text(
+              'This service needs the following documents. Attach each one to continue.',
+              style: TextStyle(color: AppColors.secondaryLabel, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            ..._documentRequirements.map(_buildDocumentRequirementRow),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              _errorBanner(_error!),
+            ],
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _uploadingDocs ? null : _uploadDocumentsAndContinue,
+                child: _uploadingDocs
+                    ? const CupertinoActivityIndicator(color: Colors.white)
+                    : const Text('Upload & Continue'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDocumentRequirementRow(Map<String, dynamic> doc) {
+    final id = doc['id'] as int;
+    final name = doc['documentName'] as String? ?? 'Document';
+    final description = doc['description'] as String?;
+    final isMandatory = doc['isMandatory'] == true;
+    final picked = _pickedDocuments[id];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.divider, width: 0.8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w600))),
+                    if (isMandatory) const Text(' *', style: TextStyle(color: AppColors.danger)),
+                  ],
+                ),
+                if (description != null && description.isNotEmpty)
+                  Text(description, style: const TextStyle(fontSize: 12, color: AppColors.secondaryLabel)),
+                if (picked != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('Attached: ${picked.path.split('/').last}', style: const TextStyle(fontSize: 12, color: AppColors.success)),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: () => _pickDocument(id),
+            child: Text(picked == null ? 'Attach' : 'Replace'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentPromptPhase() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(CupertinoIcons.money_dollar_circle_fill, color: AppColors.primary, size: 56),
+            const SizedBox(height: 16),
+            const Text('A Fee Is Required', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text(
+              'This service requires a fee of ${_feeSchedules.first['feeType'] ?? 'Application Fee'}: LKR ${_totalFeeAmount.toStringAsFixed(2)}.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.secondaryLabel),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PayFeeScreen(
+                        initialServiceName: widget.serviceName,
+                        initialApplicationId: _submittedApplication?.applicationReference,
+                        initialAmount: _totalFeeAmount,
+                      ),
+                    ),
+                  );
+                  if (!mounted) return;
+                  setState(() => _phase = _Phase.done);
+                },
+                child: const Text('Pay Now'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => setState(() => _phase = _Phase.done),
+              child: const Text('Pay Later from My Payments'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDonePhase() {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(24),

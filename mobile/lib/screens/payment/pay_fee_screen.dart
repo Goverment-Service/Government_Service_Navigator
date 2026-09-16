@@ -9,7 +9,11 @@ import '../../models/payment.dart';
 import 'payment_receipt_screen.dart';
 
 class PayFeeScreen extends StatefulWidget {
-  const PayFeeScreen({super.key});
+  final String? initialServiceName;
+  final String? initialApplicationId;
+  final double? initialAmount;
+
+  const PayFeeScreen({super.key, this.initialServiceName, this.initialApplicationId, this.initialAmount});
 
   @override
   State<PayFeeScreen> createState() => _PayFeeScreenState();
@@ -44,6 +48,9 @@ class _PayFeeScreenState extends State<PayFeeScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialServiceName != null) _serviceNameController.text = widget.initialServiceName!;
+    if (widget.initialApplicationId != null) _applicationIdController.text = widget.initialApplicationId!;
+    if (widget.initialAmount != null) _amountController.text = widget.initialAmount!.toStringAsFixed(2);
     _loadConfig();
   }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
@@ -17,11 +18,32 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
   List<ServiceApplication> _applications = [];
   bool _loading = true;
   String? _error;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _load();
+    // Officers can approve/reject at any time, so keep this list live rather
+    // than requiring the citizen to pull-to-refresh to see a status change.
+    _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) => _silentRefresh());
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _silentRefresh() async {
+    try {
+      final applications = await _applicationService.fetchMyApplications();
+      if (!mounted) return;
+      setState(() => _applications = applications);
+    } catch (_) {
+      // Silent - a background refresh failing shouldn't interrupt the UI;
+      // the next tick (or a manual pull-to-refresh) will try again.
+    }
   }
 
   Future<void> _load() async {

@@ -17,6 +17,7 @@ import { Dashboard, Document, Time, User, Logout, Notification, Add, Catalog ,
 } from '@carbon/icons-react';
 
 import TemplateBuilder from "./TemplateBuilder";
+import { getStoredUser, getOfficerDashboardHref } from "../../utils/currentUser";
 
 export default function ApplicationCreate() {
   const handleLogout = async () => {
@@ -61,7 +62,7 @@ export default function ApplicationCreate() {
 
             <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">Application Queue</SideNavLink>
+                <SideNavLink renderIcon={Dashboard} href={getOfficerDashboardHref(getStoredUser())}>Application Queue</SideNavLink>
                                 <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification">
                   Bulk Verification
                 </SideNavLink>

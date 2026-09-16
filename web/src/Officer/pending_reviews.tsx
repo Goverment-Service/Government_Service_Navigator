@@ -1,5 +1,6 @@
 import '@carbon/styles/css/styles.css';
 import { useState, useEffect } from 'react';
+import { getStoredUser, getOfficerDashboardHref } from "../utils/currentUser";
 import {
   Header,
   HeaderContainer,
@@ -136,7 +137,7 @@ export default function PendingReviews() {
 
             <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">
+                <SideNavLink renderIcon={Dashboard} href={getOfficerDashboardHref(getStoredUser())}>
                   Application Queue
                 </SideNavLink>
                 <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification">

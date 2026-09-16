@@ -24,16 +24,16 @@ namespace Government_Service_Navigator.Backend.Controllers
             User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.Identity?.Name ?? "Unknown";
 
         [HttpGet("tasks/pending")]
-        public async Task<IActionResult> GetPendingTasks()
+        public async Task<IActionResult> GetPendingTasks([FromQuery] string? category)
         {
-            var tasks = await _verificationService.GetPendingTasksAsync();
+            var tasks = await _verificationService.GetPendingTasksAsync(category);
             return Ok(tasks);
         }
 
         [HttpGet("tasks/verified")]
-        public async Task<IActionResult> GetVerifiedTasks()
+        public async Task<IActionResult> GetVerifiedTasks([FromQuery] string? category)
         {
-            var tasks = await _verificationService.GetVerifiedTasksAsync();
+            var tasks = await _verificationService.GetVerifiedTasksAsync(category);
             return Ok(tasks);
         }
 

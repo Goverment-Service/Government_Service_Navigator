@@ -42,6 +42,7 @@ export default function App() {
         />
         <Route path="/admin/manage-officers" element={<ManageOfficers />} />
         <Route path="/officer/dashboard" element={<OfficerDashboard />} />
+        <Route path="/officer/:deptSlug/dashboard" element={<OfficerDashboard />} />
         <Route path="/admin/audit-logs" element={<AuditLogs />} />
         <Route path="/admin/system-settings" element={<SystemSettings />} />
         <Route path="/admin/services" element={<ServiceCatalogManager />} />

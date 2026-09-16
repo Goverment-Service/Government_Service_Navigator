@@ -1,5 +1,7 @@
 import '@carbon/styles/css/styles.css';
 import { useState, useEffect } from "react";
+import { useParams, Navigate } from "react-router-dom";
+import { getCategoryForDepartment, getDepartmentLabel } from "../constants/departments";
 import {
   Header,
   HeaderContainer,
@@ -88,19 +90,42 @@ function getStoredOfficerName(): string {
   return "Verifying Officer";
 }
 
+function getStoredOfficerDepartment(): string | null {
+  const storedUser = localStorage.getItem("officerUser");
+  if (storedUser) {
+    try {
+      const parsedUser = JSON.parse(storedUser);
+      return parsedUser.department || null;
+    } catch {
+      // Handle parse error silently
+    }
+  }
+  return null;
+}
+
 export default function OfficerDashboard() {
+  const { deptSlug } = useParams<{ deptSlug?: string }>();
   const [officerName] = useState(getStoredOfficerName);
+  const [officerDepartment] = useState(getStoredOfficerDepartment);
   const [rows, setRows] = useState<QueueRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<OfficerStats | null>(null);
 
+  // /officer/:deptSlug/dashboard scopes the queue to that department; the
+  // plain /officer/dashboard falls back to the officer's own stored
+  // department (or shows everything if they have none).
+  const routeDepartmentLabel = deptSlug ? getDepartmentLabel(deptSlug) : null;
+  const departmentLabel = routeDepartmentLabel || officerDepartment;
+  const category = departmentLabel ? getCategoryForDepartment(departmentLabel) : null;
+
   useEffect(() => {
     const token = localStorage.getItem("officerToken");
     const authHeaders = { Authorization: `Bearer ${token}` };
+    const categoryParam = category ? `?category=${encodeURIComponent(category)}` : "";
 
     const fetchQueue = async () => {
       try {
-        const response = await fetch("http://localhost:5119/api/verification/tasks/pending", {
+        const response = await fetch(`http://localhost:5119/api/verification/tasks/pending${categoryParam}`, {
           headers: authHeaders,
         });
         if (response.ok) {
@@ -150,7 +175,7 @@ export default function OfficerDashboard() {
 
     fetchQueue();
     fetchStats();
-  }, []);
+  }, [category]);
 
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
@@ -171,11 +196,16 @@ export default function OfficerDashboard() {
     }
   };
 
+  // Unknown department slug - send back to the generic dashboard instead of a broken page.
+  if (deptSlug && !routeDepartmentLabel) {
+    return <Navigate to="/officer/dashboard" replace />;
+  }
+
   return (
     <HeaderContainer
       render={({ isSideNavExpanded, onClickSideNavExpand }) => (
         <>
-          <Header aria-label="Registry Portal System">
+          <Header aria-label={departmentLabel ? `${departmentLabel} Registry Portal` : "Registry Portal System"}>
             <HeaderMenuButton
               aria-label={isSideNavExpanded ? "Close menu" : "Open menu"}
               onClick={onClickSideNavExpand}
@@ -183,7 +213,7 @@ export default function OfficerDashboard() {
               isCollapsible
             />
             <HeaderName href="#" prefix="GSN">
-              Registry Portal
+              {departmentLabel ? `${departmentLabel} Registry` : "Registry Portal"}
             </HeaderName>
 
             <HeaderGlobalBar>
@@ -197,7 +227,7 @@ export default function OfficerDashboard() {
 
             <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard" isActive>
+                <SideNavLink renderIcon={Dashboard} href={deptSlug ? `/officer/${deptSlug}/dashboard` : "/officer/dashboard"} isActive>
                   Application Queue
                 </SideNavLink>
                                 <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification">
@@ -236,11 +266,18 @@ export default function OfficerDashboard() {
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
               <div>
+                {departmentLabel && (
+                  <Tag type="blue" style={{ marginBottom: '0.5rem' }}>
+                    {departmentLabel}
+                  </Tag>
+                )}
                 <h1 style={{ fontSize: '2rem', fontWeight: 400, color: '#161616' }}>
                   Welcome back, {officerName}
                 </h1>
                 <p style={{ color: '#525252', marginTop: '0.5rem' }}>
-                  Review assigned citizen submissions and maintain accountable registry records.
+                  {departmentLabel
+                    ? `Review citizen submissions routed to the ${departmentLabel}.`
+                    : "Review assigned citizen submissions and maintain accountable registry records."}
                 </p>
               </div>
             </div>

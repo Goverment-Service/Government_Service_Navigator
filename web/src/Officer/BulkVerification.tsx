@@ -1,6 +1,7 @@
 import '@carbon/styles/css/styles.css';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getStoredUser, getOfficerDashboardHref } from "../utils/currentUser";
 import {
   Header,
   HeaderContainer,
@@ -143,7 +144,7 @@ export default function BulkVerification() {
 
                         <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard" isActive={window.location.pathname.includes('dashboard')}>
+                <SideNavLink renderIcon={Dashboard} href={getOfficerDashboardHref(getStoredUser())} isActive={window.location.pathname.includes('dashboard')}>
                   Application Queue
                 </SideNavLink>
                 <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification" isActive={window.location.pathname.includes('bulk-verification')}>

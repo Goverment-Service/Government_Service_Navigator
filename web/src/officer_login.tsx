@@ -60,7 +60,10 @@ export default function OfficerLoginPage() {
         } else if (isFinanceOfficer) {
           window.location.href = "/finance/dashboard";
         } else {
-          window.location.href = "/officer/dashboard";
+          // Verifying Officer - route to their own department's queue so they
+          // only see applications routed to that department.
+          const deptSlug = getDepartmentSlug(resData.officer.department || "");
+          window.location.href = deptSlug ? `/officer/${deptSlug}/dashboard` : "/officer/dashboard";
         }
         return; 
       }

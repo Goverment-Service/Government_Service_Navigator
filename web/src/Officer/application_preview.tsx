@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getStoredUser, getOfficerDashboardHref } from "../utils/currentUser";
 import {
   Header,
   HeaderName,
@@ -194,7 +195,7 @@ export default function ApplicationPreview() {
         </HeaderName>
         <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
           <SideNavItems>
-            <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">Application Queue</SideNavLink>
+            <SideNavLink renderIcon={Dashboard} href={getOfficerDashboardHref(getStoredUser())}>Application Queue</SideNavLink>
                             <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification">
                   Bulk Verification
                 </SideNavLink>

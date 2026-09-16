@@ -200,20 +200,38 @@ namespace Government_Service_Navigator.Backend.Services
                 .ToListAsync();
         }
 
-        public async Task<List<VerificationTask>> GetPendingTasksAsync()
+        public async Task<List<VerificationTask>> GetPendingTasksAsync(string? category = null)
         {
-            return await _context.VerificationTasks
-                .Where(t => t.Status == "Pending")
-                .OrderBy(t => t.CreatedDate)
-                .ToListAsync();
+            var query = _context.VerificationTasks.Where(t => t.Status == "Pending");
+            query = await ApplyCategoryFilterAsync(query, category);
+            return await query.OrderBy(t => t.CreatedDate).ToListAsync();
         }
 
-        public async Task<List<VerificationTask>> GetVerifiedTasksAsync()
+        public async Task<List<VerificationTask>> GetVerifiedTasksAsync(string? category = null)
         {
-            return await _context.VerificationTasks
-                .Where(t => t.Status == "Approved" || t.Status == "Rejected")
-                .OrderByDescending(t => t.CreatedDate)
+            var query = _context.VerificationTasks.Where(t => t.Status == "Approved" || t.Status == "Rejected");
+            query = await ApplyCategoryFilterAsync(query, category);
+            return await query.OrderByDescending(t => t.CreatedDate).ToListAsync();
+        }
+
+        // VerificationTask.ApplicationId is a loose int reference (no FK), so a task's
+        // department is resolved by looking up the matching ServiceApplication's linked
+        // ServiceProcedure.Category. Tasks with no matching ServiceApplication (legacy/demo
+        // seed data, or paper intake never linked to a citizen submission) have no
+        // resolvable department and are excluded once a category filter is requested -
+        // they simply don't appear in any department-scoped queue.
+        private async Task<IQueryable<VerificationTask>> ApplyCategoryFilterAsync(IQueryable<VerificationTask> query, string? category)
+        {
+            if (string.IsNullOrWhiteSpace(category)) return query;
+
+            var normalized = category.Trim().ToLower();
+            var matchingApplicationIds = await _context.ServiceApplications
+                .Include(a => a.ServiceProcedure)
+                .Where(a => a.ServiceProcedure != null && a.ServiceProcedure.Category.ToLower() == normalized)
+                .Select(a => a.Id)
                 .ToListAsync();
+
+            return query.Where(t => matchingApplicationIds.Contains(t.ApplicationId));
         }
 
         public async Task<OfficerStatsDto> GetOfficerStatsAsync(string officerId)

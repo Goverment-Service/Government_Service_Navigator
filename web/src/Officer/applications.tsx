@@ -1,6 +1,7 @@
 import '@carbon/styles/css/styles.css';
 import { useState, useEffect } from "react";
 import jsPDF from "jspdf";
+import { getStoredUser, getOfficerDashboardHref } from "../utils/currentUser";
 import {
   Header,
   HeaderContainer,
@@ -274,7 +275,7 @@ export default function ApplicationsList() {
 
             <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
               <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">Application Queue</SideNavLink>
+                <SideNavLink renderIcon={Dashboard} href={getOfficerDashboardHref(getStoredUser())}>Application Queue</SideNavLink>
                 <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification">Bulk Verification</SideNavLink>
                 <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes">Rejection Codes</SideNavLink>
                 <SideNavLink renderIcon={Catalog} href="/officer/applications" isActive>All Applications</SideNavLink>

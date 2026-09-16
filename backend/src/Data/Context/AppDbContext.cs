@@ -24,7 +24,9 @@ namespace Government_Service_Navigator.Backend.Data.Context
         public DbSet<DocumentRequirement> DocumentRequirements { get; set; }
         public DbSet<FeeSchedule> FeeSchedules { get; set; }
         public DbSet<RevokedToken> RevokedTokens { get; set; }
-
+        public DbSet<RevokedToken> RevokedTokens { get; set; }
+        public DbSet<Payment> Payments { get; set; }
+        public DbSet<RefundRequest> RefundRequests { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -67,6 +69,14 @@ namespace Government_Service_Navigator.Backend.Data.Context
             modelBuilder.Entity<RevokedToken>()
                 .HasIndex(t => t.Jti)
                 .IsUnique();
+
+                        modelBuilder.Entity<RefundRequest>(entity =>
+            {
+                entity.HasOne(r => r.Payment)
+                      .WithMany(p => p.RefundRequests)
+                      .HasForeignKey(r => r.PaymentId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
 
             modelBuilder.Entity<Template>()
                 .HasMany(t => t.Fields)

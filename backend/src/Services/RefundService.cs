@@ -89,9 +89,28 @@ namespace Government_Service_Navigator.Backend.Services
             return refund;
         }
 
-        public Task<RefundRequest> RejectAsync(int id, string decidedByEmail, string? note)
+        public async Task<RefundRequest> RejectAsync(int id, string decidedByEmail, string? note)
         {
-            throw new NotImplementedException();
+            var refund = await _context.RefundRequests.FindAsync(id);
+
+            if (refund == null)
+            {
+                throw new KeyNotFoundException($"Refund request {id} not found.");
+            }
+
+            if (refund.Status != RefundStatus.Pending)
+            {
+                throw new InvalidOperationException("Only pending refund requests can be rejected.");
+            }
+
+            refund.Status = RefundStatus.Rejected;
+            refund.DecidedByEmail = decidedByEmail;
+            refund.DecisionNote = note;
+            refund.DecidedDate = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return refund;
         }
 
         public Task<RefundRequest> ProcessAsync(int id, string transactionRef)

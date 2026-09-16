@@ -119,6 +119,7 @@ export default function BulkVerification() {
     { key: "id", header: "Task ID" },
     { key: "applicationId", header: "Application ID" },
     { key: "serviceType", header: "Service Type" },
+    { key: "department", header: "Department" },
     { key: "complianceScore", header: "Compliance Score" },
     { key: "status", header: "Status" }
   ];
@@ -200,7 +201,17 @@ export default function BulkVerification() {
               />
             )}
 
-            <DataTable rows={tasks.map(t => ({...t, id: t.id.toString(), serviceType: "General Service", complianceScore: 98}))} headers={headers}>
+            <DataTable
+              rows={tasks.map(t => ({
+                ...t,
+                id: t.id.toString(),
+                applicationId: t.applicationReference || `APP-${t.applicationId}`,
+                serviceType: t.serviceName || "General Service",
+                department: t.department || "-",
+                complianceScore: 98,
+              }))}
+              headers={headers}
+            >
               {({ rows, headers, getTableProps, getHeaderProps, getRowProps, getSelectionProps, getToolbarProps, onInputChange, selectedRows }) => {
                 return (
                   <TableContainer title="Eligible for Bulk Approval">
@@ -233,7 +244,7 @@ export default function BulkVerification() {
                       <TableBody>
                         {rows.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>
+                            <TableCell colSpan={headers.length + 1} style={{ textAlign: 'center', padding: '2rem' }}>
                               No applications available for bulk approval.
                             </TableCell>
                           </TableRow>

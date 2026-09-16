@@ -61,6 +61,7 @@ class ServiceApplication {
   final DateTime submittedAt;
   final DateTime? decisionAt;
   final String? decisionNotes;
+  final Map<String, String> answers;
 
   ServiceApplication({
     required this.id,
@@ -73,6 +74,7 @@ class ServiceApplication {
     required this.submittedAt,
     this.decisionAt,
     this.decisionNotes,
+    this.answers = const {},
   });
 
   factory ServiceApplication.fromJson(Map<String, dynamic> json) => ServiceApplication(
@@ -88,5 +90,6 @@ class ServiceApplication {
         submittedAt: DateTime.parse(json['submittedAt'] as String),
         decisionAt: json['decisionAt'] != null ? DateTime.parse(json['decisionAt'] as String) : null,
         decisionNotes: json['decisionNotes'] as String?,
+        answers: (json['answers'] as Map<String, dynamic>? ?? {}).map((k, v) => MapEntry(k, v.toString())),
       );
 }

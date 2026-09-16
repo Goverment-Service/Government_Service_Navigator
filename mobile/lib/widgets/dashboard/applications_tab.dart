@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
 import '../../models/application.dart';
 import '../../services/application_service.dart';
+import '../../screens/applications/application_detail_screen.dart';
 
 class ApplicationsTab extends StatefulWidget {
   const ApplicationsTab({super.key});
@@ -128,7 +129,12 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
                                 ),
                                 ...apps.map((app) => Padding(
                                       padding: const EdgeInsets.only(bottom: 10),
-                                      child: _buildTrackingCard(app),
+                                      child: GestureDetector(
+                                        onTap: () => Navigator.of(context).push(
+                                          MaterialPageRoute(builder: (_) => ApplicationDetailScreen(application: app)),
+                                        ),
+                                        child: _buildTrackingCard(app),
+                                      ),
                                     )),
                               ],
                             ),

@@ -200,18 +200,49 @@ namespace Government_Service_Navigator.Backend.Services
                 .ToListAsync();
         }
 
-        public async Task<List<VerificationTask>> GetPendingTasksAsync(string? category = null)
+        public async Task<List<VerificationTaskDto>> GetPendingTasksAsync(string? category = null)
         {
             var query = _context.VerificationTasks.Where(t => t.Status == "Pending");
             query = await ApplyCategoryFilterAsync(query, category);
-            return await query.OrderBy(t => t.CreatedDate).ToListAsync();
+            var tasks = await query.OrderBy(t => t.CreatedDate).ToListAsync();
+            return await EnrichTasksAsync(tasks);
         }
 
-        public async Task<List<VerificationTask>> GetVerifiedTasksAsync(string? category = null)
+        public async Task<List<VerificationTaskDto>> GetVerifiedTasksAsync(string? category = null)
         {
             var query = _context.VerificationTasks.Where(t => t.Status == "Approved" || t.Status == "Rejected");
             query = await ApplyCategoryFilterAsync(query, category);
-            return await query.OrderByDescending(t => t.CreatedDate).ToListAsync();
+            var tasks = await query.OrderByDescending(t => t.CreatedDate).ToListAsync();
+            return await EnrichTasksAsync(tasks);
+        }
+
+        // Resolves each task's real application reference, service name, and
+        // department via its linked ServiceApplication (when one exists - see
+        // ApplyCategoryFilterAsync for why some tasks have none), instead of
+        // callers only ever seeing the bare internal ApplicationId.
+        private async Task<List<VerificationTaskDto>> EnrichTasksAsync(List<VerificationTask> tasks)
+        {
+            var applicationIds = tasks.Select(t => t.ApplicationId).Distinct().ToList();
+            var applications = await _context.ServiceApplications
+                .Include(a => a.ServiceProcedure)
+                .Where(a => applicationIds.Contains(a.Id))
+                .ToListAsync();
+            var applicationsById = applications.ToDictionary(a => a.Id);
+
+            return tasks.Select(t =>
+            {
+                applicationsById.TryGetValue(t.ApplicationId, out var application);
+                return new VerificationTaskDto
+                {
+                    Id = t.Id,
+                    ApplicationId = t.ApplicationId,
+                    ApplicationReference = application?.ApplicationReference,
+                    ServiceName = application?.ServiceProcedure?.Name,
+                    Department = DepartmentCatalog.GetDepartmentForCategory(application?.ServiceProcedure?.Category),
+                    Status = t.Status,
+                    CreatedDate = t.CreatedDate,
+                };
+            }).ToList();
         }
 
         // VerificationTask.ApplicationId is a loose int reference (no FK), so a task's

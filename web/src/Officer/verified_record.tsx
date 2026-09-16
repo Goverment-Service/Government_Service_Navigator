@@ -53,6 +53,7 @@ const headers = [
   { key: "appId", header: "App ID" },
   { key: "citizen", header: "Citizen Name" },
   { key: "service", header: "Service Type" },
+  { key: "department", header: "Department" },
   { key: "dateVerified", header: "Date Verified" },
   { key: "status", header: "Status" },
   { key: "actions", header: "" },
@@ -86,9 +87,10 @@ export default function VerifiedRecords() {
         const mappedRows = data.map((t: any) => {
           return {
             id: t.id.toString(),
-            appId: `GSN-2026-${t.applicationId}`,
+            appId: t.applicationReference || `APP-${t.applicationId}`,
             citizen: `User ${t.applicationId}`,
-            service: 'General Verification',
+            service: t.serviceName || 'General Verification',
+            department: t.department || '-',
             dateVerified: new Date(t.createdDate).toISOString().split('T')[0],
             status: t.status,
             comments: t.comments || ''
@@ -137,14 +139,15 @@ export default function VerifiedRecords() {
   const handleExport = () => {
     if (rows.length === 0) return;
     const csvRows = [];
-    const csvHeaders = ['App ID', 'Citizen Name', 'Service Type', 'Date Verified', 'Status'];
+    const csvHeaders = ['App ID', 'Citizen Name', 'Service Type', 'Department', 'Date Verified', 'Status'];
     csvRows.push(csvHeaders.join(','));
-    
+
     for (const row of rows) {
       csvRows.push([
         row.appId,
         row.citizen,
         row.service,
+        row.department,
         row.dateVerified,
         row.status
       ].join(','));
@@ -423,6 +426,10 @@ export default function VerifiedRecords() {
                   <div>
                     <span style={{ fontSize: '0.75rem', color: '#525252', textTransform: 'uppercase', letterSpacing: '0.32px' }}>Service Type</span>
                     <p style={{ marginTop: '0.25rem', fontWeight: 600 }}>{viewingRecord.cells.find((c: any) => c.info.header === 'service')?.value}</p>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: '#525252', textTransform: 'uppercase', letterSpacing: '0.32px' }}>Department</span>
+                    <p style={{ marginTop: '0.25rem', fontWeight: 600 }}>{viewingRecord.cells.find((c: any) => c.info.header === 'department')?.value}</p>
                   </div>
                   <div>
                     <span style={{ fontSize: '0.75rem', color: '#525252', textTransform: 'uppercase', letterSpacing: '0.32px' }}>Date Verified</span>

@@ -44,6 +44,8 @@ import {
 
 const headers = [
   { key: "appId", header: "Application ID" },
+  { key: "serviceName", header: "Service" },
+  { key: "department", header: "Department" },
   { key: "status", header: "Status" },
   { key: "time", header: "Submitted" },
   { key: "priority", header: "Priority" },
@@ -53,6 +55,8 @@ const headers = [
 interface QueueRow {
   id: string;
   appId: string;
+  serviceName: string;
+  department: string;
   status: string;
   time: string;
   priority: string;
@@ -129,13 +133,23 @@ export default function OfficerDashboard() {
           headers: authHeaders,
         });
         if (response.ok) {
-          const data: { id: number; applicationId: number; status: string; createdDate: string }[] = await response.json();
+          const data: {
+            id: number;
+            applicationId: number;
+            applicationReference?: string | null;
+            serviceName?: string | null;
+            department?: string | null;
+            status: string;
+            createdDate: string;
+          }[] = await response.json();
           setRows(
             data.map((task) => {
               const ageHours = (Date.now() - new Date(task.createdDate).getTime()) / 3_600_000;
               return {
                 id: task.id.toString(),
-                appId: `APP-${task.applicationId}`,
+                appId: task.applicationReference || `APP-${task.applicationId}`,
+                serviceName: task.serviceName || "-",
+                department: task.department || "-",
                 status: task.status,
                 time: formatRelativeTime(task.createdDate),
                 priority: ageHours > 24 ? "High" : "Normal",

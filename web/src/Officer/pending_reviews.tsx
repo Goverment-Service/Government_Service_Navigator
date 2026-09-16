@@ -49,8 +49,8 @@ import {
 // Table Data for Pending Reviews
 const headers = [
   { key: "appId", header: "App ID" },
-  { key: "citizen", header: "Citizen Name" },
   { key: "service", header: "Service Type" },
+  { key: "department", header: "Department" },
   { key: "reason", header: "Pending Reason" },
   { key: "days", header: "Time Pending" },
   { key: "status", header: "Status" },
@@ -80,9 +80,9 @@ export default function PendingReviews() {
           const ageDays = Math.floor((Date.now() - new Date(t.createdDate).getTime()) / (1000 * 3600 * 24));
           return {
             id: t.id.toString(),
-            appId: `GSN-2026-${t.applicationId}`,
-            citizen: `User ${t.applicationId}`,
-            service: "General Verification",
+            appId: t.applicationReference || `APP-${t.applicationId}`,
+            service: t.serviceName || "General Verification",
+            department: t.department || "-",
             reason: t.status === "Pending" ? "Awaiting Review" : t.status,
             days: `${ageDays} Days`,
             status: t.status === "Pending" ? "Action Required" : t.status

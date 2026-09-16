@@ -58,9 +58,11 @@ namespace Government_Service_Navigator.Backend.Services
             return refund;
         }
 
-        public Task<RefundRequest?> GetRefundByIdAsync(int id)
+        public async Task<RefundRequest?> GetRefundByIdAsync(int id)
         {
-            throw new NotImplementedException();
+            return await _context.RefundRequests
+                .Include(r => r.Payment)
+                .FirstOrDefaultAsync(r => r.Id == id);
         }
 
         public Task<RefundRequest> ApproveAsync(int id, string decidedByEmail, string? note)

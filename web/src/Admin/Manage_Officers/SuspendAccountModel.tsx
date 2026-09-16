@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Modal, InlineNotification } from "@carbon/react";
+import { API_BASE } from "../../lib/apiBase";
 
 interface SuspendAccountModalProps {
   isOpen: boolean;
@@ -25,8 +26,8 @@ export default function SuspendAccountModal({ isOpen, onClose, onSuccess, office
     }
     try {
       const endpoint = isCurrentlySuspended 
-        ? `http://localhost:5119/api/admin/officers/${officer.id}/activate`
-        : `http://localhost:5119/api/admin/officers/${officer.id}/suspend`;
+        ? `${API_BASE}/admin/officers/${officer.id}/activate`
+        : `${API_BASE}/admin/officers/${officer.id}/suspend`;
 
       const response = await fetch(endpoint, {
         method: "PATCH", 

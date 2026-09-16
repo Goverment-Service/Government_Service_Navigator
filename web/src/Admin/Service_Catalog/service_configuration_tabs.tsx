@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import CurrentUserBadge from "../../components/CurrentUserBadge";
 import { getStoredUser, getAdminOverviewHref } from "../../utils/currentUser";
 import { getCategoryForDepartment } from "../../constants/departments";
+import { API_BASE } from "../../lib/apiBase";
 import {
   Header,
   HeaderName,
@@ -129,7 +130,7 @@ export default function ServiceConfigurationTabs() {
 
   // 1. Fetch all services on mount
     useEffect(() => {
-    fetch("http://localhost:5119/api/services")
+    fetch(`${API_BASE}/services`)
       .then((res) => res.json())
       .then((data) => {
         const activeServices = data.filter((srv: any) => srv.status === "Active");
@@ -164,7 +165,7 @@ export default function ServiceConfigurationTabs() {
 
       setIsLoading(true);
       try {
-        const res = await fetch(`http://localhost:5119/api/services/${selectedServiceId}`);
+        const res = await fetch(`${API_BASE}/services/${selectedServiceId}`);
         const data = await res.json();
         const formattedDocs = (data.documentRequirements || []).map(
           (d: Omit<DocumentRequirement, "id"> & { id: number }) => ({
@@ -237,7 +238,7 @@ export default function ServiceConfigurationTabs() {
       }));
 
       const response = await fetch(
-        `http://localhost:5119/api/services/${selectedServiceId}/documents`,
+        `${API_BASE}/services/${selectedServiceId}/documents`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -278,7 +279,7 @@ export default function ServiceConfigurationTabs() {
   const handleDeleteDocument = async (docId: string) => {
     if (!docId.startsWith("temp_") && !isNaN(Number(docId))) {
       try {
-        await fetch(`http://localhost:5119/api/services/documents/${docId}`, {
+        await fetch(`${API_BASE}/services/documents/${docId}`, {
           method: "DELETE",
         });
       } catch (error) {
@@ -350,7 +351,7 @@ export default function ServiceConfigurationTabs() {
       }));
 
       const response = await fetch(
-        `http://localhost:5119/api/services/${selectedServiceId}/fees`,
+        `${API_BASE}/services/${selectedServiceId}/fees`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -383,7 +384,7 @@ export default function ServiceConfigurationTabs() {
   const handleDeleteFee = async (feeId: string) => {
     if (!feeId.startsWith("temp_") && !isNaN(Number(feeId))) {
       try {
-        await fetch(`http://localhost:5119/api/services/fees/${feeId}`, {
+        await fetch(`${API_BASE}/services/fees/${feeId}`, {
           method: "DELETE",
         });
       } catch (error) {
@@ -418,7 +419,7 @@ export default function ServiceConfigurationTabs() {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch("http://localhost:5119/api/auth/logout", {
+      await fetch(`${API_BASE}/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

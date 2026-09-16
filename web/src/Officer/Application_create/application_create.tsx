@@ -18,12 +18,13 @@ import { Dashboard, Document, Time, User, Logout, Notification, Add, Catalog ,
 
 import TemplateBuilder from "./TemplateBuilder";
 import { getStoredUser, getOfficerDashboardHref } from "../../utils/currentUser";
+import { API_BASE } from "../../lib/apiBase";
 
 export default function ApplicationCreate() {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch("http://localhost:5119/api/auth/logout", {
+      await fetch(`${API_BASE}/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

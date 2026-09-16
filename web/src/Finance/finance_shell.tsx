@@ -14,6 +14,7 @@ import {
 } from "@carbon/react";
 import { Wallet, Report, User, Logout, Notification, Undo } from "@carbon/icons-react";
 import { getDisplayName, getStoredUser } from "../utils/currentUser";
+import { API_BASE } from "../lib/apiBase";
 
 interface FinanceShellProps {
   active: "dashboard" | "ledger" | "refunds" | "profile";
@@ -26,7 +27,7 @@ export default function FinanceShell({ active, children }: FinanceShellProps) {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch("http://localhost:5119/api/auth/logout", {
+      await fetch(`${API_BASE}/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

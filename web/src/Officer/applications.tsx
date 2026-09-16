@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import { getStoredUser, getOfficerDashboardHref, getOfficerCategory } from "../utils/currentUser";
 import DocumentPreview from "./Application_create/documentPreview";
+import { API_BASE } from "../lib/apiBase";
 import {
   Header,
   HeaderContainer,
@@ -97,7 +98,7 @@ export default function ApplicationsList() {
         const token = localStorage.getItem("officerToken");
         const category = getOfficerCategory(getStoredUser());
         const params = category ? `?category=${encodeURIComponent(category)}` : "";
-        const response = await fetch(`http://localhost:5119/api/templates/all${params}`, {
+        const response = await fetch(`${API_BASE}/templates/all${params}`, {
           headers: {
             "Authorization": `Bearer ${token}`
           }
@@ -136,7 +137,7 @@ export default function ApplicationsList() {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch("http://localhost:5119/api/auth/logout", {
+      await fetch(`${API_BASE}/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -156,7 +157,7 @@ export default function ApplicationsList() {
     setUpdatingStatusId(id);
     try {
       const token = localStorage.getItem("officerToken");
-      const response = await fetch(`http://localhost:5119/api/templates/${id}/status`, {
+      const response = await fetch(`${API_BASE}/templates/${id}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -235,7 +236,7 @@ export default function ApplicationsList() {
     setDeleteError(null);
     try {
       const token = localStorage.getItem("officerToken");
-      const response = await fetch(`http://localhost:5119/api/templates/${deleteTarget.id}`, {
+      const response = await fetch(`${API_BASE}/templates/${deleteTarget.id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`

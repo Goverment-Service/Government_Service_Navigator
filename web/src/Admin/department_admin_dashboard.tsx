@@ -32,6 +32,7 @@ import {
   Categories,
 } from "@carbon/icons-react";
 import { getDepartmentLabel } from "../constants/departments";
+import { API_BASE } from "../lib/apiBase";
 
 function getStoredOfficer(): { fullName?: string; department?: string } {
   const storedUser = localStorage.getItem("officerUser");
@@ -61,7 +62,7 @@ export default function DepartmentAdminDashboard() {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch("http://localhost:5119/api/auth/logout", {
+      await fetch(`${API_BASE}/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

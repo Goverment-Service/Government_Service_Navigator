@@ -42,6 +42,7 @@ import {
   Edit,
 } from "@carbon/icons-react";
 import { DEPARTMENTS, getCategoryForDepartment } from "../../constants/departments";
+import { API_BASE } from "../../lib/apiBase";
 
 const headers = [
   { key: "serviceId", header: "Service ID" },
@@ -94,7 +95,7 @@ export default function ServiceCatalogManager() {
   });
 
   const fetchServices = () => {
-    fetch("http://localhost:5119/api/services")
+    fetch(`${API_BASE}/services`)
       .then((res) => res.json())
       .then((data) => {
         const formattedData = data.map(
@@ -154,8 +155,8 @@ export default function ServiceCatalogManager() {
     try {
       const method = isEditMode ? "PUT" : "POST";
       const endpoint = isEditMode
-        ? `http://localhost:5119/api/services/${currentServiceId}`
-        : "http://localhost:5119/api/services";
+        ? `${API_BASE}/services/${currentServiceId}`
+        : `${API_BASE}/services`;
 
       const response = await fetch(endpoint, {
         method: method,
@@ -188,7 +189,7 @@ export default function ServiceCatalogManager() {
     }
 
     try {
-      const response = await fetch(`http://localhost:5119/api/services/${id}`, {
+      const response = await fetch(`${API_BASE}/services/${id}`, {
         method: "DELETE",
       });
 
@@ -217,7 +218,7 @@ export default function ServiceCatalogManager() {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch("http://localhost:5119/api/auth/logout", {
+      await fetch(`${API_BASE}/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

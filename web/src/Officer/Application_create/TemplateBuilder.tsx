@@ -14,6 +14,7 @@ import { TrashCan, UpToTop, DownToBottom } from "@carbon/icons-react";
 import { getStoredUser } from "../../utils/currentUser";
 import { getCategoryForDepartment } from "../../constants/departments";
 import { renderFieldPreview } from "./documentPreview";
+import { API_BASE } from "../../lib/apiBase";
 
 export type FieldType = 
   | 'text' | 'textarea' | 'number' | 'select' | 'multiselect' 
@@ -94,7 +95,7 @@ export default function TemplateBuilder() {
   const [isLoadingServiceDetail, setIsLoadingServiceDetail] = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:5119/api/services")
+    fetch(`${API_BASE}/services`)
       .then((res) => res.json())
       .then((data) => {
         setServices(data.filter((srv: ServiceOption) => srv.status === "Active"));
@@ -110,7 +111,7 @@ export default function TemplateBuilder() {
       return;
     }
     setIsLoadingServiceDetail(true);
-    fetch(`http://localhost:5119/api/services/${linkedServiceId}`)
+    fetch(`${API_BASE}/services/${linkedServiceId}`)
       .then((res) => res.json())
       .then((data) => setLinkedServiceDetail(data))
       .catch((error) => {
@@ -122,7 +123,7 @@ export default function TemplateBuilder() {
 
   const fetchTemplateData = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:5119/api/templates/${id}`);
+      const response = await fetch(`${API_BASE}/templates/${id}`);
       if (response.ok) {
         const data = await response.json();
         setFormName(data.formName || "");
@@ -175,8 +176,8 @@ export default function TemplateBuilder() {
       };
 
       const url = templateId 
-        ? `http://localhost:5119/api/templates/update/${templateId}` 
-        : "http://localhost:5119/api/templates/create";
+        ? `${API_BASE}/templates/update/${templateId}` 
+        : `${API_BASE}/templates/create`;
       const method = templateId ? "PUT" : "POST";
 
       const response = await fetch(url, {

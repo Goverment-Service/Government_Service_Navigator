@@ -18,6 +18,7 @@ import {
   Pagination,
 } from "@carbon/react";
 import { Checkmark, Close, Document, ChevronLeft, ArrowRight, Warning } from "@carbon/icons-react";
+import { API_BASE } from "../lib/apiBase";
 
 interface ReviewField {
   id: string;
@@ -88,7 +89,7 @@ export default function VerificationWorkspace() {
   useEffect(() => {
     const fetchReasons = async () => {
       try {
-        const response = await fetch(`http://localhost:5119/api/Verification/rejection-reasons`, {
+        const response = await fetch(`${API_BASE}/Verification/rejection-reasons`, {
           headers: { "Content-Type": "application/json", ...authHeaders() }
         });
         if (response.ok) setRejectionReasons(await response.json());
@@ -104,7 +105,7 @@ export default function VerificationWorkspace() {
       setReviewLoading(true);
       setReviewError(null);
       try {
-        const response = await fetch(`http://localhost:5119/api/Verification/tasks/${taskId}/review`, {
+        const response = await fetch(`${API_BASE}/Verification/tasks/${taskId}/review`, {
           headers: authHeaders(),
         });
         if (response.ok) {
@@ -129,7 +130,7 @@ export default function VerificationWorkspace() {
     if (!doc || !taskId) return;
 
     setDocLoading(true);
-    fetch(`http://localhost:5119/api/Verification/tasks/${taskId}/documents/${doc.id}/file`, { headers: authHeaders() })
+    fetch(`${API_BASE}/Verification/tasks/${taskId}/documents/${doc.id}/file`, { headers: authHeaders() })
       .then((res) => (res.ok ? res.blob() : null))
       .then((blob) => {
         if (blob) setDocObjectUrl(URL.createObjectURL(blob));
@@ -155,7 +156,7 @@ export default function VerificationWorkspace() {
     setSubmitStatus("idle");
 
     try {
-      const response = await fetch(`http://localhost:5119/api/Verification/tasks/${taskId || 1}/decision`, {
+      const response = await fetch(`${API_BASE}/Verification/tasks/${taskId || 1}/decision`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({

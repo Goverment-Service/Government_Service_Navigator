@@ -1,6 +1,7 @@
 import '@carbon/styles/css/styles.css';
 import { useState, useEffect } from 'react';
 import { getStoredUser, getOfficerDashboardHref, getOfficerCategory } from "../utils/currentUser";
+import { API_BASE } from "../lib/apiBase";
 import {
   Header,
   HeaderContainer,
@@ -71,7 +72,7 @@ export default function PendingReviews() {
     try {
       const category = getOfficerCategory(getStoredUser());
       const params = category ? `?category=${encodeURIComponent(category)}` : "";
-      const response = await fetch(`http://localhost:5119/api/Verification/tasks/pending${params}`, {
+      const response = await fetch(`${API_BASE}/Verification/tasks/pending${params}`, {
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
       });
       if (response.ok) {
@@ -97,7 +98,7 @@ export default function PendingReviews() {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch("http://localhost:5119/api/auth/logout", {
+      await fetch(`${API_BASE}/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

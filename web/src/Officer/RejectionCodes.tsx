@@ -2,6 +2,7 @@ import '@carbon/styles/css/styles.css';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getStoredUser, getOfficerDashboardHref } from "../utils/currentUser";
+import { API_BASE } from "../lib/apiBase";
 import {
   Header,
   HeaderContainer,
@@ -65,7 +66,7 @@ export default function RejectionCodes() {
   const fetchCodes = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      const response = await fetch(`http://localhost:5119/api/Verification/rejection-reasons`, {
+      const response = await fetch(`${API_BASE}/Verification/rejection-reasons`, {
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
       });
       if (response.ok) {
@@ -80,7 +81,7 @@ export default function RejectionCodes() {
   const handleCreate = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      const response = await fetch(`http://localhost:5119/api/Verification/rejection-reasons`, {
+      const response = await fetch(`${API_BASE}/Verification/rejection-reasons`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -106,7 +107,7 @@ export default function RejectionCodes() {
     if (!selectedId) return;
     const token = localStorage.getItem("officerToken");
     try {
-      const response = await fetch(`http://localhost:5119/api/Verification/rejection-reasons/${selectedId}`, {
+      const response = await fetch(`${API_BASE}/Verification/rejection-reasons/${selectedId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -131,7 +132,7 @@ export default function RejectionCodes() {
     if (!selectedId) return;
     const token = localStorage.getItem("officerToken");
     try {
-      const response = await fetch(`http://localhost:5119/api/Verification/rejection-reasons/${selectedId}`, {
+      const response = await fetch(`${API_BASE}/Verification/rejection-reasons/${selectedId}`, {
         method: "DELETE",
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
       });

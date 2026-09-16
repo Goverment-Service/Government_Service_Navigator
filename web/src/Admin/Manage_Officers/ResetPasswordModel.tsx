@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_BASE } from "../../lib/apiBase";
 import {
   Modal,
   PasswordInput,
@@ -25,7 +26,7 @@ export default function ResetPasswordModal({ isOpen, onClose, officer }: ResetPa
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`http://localhost:5119/api/admin/officers/${officer.id}/reset-password`, {
+      const response = await fetch(`${API_BASE}/admin/officers/${officer.id}/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ newPassword }),

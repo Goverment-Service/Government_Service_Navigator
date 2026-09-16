@@ -2,6 +2,7 @@ import '@carbon/styles/css/styles.css'; // This fixes the unstyled layout![cite:
 import { useState, useEffect } from "react";
 import CurrentUserBadge from "../components/CurrentUserBadge";
 import { getStoredUser, getAdminOverviewHref } from "../utils/currentUser";
+import { API_BASE } from "../lib/apiBase";
 import {
   Header,
   HeaderContainer,
@@ -79,7 +80,7 @@ export default function AuditLogs() {
     const fetchAuditLogs = async () => {
       try {
         const token = localStorage.getItem("officerToken");
-        const response = await fetch("http://localhost:5119/api/verification/audit-logs/all", {
+        const response = await fetch(`${API_BASE}/verification/audit-logs/all`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (response.ok) {
@@ -109,7 +110,7 @@ export default function AuditLogs() {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch("http://localhost:5119/api/auth/logout", {
+      await fetch(`${API_BASE}/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

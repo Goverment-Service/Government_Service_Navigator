@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import CurrentUserBadge from "../../components/CurrentUserBadge";
 import { getStoredUser, getAdminOverviewHref } from "../../utils/currentUser";
 import { getCategoryForDepartment } from "../../constants/departments";
+import { API_BASE } from "../../lib/apiBase";
 import {
   Header,
   HeaderName,
@@ -77,7 +78,7 @@ export default function EligibilitySimulator() {
 
   // 1. Fetch services on mount to populate the procedure dropdown
    useEffect(() => {
-    fetch("http://localhost:5119/api/services")
+    fetch(`${API_BASE}/services`)
       .then((res) => res.json())
       .then((data) => {
         const activeServices = data.filter((srv: any) => srv.status === "Active");
@@ -115,7 +116,7 @@ export default function EligibilitySimulator() {
 
     try {
       const response = await fetch(
-        "http://localhost:5119/api/services/eligibility-score",
+        `${API_BASE}/services/eligibility-score`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -153,7 +154,7 @@ export default function EligibilitySimulator() {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch("http://localhost:5119/api/auth/logout", {
+      await fetch(`${API_BASE}/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

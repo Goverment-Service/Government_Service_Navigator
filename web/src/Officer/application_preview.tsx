@@ -20,6 +20,7 @@ import { Dashboard, Document, Time, User, Logout, ArrowLeft, Catalog, Add ,
   DataStructured
 } from '@carbon/icons-react';
 import type { FormField } from "./Application_create/TemplateBuilder";
+import { API_BASE } from "../lib/apiBase";
 
 interface TemplateField extends FormField {
   orderIndex?: number;
@@ -43,7 +44,7 @@ export default function ApplicationPreview() {
 
   const fetchTemplateData = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:5119/api/templates/${id}`);
+      const response = await fetch(`${API_BASE}/templates/${id}`);
       if (response.ok) {
         const data = await response.json();
         setTemplate(data);
@@ -68,7 +69,7 @@ export default function ApplicationPreview() {
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
-      await fetch("http://localhost:5119/api/auth/logout", {
+      await fetch(`${API_BASE}/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

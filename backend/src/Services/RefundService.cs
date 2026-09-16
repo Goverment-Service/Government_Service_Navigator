@@ -118,9 +118,34 @@ namespace Government_Service_Navigator.Backend.Services
             throw new NotImplementedException();
         }
 
-        public Task<RefundRequest> CompleteAsync(int id)
+        public async Task<RefundRequest> CompleteAsync(int id)
         {
-            throw new NotImplementedException();
+            var refund = await _context.RefundRequests
+                .Include(r => r.Payment)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (refund == null)
+            {
+                throw new KeyNotFoundException($"Refund request {id} not found.");
+            }
+
+            if (refund.Status != RefundStatus.Processing)
+            {
+                throw new InvalidOperationException("Only processing refund requests can be completed.");
+            }
+
+            refund.Status = RefundStatus.Completed;
+            refund.CompletedDate = DateTime.UtcNow;
+
+            // Reflect the refund on the original payment.
+            if (refund.Payment != null)
+            {
+                refund.Payment.Status = "Refunded";
+            }
+
+            await _context.SaveChangesAsync();
+
+            return refund;
         }
     }
 }

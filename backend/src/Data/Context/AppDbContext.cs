@@ -24,7 +24,6 @@ namespace Government_Service_Navigator.Backend.Data.Context
         public DbSet<DocumentRequirement> DocumentRequirements { get; set; }
         public DbSet<FeeSchedule> FeeSchedules { get; set; }
         public DbSet<RevokedToken> RevokedTokens { get; set; }
-        public DbSet<RevokedToken> RevokedTokens { get; set; }
         public DbSet<Payment> Payments { get; set; }
         public DbSet<RefundRequest> RefundRequests { get; set; }
 

@@ -34,8 +34,15 @@ namespace Government_Service_Navigator.Backend.Services
                 throw new InvalidOperationException("Refund window has expired. Refunds are only allowed within 3 days of payment.");
             }
 
-            // Duplicate-refund check added in the next commit.
+                        var hasActiveRefund = await _context.RefundRequests.AnyAsync(r =>
+                r.PaymentId == paymentId &&
+                (r.Status == RefundStatus.Pending || r.Status == RefundStatus.Approved || r.Status == RefundStatus.Processing));
 
+            if (hasActiveRefund)
+            {
+                throw new InvalidOperationException("An active refund request already exists for this payment.");
+            }
+        
             var refund = new RefundRequest
             {
                 PaymentId = paymentId,

@@ -29,7 +29,12 @@ namespace Government_Service_Navigator.Backend.Services
                 throw new InvalidOperationException("Only paid payments are eligible for a refund request.");
             }
 
-            // Eligibility window and duplicate checks are added in the next commits.
+            if (payment.PaidDate == null || (DateTime.UtcNow - payment.PaidDate.Value).TotalDays > 3)
+            {
+                throw new InvalidOperationException("Refund window has expired. Refunds are only allowed within 3 days of payment.");
+            }
+
+            // Duplicate-refund check added in the next commit.
 
             var refund = new RefundRequest
             {

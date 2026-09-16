@@ -37,6 +37,22 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(tasks);
         }
 
+        [HttpGet("tasks/{id}/review")]
+        public async Task<IActionResult> GetTaskReview(int id)
+        {
+            var review = await _verificationService.GetTaskReviewAsync(id);
+            if (review == null) return NotFound();
+            return Ok(review);
+        }
+
+        [HttpGet("tasks/{id}/documents/{documentId}/file")]
+        public async Task<IActionResult> GetTaskDocumentFile(int id, int documentId)
+        {
+            var file = await _verificationService.GetTaskDocumentFileAsync(id, documentId);
+            if (file == null) return NotFound();
+            return File(file.Bytes, file.ContentType, file.FileName);
+        }
+
         [HttpGet("stats")]
         public async Task<IActionResult> GetOfficerStats()
         {

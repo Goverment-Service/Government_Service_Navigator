@@ -80,6 +80,35 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
     }
   }
 
+  bool _isDeletable(ServiceApplication app) => app.status == 'Pending' || app.status == 'Rejected';
+
+  Future<void> _deleteApplication(ServiceApplication app) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Application'),
+        content: Text('Delete ${app.applicationReference}? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: AppColors.danger)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await _applicationService.deleteApplication(app.id);
+      if (!mounted) return;
+      setState(() => _applications.removeWhere((a) => a.id == app.id));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
   Map<String, List<ServiceApplication>> _groupByDepartment() {
     final groups = <String, List<ServiceApplication>>{};
     for (final app in _applications) {
@@ -186,16 +215,27 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
                 app.applicationReference,
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.secondaryLabel),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  app.status,
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: statusColor),
-                ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      app.status,
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: statusColor),
+                    ),
+                  ),
+                  if (_isDeletable(app))
+                    IconButton(
+                      icon: const Icon(CupertinoIcons.trash, size: 18, color: AppColors.danger),
+                      constraints: const BoxConstraints(),
+                      padding: const EdgeInsets.only(left: 8),
+                      onPressed: () => _deleteApplication(app),
+                    ),
+                ],
               ),
             ],
           ),

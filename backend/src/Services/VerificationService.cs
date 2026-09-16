@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Government_Service_Navigator.Backend.Data.Context;
 using Government_Service_Navigator.Backend.DTOs.Requests;
 using Government_Service_Navigator.Backend.DTOs.Responses;
@@ -10,10 +11,22 @@ namespace Government_Service_Navigator.Backend.Services
     public class VerificationService : IVerificationService
     {
         private readonly AppDbContext _context;
+        private readonly IWebHostEnvironment _environment;
 
-        public VerificationService(AppDbContext context)
+        public VerificationService(AppDbContext context, IWebHostEnvironment environment)
         {
             _context = context;
+            _environment = environment;
+        }
+
+        private string DocumentDirectory
+        {
+            get
+            {
+                var dir = Path.Combine(_environment.ContentRootPath, "App_Data", "application-documents");
+                Directory.CreateDirectory(dir);
+                return dir;
+            }
         }
 
         public async Task<VerificationTask> CreateTaskAsync(CreateTaskRequest request, string agentId)
@@ -263,6 +276,128 @@ namespace Government_Service_Navigator.Backend.Services
                 .ToListAsync();
 
             return query.Where(t => matchingApplicationIds.Contains(t.ApplicationId));
+        }
+
+        // Full review context for a single task: the citizen's real submitted
+        // answers (rendered against the Template's field layout), any
+        // documents they uploaded, and a matching payment (loosely joined by
+        // ApplicationReference, the same string both entities share) -
+        // everything the Officer workspace needs instead of placeholder data.
+        public async Task<TaskReviewDto?> GetTaskReviewAsync(int taskId)
+        {
+            var task = await _context.VerificationTasks.FirstOrDefaultAsync(t => t.Id == taskId);
+            if (task == null) return null;
+
+            var dto = new TaskReviewDto
+            {
+                TaskId = task.Id,
+                Status = task.Status,
+                CreatedDate = task.CreatedDate,
+            };
+
+            var application = await _context.ServiceApplications
+                .Include(a => a.User)
+                .Include(a => a.ServiceProcedure)
+                .FirstOrDefaultAsync(a => a.Id == task.ApplicationId);
+
+            if (application == null) return dto;
+
+            dto.ApplicationId = application.Id;
+            dto.ApplicationReference = application.ApplicationReference;
+            dto.ServiceName = application.ServiceProcedure?.Name;
+            dto.Department = DepartmentCatalog.GetDepartmentForCategory(application.ServiceProcedure?.Category);
+            dto.CitizenName = application.User?.FullName;
+            dto.CitizenEmail = application.User?.Email;
+            dto.SubmittedAt = application.SubmittedAt;
+            try
+            {
+                dto.Answers = JsonSerializer.Deserialize<Dictionary<string, string>>(application.AnswersJson) ?? new();
+            }
+            catch
+            {
+                dto.Answers = new();
+            }
+
+            var template = await _context.Templates
+                .Include(t => t.Fields.OrderBy(f => f.OrderIndex))
+                .Where(t => t.ServiceProcedureId == application.ServiceProcedureId && t.Status == "Active")
+                .FirstOrDefaultAsync();
+            if (template != null)
+            {
+                dto.FormName = template.FormName;
+                dto.SubTitle = template.SubTitle;
+                dto.Fields = template.Fields.Select(f => new ReviewFieldDto
+                {
+                    Id = f.Id.ToString(),
+                    Label = f.Label,
+                    Type = f.Type,
+                    Options = f.Options,
+                    IsRequired = f.IsRequired,
+                    OrderIndex = f.OrderIndex,
+                }).ToList();
+            }
+
+            var documents = await _context.ApplicationDocuments
+                .Where(d => d.ServiceApplicationId == application.Id)
+                .OrderBy(d => d.UploadedAt)
+                .ToListAsync();
+            dto.Documents = documents.Select(d => new ApplicationDocumentDto
+            {
+                Id = d.Id,
+                ServiceApplicationId = d.ServiceApplicationId,
+                DocumentRequirementId = d.DocumentRequirementId,
+                DocumentName = d.DocumentName,
+                FileName = d.FileName,
+                UploadedAt = d.UploadedAt,
+            }).ToList();
+
+            var payment = await _context.Payments
+                .Where(p => p.ApplicationId == application.ApplicationReference)
+                .OrderByDescending(p => p.CreatedAt)
+                .FirstOrDefaultAsync();
+            if (payment != null)
+            {
+                dto.Payment = new ReviewPaymentDto
+                {
+                    TransactionReference = payment.TransactionReference,
+                    Method = payment.Method,
+                    Amount = payment.Amount,
+                    Currency = payment.Currency,
+                    Status = payment.Status,
+                    VerifiedAt = payment.VerifiedAt,
+                };
+            }
+
+            return dto;
+        }
+
+        public async Task<SlipFileResult?> GetTaskDocumentFileAsync(int taskId, int documentId)
+        {
+            var task = await _context.VerificationTasks.FirstOrDefaultAsync(t => t.Id == taskId);
+            if (task == null) return null;
+
+            var document = await _context.ApplicationDocuments
+                .FirstOrDefaultAsync(d => d.Id == documentId && d.ServiceApplicationId == task.ApplicationId);
+            if (document == null) return null;
+
+            var fullPath = Path.Combine(DocumentDirectory, document.FilePath);
+            if (!File.Exists(fullPath)) return null;
+
+            var extension = Path.GetExtension(fullPath).ToLowerInvariant();
+            var contentType = extension switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".pdf" => "application/pdf",
+                _ => "application/octet-stream",
+            };
+
+            return new SlipFileResult
+            {
+                Bytes = await File.ReadAllBytesAsync(fullPath),
+                ContentType = contentType,
+                FileName = document.FileName,
+            };
         }
 
         public async Task<OfficerStatsDto> GetOfficerStatsAsync(string officerId)

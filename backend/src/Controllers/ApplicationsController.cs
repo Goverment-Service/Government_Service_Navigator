@@ -58,6 +58,21 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(application);
         }
 
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteApplication(int id)
+        {
+            try
+            {
+                var deleted = await _applicationService.DeleteApplicationAsync(id, GetCurrentUserId());
+                if (!deleted) return NotFound();
+                return NoContent();
+            }
+            catch (System.Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         [HttpPost("{id}/documents")]
         [RequestSizeLimit(15 * 1024 * 1024)]
         public async Task<IActionResult> UploadDocument(int id, [FromForm] int? documentRequirementId, [FromForm] string documentName, [FromForm] IFormFile file)

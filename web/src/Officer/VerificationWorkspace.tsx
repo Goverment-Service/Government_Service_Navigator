@@ -13,13 +13,55 @@ import {
   Select,
   SelectItem,
   InlineNotification,
-  Accordion,
-  AccordionItem,
+  InlineLoading,
   Tag,
   Pagination,
-  Toggle
 } from "@carbon/react";
 import { Checkmark, Close, Document, ChevronLeft, ArrowRight, Warning } from "@carbon/icons-react";
+
+interface ReviewField {
+  id: string;
+  label: string;
+  type: string;
+  options?: string;
+  isRequired: boolean;
+  orderIndex: number;
+}
+
+interface ReviewDocument {
+  id: number;
+  documentName: string;
+  fileName: string;
+  uploadedAt: string;
+}
+
+interface ReviewPayment {
+  transactionReference: string;
+  method: string;
+  amount: number;
+  currency: string;
+  status: string;
+  verifiedAt?: string;
+}
+
+interface TaskReview {
+  taskId: number;
+  status: string;
+  createdDate: string;
+  applicationId?: number;
+  applicationReference?: string;
+  serviceName?: string;
+  department?: string;
+  citizenName?: string;
+  citizenEmail?: string;
+  submittedAt?: string;
+  answers: Record<string, string>;
+  formName?: string;
+  subTitle?: string;
+  fields: ReviewField[];
+  documents: ReviewDocument[];
+  payment?: ReviewPayment;
+}
 
 export default function VerificationWorkspace() {
   const { taskId } = useParams();
@@ -31,20 +73,25 @@ export default function VerificationWorkspace() {
   const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
   const [rejectionReasons, setRejectionReasons] = useState<{id: number, code: string, description: string}[]>([]);
 
+  const [review, setReview] = useState<TaskReview | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(true);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [currentDocIndex, setCurrentDocIndex] = useState(0);
+  const [docObjectUrl, setDocObjectUrl] = useState<string | null>(null);
+  const [docLoading, setDocLoading] = useState(false);
+
+  const authHeaders = () => {
+    const token = localStorage.getItem("officerToken");
+    return { Authorization: `Bearer ${token}` };
+  };
+
   useEffect(() => {
     const fetchReasons = async () => {
       try {
-        const token = localStorage.getItem("officerToken");
         const response = await fetch(`http://localhost:5119/api/Verification/rejection-reasons`, {
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          }
+          headers: { "Content-Type": "application/json", ...authHeaders() }
         });
-        if (response.ok) {
-          const data = await response.json();
-          setRejectionReasons(data);
-        }
+        if (response.ok) setRejectionReasons(await response.json());
       } catch (e) {
         console.error("Failed to fetch rejection reasons", e);
       }
@@ -52,21 +99,44 @@ export default function VerificationWorkspace() {
     fetchReasons();
   }, []);
 
-  // Document Gallery State
-  const [currentDocIndex, setCurrentDocIndex] = useState(0);
-  const [documents, setDocuments] = useState([
-    { id: 1, name: "National Identity Card", type: "nic", isVerified: true, aiTag: "Verified by AI" },
-    { id: 2, name: "Proof of Address", type: "address", isVerified: false, aiTag: "Expired (Over 6 Months)" },
-    { id: 3, name: "Birth Certificate", type: "birth_cert", isVerified: false, aiTag: "Not Processed by AI" },
-    { id: 4, name: "Vehicle Registration", type: "vehicle_reg", isVerified: false, aiTag: "Verified by AI" },
-    { id: 5, name: "Medical Certificate", type: "medical", isVerified: false, aiTag: "Not Processed by AI" }
-  ]);
+  useEffect(() => {
+    const fetchReview = async () => {
+      setReviewLoading(true);
+      setReviewError(null);
+      try {
+        const response = await fetch(`http://localhost:5119/api/Verification/tasks/${taskId}/review`, {
+          headers: authHeaders(),
+        });
+        if (response.ok) {
+          const data: TaskReview = await response.json();
+          setReview(data);
+        } else {
+          setReviewError("Could not load this application.");
+        }
+      } catch (e) {
+        setReviewError("Could not load this application.");
+      } finally {
+        setReviewLoading(false);
+      }
+    };
+    if (taskId) fetchReview();
+  }, [taskId]);
 
-  const handleDocumentVerificationToggle = (checked: boolean) => {
-    const updatedDocs = [...documents];
-    updatedDocs[currentDocIndex].isVerified = checked;
-    setDocuments(updatedDocs);
-  };
+  useEffect(() => {
+    if (docObjectUrl) URL.revokeObjectURL(docObjectUrl);
+    setDocObjectUrl(null);
+    const doc = review?.documents[currentDocIndex];
+    if (!doc || !taskId) return;
+
+    setDocLoading(true);
+    fetch(`http://localhost:5119/api/Verification/tasks/${taskId}/documents/${doc.id}/file`, { headers: authHeaders() })
+      .then((res) => (res.ok ? res.blob() : null))
+      .then((blob) => {
+        if (blob) setDocObjectUrl(URL.createObjectURL(blob));
+      })
+      .finally(() => setDocLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [review, currentDocIndex, taskId]);
 
   const handleDecision = async (status: string) => {
     setDecision(status);
@@ -83,16 +153,11 @@ export default function VerificationWorkspace() {
 
     setIsSubmitting(true);
     setSubmitStatus("idle");
-    
-    const token = localStorage.getItem("officerToken");
 
     try {
       const response = await fetch(`http://localhost:5119/api/Verification/tasks/${taskId || 1}/decision`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           status: status,
           comments: comments,
@@ -113,6 +178,19 @@ export default function VerificationWorkspace() {
     }
   };
 
+  const documents = review?.documents ?? [];
+  const currentDoc = documents[currentDocIndex];
+  const isPdf = currentDoc?.fileName.toLowerCase().endsWith(".pdf");
+
+  const fieldLabelById = new Map((review?.fields ?? []).map((f) => [f.id, f]));
+  const answerEntries = review
+    ? [...(review.fields.length > 0
+        ? review.fields
+            .filter((f) => !["heading", "paragraph"].includes(f.type))
+            .map((f) => ({ label: f.label, value: review.answers[f.id] || "-" }))
+        : Object.entries(review.answers).map(([key, value]) => ({ label: fieldLabelById.get(key)?.label || key, value })))]
+    : [];
+
   return (
     <HeaderContainer
       render={() => (
@@ -129,124 +207,138 @@ export default function VerificationWorkspace() {
           </Header>
 
           <main className="mt-12 min-h-screen p-4 min-[66rem]:p-8" style={{ backgroundColor: '#f4f4f4' }}>
+            {reviewLoading ? (
+              <InlineLoading description="Loading application..." />
+            ) : reviewError ? (
+              <InlineNotification kind="error" title="Error" subtitle={reviewError} hideCloseButton />
+            ) : (
             <Grid fullWidth>
               {/* Left Column: Document Gallery */}
               <Column sm={4} md={5} lg={9} style={{ backgroundColor: '#fff', border: '1px solid #e0e0e0', padding: '1rem', minHeight: '80vh' }}>
-                <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Submitted Documents</h2>
-                    <p style={{ fontSize: '0.875rem', color: '#525252' }}>Manually review and verify each uploaded proof.</p>
-                  </div>
-                  <div style={{ backgroundColor: documents[currentDocIndex].isVerified ? '#defbe6' : '#fff', padding: '0.5rem 1rem', border: '1px solid #e0e0e0', borderRadius: '4px' }}>
-                     <Toggle 
-                        id="doc-verify-toggle"
-                        size="sm"
-                        labelA="Unverified"
-                        labelB="Verified"
-                        toggled={documents[currentDocIndex].isVerified}
-                        onToggle={handleDocumentVerificationToggle}
+                <div style={{ marginBottom: '1rem' }}>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Submitted Documents</h2>
+                  <p style={{ fontSize: '0.875rem', color: '#525252' }}>Documents the citizen uploaded with this application.</p>
+                </div>
+
+                <div style={{ backgroundColor: '#f4f4f4', minHeight: '550px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #c6c6c6' }}>
+                  {documents.length === 0 ? (
+                    <div style={{ textAlign: 'center', color: '#525252' }}>
+                      <Document size={48} style={{ margin: '0 auto 1rem' }} />
+                      <p>No documents were submitted with this application.</p>
+                    </div>
+                  ) : docLoading ? (
+                    <InlineLoading description="Loading document..." />
+                  ) : isPdf && docObjectUrl ? (
+                    <div style={{ textAlign: 'center' }}>
+                      <Document size={48} style={{ margin: '0 auto 1rem' }} />
+                      <p style={{ marginBottom: '0.5rem' }}>{currentDoc?.documentName}</p>
+                      <a href={docObjectUrl} target="_blank" rel="noreferrer">Open PDF in new tab</a>
+                    </div>
+                  ) : docObjectUrl ? (
+                    <img src={docObjectUrl} alt={currentDoc?.documentName} style={{ maxWidth: '100%', maxHeight: '540px' }} />
+                  ) : (
+                    <div style={{ textAlign: 'center', color: '#525252' }}>
+                      <Document size={48} style={{ margin: '0 auto 1rem' }} />
+                      <p>Could not load this document.</p>
+                    </div>
+                  )}
+                </div>
+
+                {currentDoc && (
+                  <p style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#525252' }}>
+                    {currentDoc.documentName} &middot; {currentDoc.fileName} &middot; uploaded {new Date(currentDoc.uploadedAt).toLocaleString()}
+                  </p>
+                )}
+
+                {documents.length > 1 && (
+                  <div style={{ marginTop: '1rem' }}>
+                     <Pagination
+                        backwardText="Previous Document"
+                        forwardText="Next Document"
+                        itemsPerPageText=""
+                        page={currentDocIndex + 1}
+                        pageSize={1}
+                        pageSizes={[1]}
+                        totalItems={documents.length}
+                        onChange={({ page }) => setCurrentDocIndex(page - 1)}
                      />
                   </div>
-                </div>
-                
-                <div style={{ backgroundColor: '#f4f4f4', minHeight: '550px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #c6c6c6' }}>
-                  <div style={{ textAlign: 'center', color: '#525252' }}>
-                     <Document size={48} style={{ margin: '0 auto 1rem' }} />
-                     <p style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>{documents[currentDocIndex].name}</p>
-                     <Tag type={
-                        documents[currentDocIndex].aiTag.includes("Verified") ? "blue" : 
-                        documents[currentDocIndex].aiTag.includes("Expired") ? "red" : "gray"
-                     }>
-                        {documents[currentDocIndex].aiTag}
-                     </Tag>
-                     {documents[currentDocIndex].isVerified && (
-                        <div style={{ marginTop: '1rem', color: '#198038', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                           <Checkmark size={20} />
-                           <span style={{ fontWeight: 600 }}>Marked as Verified manually</span>
-                        </div>
-                     )}
-                  </div>
-                </div>
-
-                <div style={{ marginTop: '1rem' }}>
-                   <Pagination
-                      backwardText="Previous Document"
-                      forwardText="Next Document"
-                      itemsPerPageText=""
-                      page={currentDocIndex + 1}
-                      pageSize={1}
-                      pageSizes={[1]}
-                      totalItems={documents.length}
-                      onChange={({ page }) => setCurrentDocIndex(page - 1)}
-                   />
-                </div>
+                )}
               </Column>
 
-              {/* Right Column: Reasoning & Decision Panel */}
+              {/* Right Column: Application data & Decision Panel */}
               <Column sm={4} md={3} lg={7} style={{ padding: '0 1rem' }}>
-                
+
                 <h2 style={{ fontSize: '1.75rem', fontWeight: 300, marginBottom: '0.5rem' }}>Application Review</h2>
-                <div style={{ marginBottom: '2rem' }}>
-                  <p style={{ fontSize: '0.875rem', color: '#525252' }}>App ID: <strong>GSN-2026-9102</strong></p>
-                  <p style={{ fontSize: '0.875rem', color: '#525252' }}>Citizen: <strong>Amila Kumara</strong></p>
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <p style={{ fontSize: '0.875rem', color: '#525252' }}>App ID: <strong>{review?.applicationReference || `APP-${review?.applicationId ?? review?.taskId}`}</strong></p>
+                  <p style={{ fontSize: '0.875rem', color: '#525252' }}>Citizen: <strong>{review?.citizenName || 'Unknown'}</strong> ({review?.citizenEmail || '-'})</p>
+                  <p style={{ fontSize: '0.875rem', color: '#525252' }}>Service: <strong>{review?.serviceName || '-'}</strong> &middot; {review?.department || '-'}</p>
                 </div>
 
-                {/* Agent Reasoning Trail Viewer */}
-                <div style={{ backgroundColor: '#fff', padding: '1rem', borderLeft: '4px solid #0f62fe', marginBottom: '2rem' }}>
-                   <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-                      <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Agent Reasoning Trail</h3>
-                      <Tag type="blue" style={{ marginLeft: 'auto' }}>AI Assisted</Tag>
-                   </div>
-                   
-                   <Accordion align="start">
-                      <AccordionItem title="Phase 1: Eligibility Check">
-                         <p style={{ fontSize: '0.875rem', color: '#525252' }}>
-                           ✓ Citizen meets age requirement (Age &gt; 18).<br />
-                           ✓ Citizen resides in specified district.
-                         </p>
-                      </AccordionItem>
-                      <AccordionItem title="Phase 2: Document Extraction">
-                         <p style={{ fontSize: '0.875rem', color: '#525252' }}>
-                           ✓ <strong>NIC:</strong> Validated format (991234567V). Extracted Name: "Amila Kumara".<br />
-                           ⚠ <strong>Proof of Address:</strong> Name matches, but date of issue is over 6 months old.
-                         </p>
-                      </AccordionItem>
-                      <AccordionItem title="Phase 3: Final Validation" open>
-                         <InlineNotification 
-                           kind="warning" 
-                           title="Manual Review Recommended"
-                           subtitle="The Proof of Address document is older than the standard 6-month threshold. Please verify manually."
-                           lowContrast
-                           hideCloseButton
-                         />
-                      </AccordionItem>
-                   </Accordion>
+                {/* Submitted Answers */}
+                <div style={{ backgroundColor: '#fff', padding: '1rem', borderLeft: '4px solid #0f62fe', marginBottom: '1.5rem' }}>
+                   <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>
+                     {review?.formName || 'Submitted Answers'}
+                   </h3>
+                   {answerEntries.length === 0 ? (
+                     <p style={{ fontSize: '0.875rem', color: '#8d8d8d', fontStyle: 'italic' }}>No form fields were submitted with this application.</p>
+                   ) : (
+                     answerEntries.map((entry, i) => (
+                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', padding: '0.4rem 0', borderBottom: '1px solid #f4f4f4' }}>
+                         <span style={{ fontSize: '0.875rem', color: '#525252' }}>{entry.label}</span>
+                         <span style={{ fontSize: '0.875rem', fontWeight: 600, textAlign: 'right' }}>{entry.value}</span>
+                       </div>
+                     ))
+                   )}
                 </div>
+
+                {/* Payment */}
+                {review?.payment && (
+                  <div style={{ backgroundColor: '#fff', padding: '1rem', borderLeft: '4px solid #24a148', marginBottom: '1.5rem' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>Payment</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', padding: '0.25rem 0' }}>
+                      <span style={{ color: '#525252' }}>Reference</span><strong>{review.payment.transactionReference}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', padding: '0.25rem 0' }}>
+                      <span style={{ color: '#525252' }}>Method</span><strong>{review.payment.method}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', padding: '0.25rem 0' }}>
+                      <span style={{ color: '#525252' }}>Amount</span><strong>{review.payment.currency} {review.payment.amount.toFixed(2)}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', padding: '0.25rem 0' }}>
+                      <span style={{ color: '#525252' }}>Status</span>
+                      <Tag type={review.payment.status === 'Verified' || review.payment.status === 'Paid' ? 'green' : review.payment.status === 'Rejected' || review.payment.status === 'Failed' ? 'red' : 'blue'}>
+                        {review.payment.status}
+                      </Tag>
+                    </div>
+                  </div>
+                )}
 
                 {/* Decision Panel */}
                 <div style={{ backgroundColor: '#fff', padding: '1.5rem', border: '1px solid #e0e0e0' }}>
                    <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Record Decision</h3>
-                   
+
                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-                      <Button 
-                         kind={decision === "Approved" ? "primary" : "ghost"} 
-                         renderIcon={Checkmark} 
+                      <Button
+                         kind={decision === "Approved" ? "primary" : "ghost"}
+                         renderIcon={Checkmark}
                          onClick={() => handleDecision("Approved")}
                          disabled={isSubmitting}
                       >
                          Approve
                       </Button>
-                      <Button 
-                         kind={decision === "Revision Requested" ? "primary" : "ghost"} 
-                         renderIcon={Warning} 
+                      <Button
+                         kind={decision === "Revision Requested" ? "primary" : "ghost"}
+                         renderIcon={Warning}
                          onClick={() => handleDecision("Revision Requested")}
                          disabled={isSubmitting}
                       >
                          Request Revision
                       </Button>
-                      <Button 
-                         kind={decision === "Rejected" ? "danger" : "danger--ghost"} 
-                         renderIcon={Close} 
+                      <Button
+                         kind={decision === "Rejected" ? "danger" : "danger--ghost"}
+                         renderIcon={Close}
                          onClick={() => handleDecision("Rejected")}
                          disabled={isSubmitting}
                       >
@@ -256,10 +348,10 @@ export default function VerificationWorkspace() {
 
                    {(decision === "Rejected" || decision === "Revision Requested") && (
                      <div style={{ animation: "fadeIn 0.2s ease-in" }}>
-                         <Select 
-                            id="reason-code" 
-                            labelText="Reason Code" 
-                            value={reasonId} 
+                         <Select
+                            id="reason-code"
+                            labelText="Reason Code"
+                            value={reasonId}
                             onChange={(e) => setReasonId(e.target.value)}
                             style={{ marginBottom: '1rem' }}
                          >
@@ -269,8 +361,8 @@ export default function VerificationWorkspace() {
                             ))}
                          </Select>
 
-                        <TextArea 
-                           labelText="Additional Comments (Visible to Citizen)" 
+                        <TextArea
+                           labelText="Additional Comments (Visible to Citizen)"
                            placeholder="Explain exactly what needs to be fixed..."
                            value={comments}
                            onChange={(e) => setComments(e.target.value)}
@@ -278,8 +370,8 @@ export default function VerificationWorkspace() {
                            style={{ marginBottom: '1rem' }}
                         />
 
-                        <Button 
-                           renderIcon={ArrowRight} 
+                        <Button
+                           renderIcon={ArrowRight}
                            onClick={() => submitDecision(decision)}
                            disabled={isSubmitting}
                         >
@@ -297,11 +389,10 @@ export default function VerificationWorkspace() {
                 </div>
               </Column>
             </Grid>
+            )}
           </main>
         </>
       )}
     />
   );
 }
-
-

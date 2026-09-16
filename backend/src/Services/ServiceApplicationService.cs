@@ -102,6 +102,29 @@ namespace Government_Service_Navigator.Backend.Services
             return MapToDto(application, application.ServiceProcedure, tasksByAppId.GetValueOrDefault(application.Id));
         }
 
+        // A citizen can only withdraw an application before it's been acted
+        // on (Pending) or after it's been turned down (Rejected) - once it's
+        // Approved or sent back for Revision, an officer has already engaged
+        // with it and it stays on record.
+        public async Task<bool> DeleteApplicationAsync(int applicationId, int userId)
+        {
+            var application = await _context.ServiceApplications
+                .FirstOrDefaultAsync(a => a.Id == applicationId && a.UserId == userId);
+            if (application == null) return false;
+
+            var tasksByAppId = await LoadLatestTaskInfoAsync(new List<int> { application.Id });
+            var status = tasksByAppId.GetValueOrDefault(application.Id)?.Status ?? "Pending";
+
+            if (status != "Pending" && status != "Rejected")
+                throw new InvalidOperationException("Only pending or rejected applications can be deleted.");
+
+            var tasks = await _context.VerificationTasks.Where(t => t.ApplicationId == application.Id).ToListAsync();
+            _context.VerificationTasks.RemoveRange(tasks);
+            _context.ServiceApplications.Remove(application);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
         public async Task<ApplicationDocumentDto> UploadDocumentAsync(int applicationId, int userId, int? documentRequirementId, string documentName, IFormFile file)
         {
             var application = await _context.ServiceApplications

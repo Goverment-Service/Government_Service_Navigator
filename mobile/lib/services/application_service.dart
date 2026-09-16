@@ -90,6 +90,21 @@ class ApplicationService {
     return ServiceApplication.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 
+  /// Only allowed by the backend while the application is Pending or
+  /// Rejected - throws ApplicationApiException (with the server's message)
+  /// otherwise.
+  Future<void> deleteApplication(int id) async {
+    final headers = await _authHeaders();
+    final response = await http.delete(Uri.parse('$baseUrl/applications/$id'), headers: headers);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final decoded = _tryDecode(response.body);
+      final message = decoded is Map && decoded['message'] != null
+          ? decoded['message'] as String
+          : 'Could not delete this application (${response.statusCode}).';
+      throw ApplicationApiException(message);
+    }
+  }
+
   Future<void> uploadDocument({
     required int applicationId,
     required int? documentRequirementId,

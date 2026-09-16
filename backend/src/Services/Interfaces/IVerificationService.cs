@@ -14,6 +14,8 @@ namespace Government_Service_Navigator.Backend.Services.Interfaces
         Task<List<AuditLog>> GetAllAuditLogsAsync();
         Task<List<VerificationTaskDto>> GetPendingTasksAsync(string? category = null);
         Task<List<VerificationTaskDto>> GetVerifiedTasksAsync(string? category = null);
+        Task<TaskReviewDto?> GetTaskReviewAsync(int taskId);
+        Task<SlipFileResult?> GetTaskDocumentFileAsync(int taskId, int documentId);
         Task<OfficerStatsDto> GetOfficerStatsAsync(string officerId);
         Task<List<RejectionReason>> GetRejectionReasonsAsync();
         Task<RejectionReason> CreateRejectionReasonAsync(RejectionReason reason);

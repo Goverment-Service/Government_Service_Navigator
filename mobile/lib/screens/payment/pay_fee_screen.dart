@@ -203,16 +203,29 @@ class _PayFeeScreenState extends State<PayFeeScreen> {
                         _textField(_amountController, 'Amount', keyboardType: TextInputType.number),
                       ]),
                       const SizedBox(height: 16),
-                      CupertinoSlidingSegmentedControl<_PayMethod>(
-                        groupValue: _method,
-                        children: {
-                          _PayMethod.bankTransfer: _segmentLabel('Bank Transfer'),
-                          if (_stripeConfigured) _PayMethod.stripe: _segmentLabel('Card (Stripe)'),
-                        },
-                        onValueChanged: (v) {
-                          if (v != null) setState(() => _method = v);
-                        },
-                      ),
+                      // CupertinoSlidingSegmentedControl requires at least 2
+                      // options - when Stripe isn't configured, Bank Transfer
+                      // is the only method, so there's nothing to switch
+                      // between and the control is skipped entirely.
+                      if (_stripeConfigured)
+                        CupertinoSlidingSegmentedControl<_PayMethod>(
+                          groupValue: _method,
+                          children: {
+                            _PayMethod.bankTransfer: _segmentLabel('Bank Transfer'),
+                            _PayMethod.stripe: _segmentLabel('Card (Stripe)'),
+                          },
+                          onValueChanged: (v) {
+                            if (v != null) setState(() => _method = v);
+                          },
+                        )
+                      else
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Payment Method: Bank Transfer / Deposit',
+                            style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.secondaryLabel),
+                          ),
+                        ),
                       const SizedBox(height: 16),
                       if (_error != null) _errorBanner(_error!),
                       if (_error != null) const SizedBox(height: 12),

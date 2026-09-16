@@ -11,6 +11,7 @@ namespace Government_Service_Navigator.Backend.Services.Interfaces
         Task<ApplicationDto> SubmitApplicationAsync(int userId, SubmitApplicationRequest request);
         Task<List<ApplicationDto>> GetMyApplicationsAsync(int userId);
         Task<ApplicationDto?> GetApplicationForUserAsync(int applicationId, int userId);
+        Task<bool> DeleteApplicationAsync(int applicationId, int userId);
 
         Task<ApplicationDocumentDto> UploadDocumentAsync(int applicationId, int userId, int? documentRequirementId, string documentName, IFormFile file);
         Task<List<ApplicationDocumentDto>> GetDocumentsForUserAsync(int applicationId, int userId);

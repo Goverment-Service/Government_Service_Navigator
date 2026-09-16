@@ -1,12 +1,78 @@
 import 'package:flutter/material.dart';
-//import 'package:flutter/cupertino.dart';
+import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
+import '../../models/application.dart';
+import '../../services/application_service.dart';
 
-class ApplicationsTab extends StatelessWidget {
+class ApplicationsTab extends StatefulWidget {
   const ApplicationsTab({super.key});
 
   @override
+  State<ApplicationsTab> createState() => _ApplicationsTabState();
+}
+
+class _ApplicationsTabState extends State<ApplicationsTab> {
+  final _applicationService = ApplicationService();
+  List<ServiceApplication> _applications = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final applications = await _applicationService.fetchMyApplications();
+      if (!mounted) return;
+      setState(() {
+        _applications = applications;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not load your applications.';
+        _loading = false;
+      });
+    }
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'Approved':
+        return AppColors.success;
+      case 'Rejected':
+        return AppColors.danger;
+      case 'Revised':
+        return AppColors.warning;
+      default:
+        return AppColors.primary;
+    }
+  }
+
+  Map<String, List<ServiceApplication>> _groupByCategory() {
+    final groups = <String, List<ServiceApplication>>{};
+    for (final app in _applications) {
+      groups.putIfAbsent(app.category.isEmpty ? 'Other' : app.category, () => []).add(app);
+    }
+    for (final list in groups.values) {
+      list.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+    }
+    return groups;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final groups = _groupByCategory();
+    final categories = groups.keys.toList()..sort();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -14,36 +80,67 @@ class ApplicationsTab extends StatelessWidget {
         backgroundColor: AppColors.cardBg,
         elevation: 0,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          _buildTrackingCard(
-            title: 'Small Business Registration',
-            referenceId: 'APP-2026-8841',
-            status: 'In Officer Review',
-            statusColor: AppColors.warning,
-            date: 'Submitted Aug 2, 2026',
-          ),
-          const SizedBox(height: 12),
-          _buildTrackingCard(
-            title: 'Driving Licence Replacement',
-            referenceId: 'APP-2026-7102',
-            status: 'Approved',
-            statusColor: AppColors.success,
-            date: 'Completed Jul 15, 2026',
-          ),
-        ],
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: _loading
+            ? const Center(child: CupertinoActivityIndicator())
+            : _error != null
+                ? ListView(children: [Padding(padding: const EdgeInsets.all(32), child: Center(child: Text(_error!)))])
+                : _applications.isEmpty
+                    ? ListView(
+                        children: const [
+                          Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Center(child: Text('You haven\'t submitted any applications yet.')),
+                          ),
+                        ],
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16.0),
+                        itemCount: categories.length,
+                        itemBuilder: (context, index) {
+                          final category = categories[index];
+                          final apps = groups[category]!;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 10, left: 4),
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        category,
+                                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.dark),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.divider,
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Text('${apps.length}', style: const TextStyle(fontSize: 12, color: AppColors.secondaryLabel)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                ...apps.map((app) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 10),
+                                      child: _buildTrackingCard(app),
+                                    )),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
       ),
     );
   }
 
-  Widget _buildTrackingCard({
-    required String title,
-    required String referenceId,
-    required String status,
-    required Color statusColor,
-    required String date,
-  }) {
+  Widget _buildTrackingCard(ServiceApplication app) {
+    final statusColor = _statusColor(app.status);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -58,50 +155,33 @@ class ApplicationsTab extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                referenceId,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.secondaryLabel,
-                ),
+                app.applicationReference,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.secondaryLabel),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  status,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: statusColor,
-                  ),
+                  app.status,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: statusColor),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              color: AppColors.dark,
-            ),
-          ),
+          Text(app.serviceName, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.dark)),
           const SizedBox(height: 8),
           Text(
-            date,
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppColors.secondaryLabel,
-            ),
+            'Submitted ${app.submittedAt.year}-${app.submittedAt.month.toString().padLeft(2, '0')}-${app.submittedAt.day.toString().padLeft(2, '0')}',
+            style: const TextStyle(fontSize: 13, color: AppColors.secondaryLabel),
           ),
+          if (app.decisionNotes != null && app.decisionNotes!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(app.decisionNotes!, style: const TextStyle(fontSize: 13, color: AppColors.secondaryLabel)),
+          ],
         ],
       ),
     );

@@ -26,6 +26,7 @@ namespace Government_Service_Navigator.Backend.Data.Context
         public DbSet<RevokedToken> RevokedTokens { get; set; }
         public DbSet<Payment> Payments { get; set; }
         public DbSet<PaymentRefund> PaymentRefunds { get; set; }
+        public DbSet<ServiceApplication> ServiceApplications { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -86,6 +87,19 @@ namespace Government_Service_Navigator.Backend.Data.Context
                       .WithOne(p => p.Refund)
                       .HasForeignKey<PaymentRefund>(r => r.PaymentId)
                       .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ServiceApplication>(entity =>
+            {
+                entity.HasIndex(a => a.ApplicationReference).IsUnique();
+                entity.HasOne(a => a.User)
+                      .WithMany()
+                      .HasForeignKey(a => a.UserId)
+                      .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(a => a.ServiceProcedure)
+                      .WithMany()
+                      .HasForeignKey(a => a.ServiceProcedureId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<Template>()

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/service_api_client.dart';
 import 'eligibility_self_check_screen.dart';
+import 'applications/application_submit_screen.dart';
 
 class ProcedureDetailScreen extends StatefulWidget {
   final int serviceId;
@@ -77,7 +78,23 @@ class _ProcedureDetailScreenState extends State<ProcedureDetailScreen> {
                 ),
               );
             },
-          )
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.send_outlined),
+            label: const Text('Apply for this Service'),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ApplicationSubmitScreen(
+                    serviceId: widget.serviceId,
+                    serviceName: serviceDetails!['name'] as String,
+                  ),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );

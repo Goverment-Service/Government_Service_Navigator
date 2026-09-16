@@ -38,8 +38,15 @@ namespace Government_Service_Navigator.Backend.Controllers
             var templates = await _templateService.GetAllTemplatesAsync();
             return Ok(templates);
         }
+        [HttpGet("by-service/{serviceProcedureId}")]
+        public async Task<IActionResult>GetTemplateByService(int serviceProcedureId)
+        {
+            var template = await _templateService.GetTemplateByServiceProcedureIdAsync(serviceProcedureId);
+            if (template == null) return NotFound();
+            return Ok(template);
+        }
         [HttpGet("{id}")]
-        public async Task<IActionResult>GetTemplateById(Guid id) 
+        public async Task<IActionResult>GetTemplateById(Guid id)
         {
             var template = await _templateService.GetTemplateByIdAsync(id);
             if(template ==null) return NotFound();

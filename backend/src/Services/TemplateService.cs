@@ -48,6 +48,14 @@ namespace Government_Service_Navigator.Backend.Services
                 .Include(t => t.ServiceProcedure)
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
+        public async Task<Template?> GetTemplateByServiceProcedureIdAsync(int serviceProcedureId)
+        {
+            return await _context.Templates
+                .Include(t => t.Fields.OrderBy(f => f.OrderIndex))
+                .Where(t => t.ServiceProcedureId == serviceProcedureId && t.Status == "Active")
+                .FirstOrDefaultAsync();
+        }
+
         public async Task<Template> UpdateTemplateAsync(Guid id, CreateTemplateRequest request)
         {
             var template = await _context.Templates.Include(t => t.Fields).FirstOrDefaultAsync(t => t.Id == id);

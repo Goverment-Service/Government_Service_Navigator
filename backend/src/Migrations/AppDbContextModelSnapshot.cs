@@ -317,6 +317,176 @@ namespace Government_Service_Navigator.Backend.Migrations
                     b.ToTable("OfficerReviews");
                 });
 
+            modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.Payment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AccountNumber")
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("ApplicationId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BankName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BranchName")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("PaymentDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ReferenceNumber")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ServiceName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SlipFileName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SlipFilePath")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("SlipUploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("StripeChargeId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("StripePaymentIntentId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("StripeReceiptUrl")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TransactionReference")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("VerificationNotes")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("VerifiedByOfficerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("VerifiedByOfficerName")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TransactionReference")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Payments");
+                });
+
+            modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.PaymentRefund", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AccountHolderName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AccountNumber")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BankName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BranchName")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("FormSubmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PaymentId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ProcessedByOfficerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ProcessedByOfficerName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProcessingNotes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("RefundAmount")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime?>("RequestEmailSentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RequestToken")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("StripeRefundId")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaymentId")
+                        .IsUnique();
+
+                    b.HasIndex("RequestToken")
+                        .IsUnique();
+
+                    b.ToTable("PaymentRefunds");
+                });
+
             modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.RejectionReason", b =>
                 {
                     b.Property<int>("Id")
@@ -560,6 +730,28 @@ namespace Government_Service_Navigator.Backend.Migrations
                     b.Navigation("Task");
                 });
 
+            modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.Payment", b =>
+                {
+                    b.HasOne("Government_Service_Navigator.Backend.Models.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.PaymentRefund", b =>
+                {
+                    b.HasOne("Government_Service_Navigator.Backend.Models.Entities.Payment", "Payment")
+                        .WithOne("Refund")
+                        .HasForeignKey("Government_Service_Navigator.Backend.Models.Entities.PaymentRefund", "PaymentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Payment");
+                });
+
             modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.Template", b =>
                 {
                     b.HasOne("Government_Service_Navigator.Backend.Models.Entities.ServiceProcedure", "ServiceProcedure")
@@ -568,6 +760,11 @@ namespace Government_Service_Navigator.Backend.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("ServiceProcedure");
+                });
+
+            modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.Payment", b =>
+                {
+                    b.Navigation("Refund");
                 });
 
             modelBuilder.Entity("Government_Service_Navigator.Backend.Models.Entities.ServiceProcedure", b =>

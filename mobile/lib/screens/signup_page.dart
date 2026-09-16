@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
+import '../services/session_store.dart';
 import 'dashboard_screen.dart';
 
 class SignUpPage extends StatefulWidget {
@@ -53,7 +54,10 @@ class _SignUpPageState extends State<SignUpPage> {
     setState(() => _isLoading = false);
 
     if (result.success) {
-      // TODO: persist result.token (e.g. flutter_secure_storage)
+      if (result.token != null && result.user != null) {
+        await SessionStore.save(result.token!, result.user!);
+      }
+      if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const DashboardScreen()),
         (route) => false,

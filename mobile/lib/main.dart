@@ -11,6 +11,9 @@ void main() {
     statusBarBrightness: Brightness.light,
     statusBarIconBrightness: Brightness.dark,
   ));
+  // Stripe's publishable key is fetched from the backend and applied lazily
+  // right before the card form opens (see PayFeeScreen), since it depends on
+  // server config rather than being baked into the app.
   runApp(const MyApp());
 }
 

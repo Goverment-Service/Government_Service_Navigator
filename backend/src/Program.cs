@@ -69,6 +69,9 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IVerificationService, VerificationService>();
 builder.Services.AddScoped<ITemplateService, TemplateService>();
 builder.Services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddSingleton<IStripeService, StripeService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 
 // 3. Setup CORS (Crucial for Flutter/Mobile/Web app connectivity)

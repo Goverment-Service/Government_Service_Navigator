@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 
 class AuthResult {
   final bool success;
@@ -16,7 +17,7 @@ class AuthResult {
 }
 
 class AuthService {
-  static const String baseUrl = 'http://localhost:5119/api';
+  static String get baseUrl => ApiConfig.baseUrl;
 
   Future<AuthResult> login({
     required String email,

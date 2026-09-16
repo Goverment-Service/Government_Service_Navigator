@@ -28,6 +28,7 @@ Thumbs.db
 backend/src/.env
 backend/src/Government_Service_Navigator.Backend.http
 backend/src/server_log_err.txt
+backend/src/App_Data/
 backend/src/server_log.txt
 backend/src/Properties/launchSettings.json
 tui-runner/node_modules/.bin/blessed
@@ -1131,8 +1132,3 @@ tui-runner/node_modules/figlet/importable-fonts/WideTerm.d.ts
 tui-runner/node_modules/figlet/importable-fonts/WideTerm.js
 tui-runner/node_modules/figlet/importable-fonts/Wow.d.ts
 tui-runner/node_modules/figlet/importable-fonts/Wow.js
-backend/src/Migrations/AppDbContextModelSnapshot.cs
-backend/src/Migrations/AppDbContextModelSnapshot.cs
-backend/src/Migrations/AppDbContextModelSnapshot.cs
-backend/src/Migrations/AppDbContextModelSnapshot.cs
-backend/src/Migrations

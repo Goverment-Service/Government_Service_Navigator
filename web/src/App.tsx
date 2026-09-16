@@ -26,6 +26,8 @@ import EligibilitySimulator from "./Admin/Service_Catalog/eligibility_simulator"
 import FinanceDashboard from "./Finance/finance_dashboard";
 import FinanceLedger from "./Finance/finance_ledger";
 import FinanceProfile from "./Finance/finance_profile";
+import FinanceRefunds from "./Finance/finance_refunds";
+import RefundFormPage from "./Refunds/refund_form";
 
 export default function App() {
   return (
@@ -78,7 +80,11 @@ export default function App() {
         {/* finance officer routes */}
         <Route path="/finance/dashboard" element={<FinanceDashboard />} />
         <Route path="/finance/ledger" element={<FinanceLedger />} />
+        <Route path="/finance/refunds" element={<FinanceRefunds />} />
         <Route path="/finance/profile" element={<FinanceProfile />} />
+
+        {/* public refund form, opened from the emailed refund-request link */}
+        <Route path="/refunds/form/:token" element={<RefundFormPage />} />
       </Routes>
     </BrowserRouter>
   );

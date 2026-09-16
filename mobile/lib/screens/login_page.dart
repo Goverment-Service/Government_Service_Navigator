@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:mobile/screens/dashboard_screen.dart';
 import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
+import '../services/session_store.dart';
 import 'signup_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -42,6 +43,10 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = false);
 
     if (result.success) {
+      if (result.token != null && result.user != null) {
+        await SessionStore.save(result.token!, result.user!);
+      }
+      if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         CupertinoPageRoute(builder: (_) => const DashboardScreen()),
         (route) => false,

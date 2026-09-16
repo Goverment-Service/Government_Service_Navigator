@@ -1,11 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import jsPDF from "jspdf";
-import { ContentSwitcher, Switch, Button, TableContainer, Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from "@carbon/react";
+import { ContentSwitcher, Switch, Button, TableContainer, Table, TableHead, TableRow, TableHeader, TableBody, TableCell, InlineLoading, InlineNotification } from "@carbon/react";
 import { DocumentPdf } from "@carbon/icons-react";
 import FinanceShell from "./finance_shell";
-import { loadPayments } from "./financeData";
-import { buildLedger, type LedgerPeriod } from "./ledger";
+import { fetchLogs, type LogBucket } from "./financeApi";
 import { formatCurrency } from "./format";
+
+type LedgerPeriod = "daily" | "weekly" | "monthly" | "yearly";
 
 const PERIODS: { key: LedgerPeriod; label: string; description: string }[] = [
   { key: "daily", label: "Daily", description: "Last 14 days" },
@@ -15,10 +16,30 @@ const PERIODS: { key: LedgerPeriod; label: string; description: string }[] = [
 ];
 
 export default function FinanceLedger() {
-  const [payments] = useState(loadPayments);
   const [period, setPeriod] = useState<LedgerPeriod>("monthly");
+  const [entries, setEntries] = useState<LogBucket[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const entries = useMemo(() => buildLedger(payments, period), [payments, period]);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetchLogs(period)
+      .then((data) => {
+        if (!cancelled) setEntries(data);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Could not load the ledger.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [period]);
+
   const grandTotal = useMemo(() => entries.reduce((acc, e) => acc + e.total, 0), [entries]);
   const activePeriodMeta = PERIODS.find((p) => p.key === period)!;
 
@@ -28,13 +49,13 @@ export default function FinanceLedger() {
     let y = 20;
 
     doc.setFontSize(16);
-    doc.text("Government Service Navigator - Account Ledger", marginX, y);
+    doc.text("Government Service Navigator - Payment Log / Account Ledger", marginX, y);
     y += 7;
 
     doc.setFontSize(10);
     doc.setTextColor(90);
     doc.text(
-      `${activePeriodMeta.label} ledger (${activePeriodMeta.description}) - generated ${new Date().toLocaleString()}`,
+      `${activePeriodMeta.label} log (${activePeriodMeta.description}) - generated ${new Date().toLocaleString()}`,
       marginX,
       y
     );
@@ -45,12 +66,12 @@ export default function FinanceLedger() {
     y += 8;
 
     const columns = [
-      { label: "Period", x: marginX, width: 42 },
-      { label: "Bank Transfer", x: marginX + 42, width: 32 },
-      { label: "Bank Deposit", x: marginX + 74, width: 32 },
-      { label: "Online Pay", x: marginX + 106, width: 32 },
-      { label: "Payments", x: marginX + 138, width: 20 },
-      { label: "Total", x: marginX + 158, width: 24 },
+      { label: "Period", x: marginX },
+      { label: "Bank Transfer", x: marginX + 42 },
+      { label: "Stripe", x: marginX + 78 },
+      { label: "Refunded", x: marginX + 108 },
+      { label: "Payments", x: marginX + 140 },
+      { label: "Total", x: marginX + 165 },
     ];
 
     doc.setFontSize(9);
@@ -69,9 +90,9 @@ export default function FinanceLedger() {
         y = 20;
       }
       doc.text(entry.label, columns[0].x, y);
-      doc.text(entry.onlineBankTransferTotal.toLocaleString(), columns[1].x, y);
-      doc.text(entry.bankDepositTotal.toLocaleString(), columns[2].x, y);
-      doc.text(entry.onlinePayTotal.toLocaleString(), columns[3].x, y);
+      doc.text(entry.bankTransferTotal.toLocaleString(), columns[1].x, y);
+      doc.text(entry.stripeTotal.toLocaleString(), columns[2].x, y);
+      doc.text(entry.refundedTotal.toLocaleString(), columns[3].x, y);
       doc.text(String(entry.count), columns[4].x, y);
       doc.text(entry.total.toLocaleString(), columns[5].x, y);
       y += 6;
@@ -86,7 +107,7 @@ export default function FinanceLedger() {
     doc.setFontSize(11);
     doc.text(`Grand Total: ${formatCurrency(grandTotal)}`, marginX, y);
 
-    doc.save(`ledger_${period}_${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`payment_log_${period}_${new Date().toISOString().slice(0, 10)}.pdf`);
   }
 
   return (
@@ -102,15 +123,17 @@ export default function FinanceLedger() {
         }}
       >
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 400, color: '#161616' }}>Account Ledger</h1>
+          <h1 style={{ fontSize: '2rem', fontWeight: 400, color: '#161616' }}>Payment Logs &amp; Account Ledger</h1>
           <p style={{ color: '#525252', marginTop: '0.5rem' }}>
-            Verified fee receipts booked by period, broken down by payment method.
+            Verified/Paid fee receipts booked by period, broken down by payment method, with refunds netted out.
           </p>
         </div>
-        <Button renderIcon={DocumentPdf} onClick={exportPdf}>
+        <Button renderIcon={DocumentPdf} onClick={exportPdf} disabled={loading || entries.length === 0}>
           Export PDF
         </Button>
       </div>
+
+      {error && <InlineNotification kind="error" title="Could not load the ledger" subtitle={error} lowContrast style={{ marginBottom: '1rem' }} />}
 
       <div style={{ marginBottom: '1.5rem', maxWidth: '520px' }}>
         <ContentSwitcher
@@ -124,49 +147,53 @@ export default function FinanceLedger() {
         <p style={{ fontSize: '0.75rem', color: '#525252', marginTop: '0.5rem' }}>{activePeriodMeta.description}</p>
       </div>
 
-      <TableContainer
-        title={`${activePeriodMeta.label} Ledger`}
-        description="Only Verified payments are recognized revenue and appear here."
-      >
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableHeader>Period</TableHeader>
-              <TableHeader>Online Bank Transfer</TableHeader>
-              <TableHeader>Bank Deposit</TableHeader>
-              <TableHeader>Online Pay</TableHeader>
-              <TableHeader>Payments</TableHeader>
-              <TableHeader>Total</TableHeader>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {entries.map((entry) => (
-              <TableRow key={entry.label}>
-                <TableCell>{entry.label}</TableCell>
-                <TableCell>{formatCurrency(entry.onlineBankTransferTotal)}</TableCell>
-                <TableCell>{formatCurrency(entry.bankDepositTotal)}</TableCell>
-                <TableCell>{formatCurrency(entry.onlinePayTotal)}</TableCell>
-                <TableCell>{entry.count}</TableCell>
-                <TableCell style={{ fontWeight: 600 }}>{formatCurrency(entry.total)}</TableCell>
+      {loading ? (
+        <InlineLoading description="Loading ledger..." />
+      ) : (
+        <TableContainer
+          title={`${activePeriodMeta.label} Log`}
+          description="Only Verified/Paid payments are recognized revenue and appear here."
+        >
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableHeader>Period</TableHeader>
+                <TableHeader>Bank Transfer</TableHeader>
+                <TableHeader>Stripe</TableHeader>
+                <TableHeader>Refunded</TableHeader>
+                <TableHeader>Payments</TableHeader>
+                <TableHeader>Total</TableHeader>
               </TableRow>
-            ))}
-            <TableRow>
-              <TableCell style={{ fontWeight: 700 }}>Grand Total</TableCell>
-              <TableCell style={{ fontWeight: 700 }}>
-                {formatCurrency(entries.reduce((acc, e) => acc + e.onlineBankTransferTotal, 0))}
-              </TableCell>
-              <TableCell style={{ fontWeight: 700 }}>
-                {formatCurrency(entries.reduce((acc, e) => acc + e.bankDepositTotal, 0))}
-              </TableCell>
-              <TableCell style={{ fontWeight: 700 }}>
-                {formatCurrency(entries.reduce((acc, e) => acc + e.onlinePayTotal, 0))}
-              </TableCell>
-              <TableCell style={{ fontWeight: 700 }}>{entries.reduce((acc, e) => acc + e.count, 0)}</TableCell>
-              <TableCell style={{ fontWeight: 700 }}>{formatCurrency(grandTotal)}</TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {entries.map((entry) => (
+                <TableRow key={entry.label}>
+                  <TableCell>{entry.label}</TableCell>
+                  <TableCell>{formatCurrency(entry.bankTransferTotal)}</TableCell>
+                  <TableCell>{formatCurrency(entry.stripeTotal)}</TableCell>
+                  <TableCell>{formatCurrency(entry.refundedTotal)}</TableCell>
+                  <TableCell>{entry.count}</TableCell>
+                  <TableCell style={{ fontWeight: 600 }}>{formatCurrency(entry.total)}</TableCell>
+                </TableRow>
+              ))}
+              <TableRow>
+                <TableCell style={{ fontWeight: 700 }}>Grand Total</TableCell>
+                <TableCell style={{ fontWeight: 700 }}>
+                  {formatCurrency(entries.reduce((acc, e) => acc + e.bankTransferTotal, 0))}
+                </TableCell>
+                <TableCell style={{ fontWeight: 700 }}>
+                  {formatCurrency(entries.reduce((acc, e) => acc + e.stripeTotal, 0))}
+                </TableCell>
+                <TableCell style={{ fontWeight: 700 }}>
+                  {formatCurrency(entries.reduce((acc, e) => acc + e.refundedTotal, 0))}
+                </TableCell>
+                <TableCell style={{ fontWeight: 700 }}>{entries.reduce((acc, e) => acc + e.count, 0)}</TableCell>
+                <TableCell style={{ fontWeight: 700 }}>{formatCurrency(grandTotal)}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
     </FinanceShell>
   );
 }

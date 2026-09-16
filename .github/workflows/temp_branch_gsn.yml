@@ -24,7 +24,7 @@ jobs:
           dotnet-version: '10.x'
 
       - name: Build with dotnet
-        working-directory: ./backend/src
+        working-directory: ./backend
         run: dotnet build --configuration Release
 
       - name: dotnet publish
@@ -62,5 +62,5 @@ jobs:
         with:
           app-name: 'GSN'
           slot-name: 'Production'
-          package: ./backend/src
+          package: ./backend
           

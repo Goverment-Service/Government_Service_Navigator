@@ -1,0 +1,109 @@
+using Government_Service_Navigator.Backend.DTOs.Requests;
+using Government_Service_Navigator.Backend.DTOs.Responses;
+using Government_Service_Navigator.Backend.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Government_Service_Navigator.Backend.Controllers
+{
+    [ApiController]
+    [Route("api/refunds")]
+    public class RefundsController : ControllerBase
+    {
+        private readonly IRefundService _refundService;
+
+        public RefundsController(IRefundService refundService)
+        {
+            _refundService = refundService;
+        }
+
+        // Citizen creates a refund request on a paid payment.
+        [HttpPost]
+        [Authorize]
+        public async Task<IActionResult> Create([FromBody] CreateRefundRequestDto dto)
+        {
+            var email = User.Identity?.Name ?? "unknown@user";
+            try
+            {
+                var refund = await _refundService.CreateRefundRequestAsync(dto.PaymentId, dto.RefundAmount, dto.Reason, email);
+                return CreatedAtAction(nameof(GetById), new { id = refund.Id }, RefundResponseDto.FromEntity(refund));
+            }
+            catch (KeyNotFoundException ex) { return NotFound(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpGet("{id}")]
+        [Authorize]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var refund = await _refundService.GetRefundByIdAsync(id);
+            if (refund == null) return NotFound();
+            return Ok(RefundResponseDto.FromEntity(refund));
+        }
+
+        [HttpGet("{id}/status")]
+        [Authorize]
+        public async Task<IActionResult> GetStatus(int id)
+        {
+            var refund = await _refundService.GetRefundByIdAsync(id);
+            if (refund == null) return NotFound();
+            return Ok(new { refund.Id, refund.Status });
+        }
+
+        // TODO: restrict to the FinanceOfficer/Officer role once role claims are finalized.
+        [HttpPost("{id}/approve")]
+        [Authorize]
+        public async Task<IActionResult> Approve(int id, [FromBody] RefundDecisionDto dto)
+        {
+            var email = User.Identity?.Name ?? "unknown@officer";
+            try
+            {
+                var refund = await _refundService.ApproveAsync(id, email, dto.Note);
+                return Ok(RefundResponseDto.FromEntity(refund));
+            }
+            catch (KeyNotFoundException ex) { return NotFound(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPost("{id}/reject")]
+        [Authorize]
+        public async Task<IActionResult> Reject(int id, [FromBody] RefundDecisionDto dto)
+        {
+            var email = User.Identity?.Name ?? "unknown@officer";
+            try
+            {
+                var refund = await _refundService.RejectAsync(id, email, dto.Note);
+                return Ok(RefundResponseDto.FromEntity(refund));
+            }
+            catch (KeyNotFoundException ex) { return NotFound(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPost("{id}/process")]
+        [Authorize]
+        public async Task<IActionResult> Process(int id, [FromBody] RefundProcessDto dto)
+        {
+            try
+            {
+                var refund = await _refundService.ProcessAsync(id, dto.TransactionRef);
+                return Ok(RefundResponseDto.FromEntity(refund));
+            }
+            catch (KeyNotFoundException ex) { return NotFound(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+            catch (ArgumentException ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPost("{id}/complete")]
+        [Authorize]
+        public async Task<IActionResult> Complete(int id)
+        {
+            try
+            {
+                var refund = await _refundService.CompleteAsync(id);
+                return Ok(RefundResponseDto.FromEntity(refund));
+            }
+            catch (KeyNotFoundException ex) { return NotFound(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        }
+    }
+}

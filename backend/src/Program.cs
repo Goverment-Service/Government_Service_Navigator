@@ -73,6 +73,7 @@ builder.Services.AddScoped<ITemplateService, TemplateService>();
 builder.Services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
 builder.Services.AddScoped<IRefundService, Government_Service_Navigator.Backend.Services.RefundService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IInstallmentPlanService, InstallmentPlanService>();
 
 // 3. Setup CORS (Crucial for Flutter/Mobile/Web app connectivity)
 builder.Services.AddCors(options =>

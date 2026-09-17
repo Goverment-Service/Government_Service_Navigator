@@ -95,15 +95,13 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(flags);
         }
 
-                [HttpGet("analytics/approval-likelihood/{serviceProcedureId}")]
+        [HttpGet("analytics/approval-likelihood/{serviceProcedureId}")]
         [Authorize]
         public async Task<IActionResult> GetApprovalLikelihood(int serviceProcedureId)
         {
             var result = await _analyticsService.GetApprovalLikelihoodAsync(serviceProcedureId);
             return Ok(result);
         }
-
-        [HttpGet("analytics/anomaly-detection/open")]
 
         [HttpPost("analytics/anomaly-detection/{id}/resolve")]
         [Authorize]

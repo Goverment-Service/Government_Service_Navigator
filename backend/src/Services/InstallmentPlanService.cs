@@ -69,16 +69,75 @@ namespace Government_Service_Navigator.Backend.Services
             return plan;
         }
 
-        public Task<InstallmentPlanResponseDto?> GetByIdAsync(int id)
+        public async Task<InstallmentPlanResponseDto?> GetByIdAsync(int id)
         {
-            // Implemented in the next commit.
-            throw new NotImplementedException();
+            var plan = await _context.InstallmentPlans
+                .Include(p => p.Installments)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (plan == null) return null;
+
+            // Flag any pending installments that are now past due.
+            var today = DateTime.UtcNow;
+            var changed = false;
+
+            if (plan.Installments != null)
+            {
+                foreach (var installment in plan.Installments)
+                {
+                    if (installment.Status == "Pending" && installment.DueDate < today)
+                    {
+                        installment.Status = "Overdue";
+                        changed = true;
+                    }
+                }
+            }
+
+            if (changed)
+            {
+                await _context.SaveChangesAsync();
+            }
+
+            return InstallmentPlanResponseDto.FromEntity(plan);
         }
 
-        public Task<Installment> MarkInstallmentPaidAsync(int installmentId)
+        public async Task<Installment> MarkInstallmentPaidAsync(int installmentId)
         {
-            // Implemented in the next commit.
-            throw new NotImplementedException();
+            var installment = await _context.Installments
+                .Include(i => i.InstallmentPlan)
+                .FirstOrDefaultAsync(i => i.Id == installmentId);
+
+            if (installment == null)
+            {
+                throw new KeyNotFoundException($"Installment {installmentId} not found.");
+            }
+
+            if (installment.Status == "Paid")
+            {
+                throw new InvalidOperationException("This installment is already marked as paid.");
+            }
+
+            installment.Status = "Paid";
+            installment.PaidDate = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            // If every installment in the plan is now paid, mark the plan itself Completed.
+            var plan = installment.InstallmentPlan;
+            if (plan != null)
+            {
+                var allInstallments = await _context.Installments
+                    .Where(i => i.InstallmentPlanId == plan.Id)
+                    .ToListAsync();
+
+                if (allInstallments.All(i => i.Status == "Paid"))
+                {
+                    plan.Status = "Completed";
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            return installment;
         }
     }
 }

@@ -42,15 +42,36 @@ namespace Government_Service_Navigator.Backend.Services
             }
         }
 
-        // Templates implemented in the next commit.
-        public Task NotifyRefundStatusAsync(string toEmail, int refundId, string status, string? note)
+                public async Task NotifyRefundStatusAsync(string toEmail, int refundId, string status, string? note)
         {
-            throw new NotImplementedException();
+            var subject = $"Refund Request #{refundId} - {status}";
+            var body = status switch
+            {
+                "Pending" => $"Your refund request #{refundId} has been received and is under review.",
+                "Approved" => $"Your refund request #{refundId} has been approved.{(string.IsNullOrEmpty(note) ? "" : $" Note: {note}")}",
+                "Rejected" => $"Your refund request #{refundId} has been rejected.{(string.IsNullOrEmpty(note) ? "" : $" Reason: {note}")}",
+                "Processing" => $"Your refund request #{refundId} is now being processed.",
+                "Completed" => $"Your refund request #{refundId} has been completed. The amount has been returned to you.",
+                "Failed" => $"Your refund request #{refundId} could not be processed. Please contact support.",
+                _ => $"Your refund request #{refundId} status has changed to {status}."
+            };
+
+            await SendEmailAsync(toEmail, subject, body);
         }
 
-        public Task NotifyPaymentStatusAsync(string toEmail, int paymentId, string status)
+        public async Task NotifyPaymentStatusAsync(string toEmail, int paymentId, string status)
         {
-            throw new NotImplementedException();
+            var subject = $"Payment #{paymentId} - {status}";
+            var body = status switch
+            {
+                "Paid" => $"Your payment #{paymentId} was successful. Thank you.",
+                "PendingVerification" => $"Your payment slip for #{paymentId} has been received and is under review by our Finance Officer.",
+                "Failed" => $"Your payment #{paymentId} could not be verified. Please contact support or resubmit.",
+                "Refunded" => $"Your payment #{paymentId} has been refunded.",
+                _ => $"Your payment #{paymentId} status has changed to {status}."
+            };
+
+            await SendEmailAsync(toEmail, subject, body);
         }
     }
 }

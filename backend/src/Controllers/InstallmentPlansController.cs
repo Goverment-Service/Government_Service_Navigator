@@ -54,5 +54,18 @@ namespace Government_Service_Navigator.Backend.Controllers
             catch (KeyNotFoundException ex) { return NotFound(ex.Message); }
             catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
         }
+
+        [HttpPost("installment-plans/{id}/cancel")]
+        [Authorize]
+        public async Task<IActionResult> Cancel(int id)
+        {
+            try
+            {
+                var plan = await _installmentPlanService.CancelPlanAsync(id);
+                return Ok(plan);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        }
     }
 }

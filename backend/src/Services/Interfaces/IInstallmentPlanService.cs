@@ -8,5 +8,6 @@ namespace Government_Service_Navigator.Backend.Services.Interfaces
         Task<InstallmentPlan> CreatePlanAsync(int paymentId, int numberOfInstallments, int intervalDays);
         Task<InstallmentPlanResponseDto?> GetByIdAsync(int id);
         Task<Installment> MarkInstallmentPaidAsync(int installmentId);
+        Task<InstallmentPlan> CancelPlanAsync(int planId);
     }
 }

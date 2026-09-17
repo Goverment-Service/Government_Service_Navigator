@@ -139,5 +139,33 @@ namespace Government_Service_Navigator.Backend.Services
 
             return installment;
         }
+        
+        public async Task<InstallmentPlan> CancelPlanAsync(int planId)
+        {
+            var plan = await _context.InstallmentPlans
+                .Include(p => p.Installments)
+                .FirstOrDefaultAsync(p => p.Id == planId);
+
+            if (plan == null)
+            {
+                throw new KeyNotFoundException($"Installment plan {planId} not found.");
+            }
+
+            if (plan.Status != "Active")
+            {
+                throw new InvalidOperationException("Only active plans can be cancelled.");
+            }
+
+            var hasPaidInstallments = plan.Installments?.Any(i => i.Status == "Paid") ?? false;
+            if (hasPaidInstallments)
+            {
+                throw new InvalidOperationException("Cannot cancel a plan that already has paid installments.");
+            }
+
+            plan.Status = "Cancelled";
+            await _context.SaveChangesAsync();
+
+            return plan;
+        }
     }
 }

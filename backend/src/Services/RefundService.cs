@@ -8,10 +8,12 @@ namespace Government_Service_Navigator.Backend.Services
     public class RefundService : IRefundService
     {
         private readonly AppDbContext _context;
+        private readonly INotificationService _notificationService;
 
-        public RefundService(AppDbContext context)
+        public RefundService(AppDbContext context, INotificationService notificationService)
         {
             _context = context;
+            _notificationService = notificationService;
         }
 
         // Methods implemented in upcoming commits.
@@ -55,6 +57,8 @@ namespace Government_Service_Navigator.Backend.Services
             _context.RefundRequests.Add(refund);
             await _context.SaveChangesAsync();
 
+            await _notificationService.NotifyRefundStatusAsync(requestedByEmail, refund.Id, "Pending", null);
+
             return refund;
         }
 
@@ -86,6 +90,8 @@ namespace Government_Service_Navigator.Backend.Services
 
             await _context.SaveChangesAsync();
 
+            await _notificationService.NotifyRefundStatusAsync(refund.RequestedByEmail, refund.Id, "Approved", note);
+
             return refund;
         }
 
@@ -109,6 +115,8 @@ namespace Government_Service_Navigator.Backend.Services
             refund.DecidedDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+
+            await _notificationService.NotifyRefundStatusAsync(refund.RequestedByEmail, refund.Id, "Rejected", note);
 
             return refund;
         }
@@ -166,6 +174,9 @@ namespace Government_Service_Navigator.Backend.Services
             }
 
             await _context.SaveChangesAsync();
+
+            await _notificationService.NotifyRefundStatusAsync(refund.RequestedByEmail, refund.Id, "Completed", null);
+
 
             return refund;
         }

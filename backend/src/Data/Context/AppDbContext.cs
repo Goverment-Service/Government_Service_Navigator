@@ -26,6 +26,8 @@ namespace Government_Service_Navigator.Backend.Data.Context
         public DbSet<RevokedToken> RevokedTokens { get; set; }
         public DbSet<Payment> Payments { get; set; }
         public DbSet<RefundRequest> RefundRequests { get; set; }
+        public DbSet<InstallmentPlan> InstallmentPlans { get; set; }
+        public DbSet<Installment> Installments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -69,13 +71,30 @@ namespace Government_Service_Navigator.Backend.Data.Context
                 .HasIndex(t => t.Jti)
                 .IsUnique();
 
-                        modelBuilder.Entity<RefundRequest>(entity =>
+            modelBuilder.Entity<RefundRequest>(entity =>
             {
                 entity.HasOne(r => r.Payment)
                       .WithMany(p => p.RefundRequests)
                       .HasForeignKey(r => r.PaymentId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
+
+            modelBuilder.Entity<InstallmentPlan>(entity =>
+            {
+                entity.HasOne(ip => ip.Payment)
+                      .WithMany()
+                      .HasForeignKey(ip => ip.PaymentId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Installment>(entity =>
+            {
+                entity.HasOne(i => i.InstallmentPlan)
+                      .WithMany(ip => ip.Installments)
+                      .HasForeignKey(i => i.InstallmentPlanId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
 
             modelBuilder.Entity<Template>()
                 .HasMany(t => t.Fields)

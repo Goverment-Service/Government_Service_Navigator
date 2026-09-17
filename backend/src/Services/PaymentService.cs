@@ -71,10 +71,55 @@ namespace Government_Service_Navigator.Backend.Services
             return payment;
         }
 
-        public Task<PaymentLedgerDto> GetLedgerAsync(int id)
+        public async Task<PaymentLedgerDto> GetLedgerAsync(int id)
         {
-            // Implemented in the next commit.
-            throw new NotImplementedException();
+            var payment = await _context.Payments
+                .Include(p => p.RefundRequests)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (payment == null)
+            {
+                throw new KeyNotFoundException($"Payment {id} not found.");
+            }
+
+            var entries = new List<LedgerEntryDto>
+            {
+                new LedgerEntryDto
+                {
+                    Type = "Payment",
+                    Amount = payment.Amount,
+                    Date = payment.PaidDate ?? payment.CreatedDate,
+                    Description = $"Payment via {payment.Method}"
+                }
+            };
+
+            decimal totalRefunded = 0;
+
+            if (payment.RefundRequests != null)
+            {
+                foreach (var refund in payment.RefundRequests.Where(r => r.Status == RefundStatus.Completed))
+                {
+                    entries.Add(new LedgerEntryDto
+                    {
+                        Type = "Refund",
+                        Amount = -refund.RefundAmount,
+                        Date = refund.CompletedDate ?? refund.RequestedDate,
+                        Description = $"Refund: {refund.Reason}"
+                    });
+
+                    totalRefunded += refund.RefundAmount;
+                }
+            }
+
+            return new PaymentLedgerDto
+            {
+                PaymentId = payment.Id,
+                OriginalAmount = payment.Amount,
+                TotalRefunded = totalRefunded,
+                RunningBalance = payment.Amount - totalRefunded,
+                Status = payment.Status,
+                Entries = entries.OrderBy(e => e.Date).ToList()
+            };
         }
     }
 }

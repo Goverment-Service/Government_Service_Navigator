@@ -64,10 +64,26 @@ namespace Government_Service_Navigator.Backend.Services
             return AggregateAsync(start, end, year.ToString());
         }
 
-        public Task<ApprovalLikelihoodDto> GetApprovalLikelihoodAsync(int serviceProcedureId)
+        public async Task<ApprovalLikelihoodDto> GetApprovalLikelihoodAsync(int serviceProcedureId)
         {
-            // Implemented in a later commit alongside the innovative feature wiring.
-            throw new NotImplementedException();
+            var stats = await _context.ServiceUsageStats
+                .Where(s => s.ServiceProcedureId == serviceProcedureId)
+                .ToListAsync();
+
+            var totalDecided = stats.Sum(s => s.ApprovedCount + s.RejectedCount);
+            var totalApproved = stats.Sum(s => s.ApprovedCount);
+
+            // With no historical data yet, default to a neutral 50% rather than divide by zero.
+            var likelihood = totalDecided > 0
+                ? Math.Round((double)totalApproved / totalDecided * 100, 1)
+                : 50.0;
+
+            return new ApprovalLikelihoodDto
+            {
+                ServiceProcedureId = serviceProcedureId,
+                ApprovalLikelihoodPercent = likelihood,
+                SampleSize = totalDecided
+            };
         }
 
         public async Task<ReportSnapshot> SaveSnapshotAsync(string title, string period, string dataJson, string generatedByEmail)

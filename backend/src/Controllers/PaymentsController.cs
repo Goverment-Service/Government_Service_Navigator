@@ -67,5 +67,19 @@ namespace Government_Service_Navigator.Backend.Controllers
             var (payment, checkoutUrl) = await _paymentService.CreateStripeCheckoutAsync(dto.ApplicationId, dto.Amount, dto.UserEmail);
             return Ok(new { paymentId = payment.Id, checkoutUrl });
         }
+
+        // Testing-only helper: manually check Stripe session status without needing a webhook.
+        [HttpGet("{id}/confirm")]
+        [Authorize]
+        public async Task<IActionResult> ConfirmPayment(int id)
+        {
+            try
+            {
+                var payment = await _paymentService.ConfirmStripePaymentAsync(id);
+                return Ok(payment);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        }
     }
 }

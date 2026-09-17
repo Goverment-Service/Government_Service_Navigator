@@ -172,5 +172,32 @@ namespace Government_Service_Navigator.Backend.Services
 
             return (payment, session.Url);
         }
+        // for testing in swagger
+        public async Task<Payment> ConfirmStripePaymentAsync(int paymentId)
+        {
+            var payment = await _context.Payments.FindAsync(paymentId);
+
+            if (payment == null)
+            {
+                throw new KeyNotFoundException($"Payment {paymentId} not found.");
+            }
+
+            if (string.IsNullOrEmpty(payment.StripePaymentIntentId))
+            {
+                throw new InvalidOperationException("This payment has no associated Stripe session.");
+            }
+
+            var service = new SessionService();
+            var session = await service.GetAsync(payment.StripePaymentIntentId);
+
+            if (session.PaymentStatus == "paid" && payment.Status != "Paid")
+            {
+                payment.Status = "Paid";
+                payment.PaidDate = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+
+            return payment;
+        }
     }
 }

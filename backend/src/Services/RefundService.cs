@@ -57,10 +57,22 @@ namespace Government_Service_Navigator.Backend.Services
             _context.RefundRequests.Add(refund);
             await _context.SaveChangesAsync();
 
-            await _notificationService.NotifyRefundStatusAsync(requestedByEmail, refund.Id, "Pending", null);
+                        await _notificationService.NotifyRefundStatusAsync(requestedByEmail, refund.Id, "Pending", null);
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ApplicationId = payment.ApplicationId,
+                Action = "RefundRequestCreated",
+                PerformedBy = requestedByEmail,
+                Timestamp = DateTime.UtcNow,
+                OldValues = "",
+                NewValues = $"RefundId={refund.Id}, Amount={refund.RefundAmount}, Status=Pending"
+            });
+            await _context.SaveChangesAsync();
 
             return refund;
         }
+
 
         public async Task<RefundRequest?> GetRefundByIdAsync(int id)
         {
@@ -90,10 +102,22 @@ namespace Government_Service_Navigator.Backend.Services
 
             await _context.SaveChangesAsync();
 
-            await _notificationService.NotifyRefundStatusAsync(refund.RequestedByEmail, refund.Id, "Approved", note);
+                        await _notificationService.NotifyRefundStatusAsync(refund.RequestedByEmail, refund.Id, "Approved", note);
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ApplicationId = 0,
+                Action = "RefundApproved",
+                PerformedBy = decidedByEmail,
+                Timestamp = DateTime.UtcNow,
+                OldValues = "Status=Pending",
+                NewValues = $"RefundId={refund.Id}, Status=Approved, Note={note}"
+            });
+            await _context.SaveChangesAsync();
 
             return refund;
         }
+
 
         public async Task<RefundRequest> RejectAsync(int id, string decidedByEmail, string? note)
         {
@@ -116,7 +140,18 @@ namespace Government_Service_Navigator.Backend.Services
 
             await _context.SaveChangesAsync();
 
-            await _notificationService.NotifyRefundStatusAsync(refund.RequestedByEmail, refund.Id, "Rejected", note);
+                        await _notificationService.NotifyRefundStatusAsync(refund.RequestedByEmail, refund.Id, "Rejected", note);
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ApplicationId = 0,
+                Action = "RefundRejected",
+                PerformedBy = decidedByEmail,
+                Timestamp = DateTime.UtcNow,
+                OldValues = "Status=Pending",
+                NewValues = $"RefundId={refund.Id}, Status=Rejected, Note={note}"
+            });
+            await _context.SaveChangesAsync();
 
             return refund;
         }
@@ -175,8 +210,18 @@ namespace Government_Service_Navigator.Backend.Services
 
             await _context.SaveChangesAsync();
 
-            await _notificationService.NotifyRefundStatusAsync(refund.RequestedByEmail, refund.Id, "Completed", null);
+                        await _notificationService.NotifyRefundStatusAsync(refund.RequestedByEmail, refund.Id, "Completed", null);
 
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ApplicationId = refund.Payment?.ApplicationId ?? 0,
+                Action = "RefundCompleted",
+                PerformedBy = "system",
+                Timestamp = DateTime.UtcNow,
+                OldValues = "Status=Processing",
+                NewValues = $"RefundId={refund.Id}, Status=Completed"
+            });
+            await _context.SaveChangesAsync();
 
             return refund;
         }

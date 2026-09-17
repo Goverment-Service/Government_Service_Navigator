@@ -10,11 +10,13 @@ namespace Government_Service_Navigator.Backend.Services
 {
     public class PaymentService : IPaymentService
     {
-        private readonly AppDbContext _context;
+    private readonly AppDbContext _context;
+    private readonly INotificationService _notificationService;
 
-        public PaymentService(AppDbContext context)
+        public PaymentService(AppDbContext context, INotificationService notificationService)
         {
             _context = context;
+            _notificationService = notificationService;
         }
 
         public async Task<Payment> CreateManualPaymentAsync(int applicationId, decimal amount, string userEmail, string slipUrl)
@@ -33,6 +35,9 @@ namespace Government_Service_Navigator.Backend.Services
 
             _context.Payments.Add(payment);
             await _context.SaveChangesAsync();
+
+            await _notificationService.NotifyPaymentStatusAsync(userEmail, payment.Id, "PendingVerification");
+
 
             return payment;
         }
@@ -58,6 +63,8 @@ namespace Government_Service_Navigator.Backend.Services
                 throw new InvalidOperationException("Only payments pending verification can be reviewed.");
             }
 
+            var oldStatus = payment.Status;
+
             if (approved)
             {
                 payment.Status = "Paid";
@@ -70,9 +77,21 @@ namespace Government_Service_Navigator.Backend.Services
 
             await _context.SaveChangesAsync();
 
+            await _notificationService.NotifyPaymentStatusAsync(payment.UserEmail, payment.Id, payment.Status);
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ApplicationId = payment.ApplicationId,
+                Action = "PaymentVerified",
+                PerformedBy = "officer",
+                Timestamp = DateTime.UtcNow,
+                OldValues = $"Status={oldStatus}",
+                NewValues = $"PaymentId={payment.Id}, Status={payment.Status}"
+            });
+            await _context.SaveChangesAsync();
+
             return payment;
         }
-
         public async Task<PaymentLedgerDto> GetLedgerAsync(int id)
         {
             var payment = await _context.Payments

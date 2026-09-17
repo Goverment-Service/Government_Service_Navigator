@@ -28,7 +28,10 @@ namespace Government_Service_Navigator.Backend.Data.Context
         public DbSet<RefundRequest> RefundRequests { get; set; }
         public DbSet<InstallmentPlan> InstallmentPlans { get; set; }
         public DbSet<Installment> Installments { get; set; }
-
+        public DbSet<ServiceUsageStat> ServiceUsageStats { get; set; }
+        public DbSet<ReportSnapshot> ReportSnapshots { get; set; }
+        public DbSet<AnomalyFlag> AnomalyFlags { get; set; }
+    
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

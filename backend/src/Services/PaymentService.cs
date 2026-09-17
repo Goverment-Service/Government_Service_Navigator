@@ -3,6 +3,8 @@ using Government_Service_Navigator.Backend.DTOs.Responses;
 using Government_Service_Navigator.Backend.Models.Entities;
 using Government_Service_Navigator.Backend.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Stripe;
+using Stripe.Checkout;
 
 namespace Government_Service_Navigator.Backend.Services
 {
@@ -120,6 +122,55 @@ namespace Government_Service_Navigator.Backend.Services
                 Status = payment.Status,
                 Entries = entries.OrderBy(e => e.Date).ToList()
             };
+        }
+
+        public async Task<(Payment payment, string checkoutUrl)> CreateStripeCheckoutAsync(int applicationId, decimal amount, string userEmail)
+        {
+            var payment = new Payment
+            {
+                ApplicationId = applicationId,
+                Amount = amount,
+                Currency = "LKR",
+                Method = "Online",
+                Status = "Pending",
+                UserEmail = userEmail,
+                CreatedDate = DateTime.UtcNow
+            };
+
+            _context.Payments.Add(payment);
+            await _context.SaveChangesAsync();
+
+            var options = new SessionCreateOptions
+            {
+                PaymentMethodTypes = new List<string> { "card" },
+                LineItems = new List<SessionLineItemOptions>
+                {
+                    new SessionLineItemOptions
+                    {
+                        PriceData = new SessionLineItemPriceDataOptions
+                        {
+                            UnitAmount = (long)(amount * 100), // Stripe expects the smallest currency unit
+                            Currency = "usd", // sandbox testing currency; adjust once a supported currency is confirmed
+                            ProductData = new SessionLineItemPriceDataProductDataOptions
+                            {
+                                Name = $"Application #{applicationId} Fee"
+                            }
+                        },
+                        Quantity = 1
+                    }
+                },
+                Mode = "payment",
+                SuccessUrl = "https://example.com/success?paymentId=" + payment.Id,
+                CancelUrl = "https://example.com/cancel?paymentId=" + payment.Id
+            };
+
+            var service = new SessionService();
+            var session = await service.CreateAsync(options);
+
+            payment.StripePaymentIntentId = session.Id;
+            await _context.SaveChangesAsync();
+
+            return (payment, session.Url);
         }
     }
 }

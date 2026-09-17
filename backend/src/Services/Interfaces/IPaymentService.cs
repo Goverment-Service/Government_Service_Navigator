@@ -9,5 +9,6 @@ namespace Government_Service_Navigator.Backend.Services.Interfaces
         Task<Payment?> GetByIdAsync(int id);
         Task<Payment> VerifyManualPaymentAsync(int id, bool approved, string? note);
         Task<PaymentLedgerDto> GetLedgerAsync(int id);
+        Task<(Payment payment, string checkoutUrl)> CreateStripeCheckoutAsync(int applicationId, decimal amount, string userEmail);    
     }
 }

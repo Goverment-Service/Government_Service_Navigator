@@ -59,5 +59,13 @@ namespace Government_Service_Navigator.Backend.Controllers
             }
             catch (KeyNotFoundException ex) { return NotFound(ex.Message); }
         }
+
+        [HttpPost("checkout")]
+        [Authorize]
+        public async Task<IActionResult> CreateCheckout([FromBody] CreateCheckoutSessionDto dto)
+        {
+            var (payment, checkoutUrl) = await _paymentService.CreateStripeCheckoutAsync(dto.ApplicationId, dto.Amount, dto.UserEmail);
+            return Ok(new { paymentId = payment.Id, checkoutUrl });
+        }
     }
 }

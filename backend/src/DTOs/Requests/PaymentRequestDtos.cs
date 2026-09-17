@@ -14,4 +14,11 @@ namespace Government_Service_Navigator.Backend.DTOs.Requests
         public bool Approved { get; set; }
         public string? Note { get; set; }
     }
+
+    public class CreateCheckoutSessionDto
+    {
+        public int ApplicationId { get; set; }
+        public decimal Amount { get; set; }
+        public string UserEmail { get; set; } = string.Empty;
+    }
 }

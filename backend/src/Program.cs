@@ -76,6 +76,7 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IInstallmentPlanService, InstallmentPlanService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IAnomalyDetectionService, AnomalyDetectionService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // 3. Setup CORS (Crucial for Flutter/Mobile/Web app connectivity)
 builder.Services.AddCors(options =>

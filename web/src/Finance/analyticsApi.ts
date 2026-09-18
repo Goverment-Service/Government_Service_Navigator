@@ -82,23 +82,23 @@ export function deleteReportSnapshot(id: number): Promise<void> {
 
 // ── Anomaly Detection ─────────────────────────────────────────────────────────
 
-// POST /api/analytics/anomaly-detection
-export function runAnomalyScan(): Promise<{ newFlagsCount: number; flags: AnomalyFlag[] }> {
-  return apiFetch("/api/analytics/anomaly-detection", { method: "POST" });
+// POST /api/anomalies/scan
+export function runAnomalyScan(): Promise<AnomalyFlag[]> {
+  return apiFetch("/api/anomalies/scan", { method: "POST" });
 }
 
-// GET /api/analytics/anomaly-detection/open
+// GET /api/anomalies/open
 export function getOpenAnomalyFlags(): Promise<AnomalyFlag[]> {
-  return apiFetch("/api/analytics/anomaly-detection/open");
+  return apiFetch("/api/anomalies/open");
 }
 
-// POST /api/analytics/anomaly-detection/{id}/resolve?status=
+// POST /api/anomalies/{id}/resolve  — body: { status }
 export function resolveAnomalyFlag(
   id: number,
   status: "Reviewed" | "Dismissed"
 ): Promise<AnomalyFlag> {
-  return apiFetch(
-    `/api/analytics/anomaly-detection/${id}/resolve?status=${encodeURIComponent(status)}`,
-    { method: "POST" }
-  );
+  return apiFetch(`/api/anomalies/${id}/resolve`, {
+    method: "POST",
+    body: JSON.stringify({ status }),
+  });
 }

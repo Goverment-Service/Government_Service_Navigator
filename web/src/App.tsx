@@ -8,6 +8,7 @@ import AuditLogs from "./Admin/audit_logs";
 import SystemSettings from "./Admin/system_settings";
 import AdminInstallmentPlans from "./Admin/admin_installment_plans";
 import AdminAnalytics from "./Admin/admin_analytics";
+import AdminAnomalyReview from "./Admin/admin_anomaly_review";
 import ApplicationCreate from "./Officer/Application_create/application_create";
 
 /*
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/admin/system-settings" element={<SystemSettings />} />
         <Route path="/admin/installment-plans" element={<AdminInstallmentPlans />} />
         <Route path="/admin/analytics" element={<AdminAnalytics />} />
+        <Route path="/admin/anomaly-review" element={<AdminAnomalyReview />} />
         <Route path="/admin/services" element={<ServiceCatalogManager />} />
         <Route
           path="/admin/services/rules"

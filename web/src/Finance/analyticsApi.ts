@@ -1,45 +1,24 @@
 import { apiFetch } from "../utils/api";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-export interface DailyAnalytics {
-  date: string;
-  totalPayments: number;
-  totalAmount: number;
-  pendingCount: number;
-  failedCount: number;
-}
-
-export interface WeeklyAnalytics {
-  weekStart: string;
-  totalPayments: number;
-  totalAmount: number;
-  pendingCount: number;
-  failedCount: number;
-}
-
-export interface MonthlyAnalytics {
-  year: number;
-  month: number;
-  totalPayments: number;
-  totalAmount: number;
-  pendingCount: number;
-  failedCount: number;
-}
-
-export interface YearlyAnalytics {
-  year: number;
-  totalPayments: number;
-  totalAmount: number;
-  pendingCount: number;
-  failedCount: number;
+// All four analytics endpoints (daily / weekly / monthly / yearly) return the
+// same UsageAggregateDto shape from the backend.
+export interface UsageAggregate {
+  period: string;             // e.g. "2026-09-17", "Week of 2026-09-11", "2026-09", "2026"
+  totalApplications: number;
+  approvedCount: number;
+  rejectedCount: number;
+  averageProcessingHours: number;
 }
 
 export interface ReportSnapshot {
   id: number;
+  title: string;
   period: string;
-  generatedDate: string;
-  data: string; // raw JSON blob stored by the backend
+  generatedDate: string;  // ISO 8601
+  dataJson: string;       // serialised JSON blob
+  generatedByEmail: string;
 }
 
 export interface AnomalyFlag {
@@ -56,40 +35,38 @@ export interface AnomalyFlag {
 // ── Analytics ─────────────────────────────────────────────────────────────────
 
 // GET /api/analytics/daily?date=YYYY-MM-DD
-export function getDailyAnalytics(date: string): Promise<DailyAnalytics> {
+export function getDailyAnalytics(date: string): Promise<UsageAggregate> {
   return apiFetch(`/api/analytics/daily?date=${encodeURIComponent(date)}`);
 }
 
 // GET /api/analytics/weekly?weekStart=YYYY-MM-DD
-export function getWeeklyAnalytics(weekStart: string): Promise<WeeklyAnalytics> {
+export function getWeeklyAnalytics(weekStart: string): Promise<UsageAggregate> {
   return apiFetch(
     `/api/analytics/weekly?weekStart=${encodeURIComponent(weekStart)}`
   );
 }
 
 // GET /api/analytics/monthly?year=YYYY&month=M
-export function getMonthlyAnalytics(
-  year: number,
-  month: number
-): Promise<MonthlyAnalytics> {
+export function getMonthlyAnalytics(year: number, month: number): Promise<UsageAggregate> {
   return apiFetch(`/api/analytics/monthly?year=${year}&month=${month}`);
 }
 
 // GET /api/analytics/yearly?year=YYYY
-export function getYearlyAnalytics(year: number): Promise<YearlyAnalytics> {
+export function getYearlyAnalytics(year: number): Promise<UsageAggregate> {
   return apiFetch(`/api/analytics/yearly?year=${year}`);
 }
 
 // ── Report Snapshots ──────────────────────────────────────────────────────────
 
-// POST /api/report-snapshots
+// POST /api/report-snapshots  —  body: { title, period, dataJson }
 export function createReportSnapshot(
+  title: string,
   period: string,
   data: object
 ): Promise<ReportSnapshot> {
   return apiFetch("/api/report-snapshots", {
     method: "POST",
-    body: JSON.stringify({ period, data: JSON.stringify(data) }),
+    body: JSON.stringify({ title, period, dataJson: JSON.stringify(data) }),
   });
 }
 
@@ -105,23 +82,23 @@ export function deleteReportSnapshot(id: number): Promise<void> {
 
 // ── Anomaly Detection ─────────────────────────────────────────────────────────
 
-// POST /api/anomalies/scan  (triggers rule-based scan)
-export function runAnomalyScan(): Promise<AnomalyFlag[]> {
-  return apiFetch("/api/anomalies/scan", { method: "POST" });
+// POST /api/analytics/anomaly-detection
+export function runAnomalyScan(): Promise<{ newFlagsCount: number; flags: AnomalyFlag[] }> {
+  return apiFetch("/api/analytics/anomaly-detection", { method: "POST" });
 }
 
-// GET /api/anomalies/open
+// GET /api/analytics/anomaly-detection/open
 export function getOpenAnomalyFlags(): Promise<AnomalyFlag[]> {
-  return apiFetch("/api/anomalies/open");
+  return apiFetch("/api/analytics/anomaly-detection/open");
 }
 
-// POST /api/anomalies/{id}/resolve
+// POST /api/analytics/anomaly-detection/{id}/resolve?status=
 export function resolveAnomalyFlag(
   id: number,
   status: "Reviewed" | "Dismissed"
 ): Promise<AnomalyFlag> {
-  return apiFetch(`/api/anomalies/${id}/resolve`, {
-    method: "POST",
-    body: JSON.stringify({ status }),
-  });
+  return apiFetch(
+    `/api/analytics/anomaly-detection/${id}/resolve?status=${encodeURIComponent(status)}`,
+    { method: "POST" }
+  );
 }

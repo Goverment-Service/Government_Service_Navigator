@@ -20,21 +20,19 @@ export interface PaymentLedger {
 
 export interface InstallmentResponse {
   id: number;
-  installmentPlanId: number;
-  dueDate: string;
+  installmentNumber: number;
   amount: number;
-  status: string;
+  dueDate: string;
+  status: string; // "Pending" | "Paid" | "Overdue"
   paidDate: string | null;
-  stripeSessionId: string | null;
-  checkoutUrl: string | null;
 }
 
 export interface InstallmentPlanResponse {
   id: number;
   paymentId: number;
   numberOfInstallments: number;
-  status: string;
-  createdDate: string;
+  totalAmount: number;
+  status: string; // "Active" | "Completed" | "Cancelled"
   installments: InstallmentResponse[];
 }
 
@@ -62,11 +60,12 @@ export function verifyPayment(
 // PUT /api/payments/{id}/installment-plan
 export function createInstallmentPlan(
   paymentId: number,
-  numberOfInstallments: number
+  numberOfInstallments: number,
+  intervalDays: number
 ): Promise<InstallmentPlanResponse> {
   return apiFetch(`/api/payments/${paymentId}/installment-plan`, {
     method: "PUT",
-    body: JSON.stringify({ numberOfInstallments }),
+    body: JSON.stringify({ numberOfInstallments, intervalDays }),
   });
 }
 

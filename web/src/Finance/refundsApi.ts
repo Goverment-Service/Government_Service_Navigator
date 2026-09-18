@@ -32,6 +32,12 @@ export interface RefundStatusResponse {
 
 // ── API functions ─────────────────────────────────────────────────────────────
 
+// GET /api/refunds?status= (Finance Officer list view)
+export function getAllRefunds(status?: RefundStatus): Promise<RefundResponse[]> {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  return apiFetch(`/api/refunds${qs}`);
+}
+
 // POST /api/refunds
 export function createRefund(
   paymentId: number,

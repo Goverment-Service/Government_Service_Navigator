@@ -17,6 +17,15 @@ namespace Government_Service_Navigator.Backend.Controllers
             _refundService = refundService;
         }
 
+        // Finance Officer: list all refund requests, optionally filtered by status.
+        [HttpGet]
+        [Authorize]
+        public async Task<IActionResult> GetAll([FromQuery] string? status)
+        {
+            var refunds = await _refundService.GetAllAsync(status);
+            return Ok(refunds.Select(RefundResponseDto.FromEntity));
+        }
+
         // Citizen creates a refund request on a paid payment.
         [HttpPost]
         [Authorize]

@@ -74,6 +74,23 @@ namespace Government_Service_Navigator.Backend.Services
         }
 
 
+        public async Task<List<RefundRequest>> GetAllAsync(string? status)
+        {
+            var query = _context.RefundRequests
+                .Include(r => r.Payment)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(status) &&
+                Enum.TryParse<RefundStatus>(status, ignoreCase: true, out var parsedStatus))
+            {
+                query = query.Where(r => r.Status == parsedStatus);
+            }
+
+            return await query
+                .OrderByDescending(r => r.RequestedDate)
+                .ToListAsync();
+        }
+
         public async Task<RefundRequest?> GetRefundByIdAsync(int id)
         {
             return await _context.RefundRequests

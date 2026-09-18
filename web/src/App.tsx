@@ -7,6 +7,7 @@ import OfficerDashboard from "./Officer/officer_dashboard";
 import AuditLogs from "./Admin/audit_logs";
 import SystemSettings from "./Admin/system_settings";
 import AdminInstallmentPlans from "./Admin/admin_installment_plans";
+import AdminAnalytics from "./Admin/admin_analytics";
 import ApplicationCreate from "./Officer/Application_create/application_create";
 
 /*
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="/admin/audit-logs" element={<AuditLogs />} />
         <Route path="/admin/system-settings" element={<SystemSettings />} />
         <Route path="/admin/installment-plans" element={<AdminInstallmentPlans />} />
+        <Route path="/admin/analytics" element={<AdminAnalytics />} />
         <Route path="/admin/services" element={<ServiceCatalogManager />} />
         <Route
           path="/admin/services/rules"

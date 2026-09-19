@@ -41,6 +41,7 @@ interface Service {
   serviceId: string;
   name: string;
   category?: string;
+  status?: string;
 }
 
 interface EligibilityRule {
@@ -73,7 +74,7 @@ export default function EligibilityRuleBuilder() {
     fetch("http://localhost:5119/api/services")
       .then((res) => res.json())
       .then((data) => {
-        const activeServices = data.filter((srv: any) => srv.status === "Active");
+        const activeServices = data.filter((srv: Service) => srv.status === "Active");
         setServices(activeServices);
         const scopedServices = activeServices.filter(
           (srv: Service) => !isDepartmentAdmin || !scopedCategory || srv.category === scopedCategory
@@ -87,7 +88,7 @@ export default function EligibilityRuleBuilder() {
         console.error("Error fetching services:", error);
         setIsLoading(false);
       });
-  }, []);
+  }, [isDepartmentAdmin, scopedCategory]);
 
 
   useEffect(() => {

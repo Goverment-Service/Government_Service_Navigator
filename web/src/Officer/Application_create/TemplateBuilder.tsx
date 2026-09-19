@@ -104,19 +104,22 @@ export default function TemplateBuilder() {
   }, []);
 
   useEffect(() => {
-    if (!linkedServiceId) {
-      setLinkedServiceDetail(null);
-      return;
-    }
-    setIsLoadingServiceDetail(true);
-    fetch(`http://localhost:5119/api/services/${linkedServiceId}`)
-      .then((res) => res.json())
-      .then((data) => setLinkedServiceDetail(data))
-      .catch((error) => {
-        console.error("Error fetching linked service details:", error);
+    const timer = setTimeout(() => {
+      if (!linkedServiceId) {
         setLinkedServiceDetail(null);
-      })
-      .finally(() => setIsLoadingServiceDetail(false));
+        return;
+      }
+      setIsLoadingServiceDetail(true);
+      fetch(`http://localhost:5119/api/services/${linkedServiceId}`)
+        .then((res) => res.json())
+        .then((data) => setLinkedServiceDetail(data))
+        .catch((error) => {
+          console.error("Error fetching linked service details:", error);
+          setLinkedServiceDetail(null);
+        })
+        .finally(() => setIsLoadingServiceDetail(false));
+    }, 0);
+    return () => clearTimeout(timer);
   }, [linkedServiceId]);
 
   const fetchTemplateData = async (id: string) => {

@@ -106,7 +106,7 @@ export default function VerificationWorkspace() {
       } else {
         setSubmitStatus("error");
       }
-    } catch (e) {
+    } catch {
       setSubmitStatus("error");
     } finally {
       setIsSubmitting(false);

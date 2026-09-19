@@ -224,7 +224,12 @@ export default function AdminAnalytics() {
   }, [period, dateInput, weekInput, monthInput, yearInput]);
 
   // Fetch on mount and whenever period / date inputs change
-  useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchStats();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchStats]);
 
   // ── Fetch snapshots ────────────────────────────────────────────────────────
   const fetchSnapshots = useCallback(async () => {
@@ -239,7 +244,12 @@ export default function AdminAnalytics() {
     }
   }, []);
 
-  useEffect(() => { fetchSnapshots(); }, [fetchSnapshots]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchSnapshots();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchSnapshots]);
 
   // ── Save snapshot ──────────────────────────────────────────────────────────
   async function handleSaveSnapshot() {
@@ -557,13 +567,14 @@ export default function AdminAnalytics() {
                     </TableRow>
                   ) : (
                     snapshots.map((snap) => {
-                      let periodLabel = "—";
-                      try {
-                        const d = JSON.parse(snap.dataJson) as UsageAggregate;
-                        periodLabel = d.period ?? "—";
-                      } catch {
-                        periodLabel = "—";
-                      }
+                      const periodLabel = (() => {
+                        try {
+                          const d = JSON.parse(snap.dataJson) as UsageAggregate;
+                          return d.period ?? "—";
+                        } catch {
+                          return "—";
+                        }
+                      })();
                       return (
                         <TableRow key={snap.id}>
                           <TableCell style={{ fontWeight: 600 }}>{snap.title}</TableCell>

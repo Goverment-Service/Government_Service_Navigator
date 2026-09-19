@@ -129,7 +129,12 @@ export default function FinanceRefunds() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      load();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [load]);
 
   // ── Derived list ───────────────────────────────────────────────────────────
 

@@ -124,7 +124,12 @@ export default function AdminAnomalyReview() {
     }
   }, []);
 
-  useEffect(() => { fetchFlags(); }, [fetchFlags]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchFlags();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchFlags]);
 
   // ── Run scan ───────────────────────────────────────────────────────────────
   async function handleScan() {

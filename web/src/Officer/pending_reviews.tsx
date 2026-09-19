@@ -1,5 +1,5 @@
 import '@carbon/styles/css/styles.css';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Header,
   HeaderContainer,
@@ -58,14 +58,28 @@ const headers = [
 
 
 
+interface PendingTaskItem {
+  id: number;
+  applicationId: number;
+  createdDate: string;
+  status: string;
+  [key: string]: unknown;
+}
+
+interface TableRowItem {
+  id: string;
+  appId: string;
+  citizen: string;
+  service: string;
+  reason: string;
+  days: string;
+  status: string;
+}
+
 export default function PendingReviews() {
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<TableRowItem[]>([]);
 
-  useEffect(() => {
-    fetchPendingTasks();
-  }, []);
-
-  const fetchPendingTasks = async () => {
+  const fetchPendingTasks = useCallback(async () => {
     const token = localStorage.getItem("officerToken");
     try {
       const response = await fetch(`http://localhost:5119/api/Verification/tasks/pending`, {
@@ -73,7 +87,7 @@ export default function PendingReviews() {
       });
       if (response.ok) {
         const data = await response.json();
-        const mappedRows = data.map((t: any) => {
+        const mappedRows = data.map((t: PendingTaskItem) => {
           const ageDays = Math.floor((Date.now() - new Date(t.createdDate).getTime()) / (1000 * 3600 * 24));
           return {
             id: t.id.toString(),
@@ -88,9 +102,17 @@ export default function PendingReviews() {
         setRows(mappedRows);
       }
     } catch (e) {
-      console.error(e);
+      console.error("Error fetching tasks", e);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchPendingTasks();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchPendingTasks]);
+
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {

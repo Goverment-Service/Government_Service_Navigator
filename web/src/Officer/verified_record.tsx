@@ -1,5 +1,5 @@
 import '@carbon/styles/css/styles.css';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Header,
   HeaderContainer,
@@ -57,22 +57,43 @@ const headers = [
   { key: "actions", header: "" },
 ];
 
-const rows = [
-  { id: "1", appId: "GSN-2026-8901", citizen: "Sunil Perera", service: "Business Registration", dateVerified: "2026-08-12", status: "Approved" },
-  { id: "2", appId: "GSN-2026-8895", citizen: "Nimali Fernando", service: "Residence Certificate", dateVerified: "2026-08-11", status: "Approved" },
-  { id: "3", appId: "GSN-2026-8850", citizen: "Ruwan Kumara", service: "Character Verification", dateVerified: "2026-08-10", status: "Rejected" },
-  { id: "4", appId: "GSN-2026-8842", citizen: "Deva Silva", service: "Income Certificate", dateVerified: "2026-08-10", status: "Approved" },
-];
+interface TaskData {
+  id: number;
+  applicationId: number;
+  createdDate: string;
+  status: string;
+  comments?: string;
+  [key: string]: unknown;
+}
+
+interface DataCell {
+  info: { header: string };
+  value: string;
+}
+
+interface VerifiedRecordRow {
+  id: string;
+  appId: string;
+  citizen: string;
+  service: string;
+  dateVerified: string;
+  status: string;
+  comments: string;
+  cells?: DataCell[];
+  [key: string]: unknown;
+}
 
 export default function VerifiedRecords() {
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<VerifiedRecordRow[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [editingRecord, setEditingRecord] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [viewingRecord, setViewingRecord] = useState<any>(null);
   const [editStatus, setEditStatus] = useState('Approved');
   const [editComments, setEditComments] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  const fetchVerifiedTasks = async () => {
+  const fetchVerifiedTasks = useCallback(async () => {
     const token = localStorage.getItem('officerToken');
     try {
       const response = await fetch(`http://localhost:5119/api/Verification/tasks/verified`, {
@@ -80,7 +101,7 @@ export default function VerifiedRecords() {
       });
       if (response.ok) {
         const data = await response.json();
-        const mappedRows = data.map((t: any) => {
+        const mappedRows = data.map((t: TaskData) => {
           return {
             id: t.id.toString(),
             appId: `GSN-2026-${t.applicationId}`,
@@ -96,11 +117,14 @@ export default function VerifiedRecords() {
     } catch (e) {
       console.error(e);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchVerifiedTasks();
-  }, []);
+    const timer = setTimeout(() => {
+      fetchVerifiedTasks();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchVerifiedTasks]);
 
   const handleSaveEdit = async () => {
     if (!editingRecord) return;
@@ -341,8 +365,8 @@ export default function VerifiedRecords() {
                                     kind="primary"
                                     onClick={() => {
                                       setEditingRecord(row);
-                                      setEditStatus(row.cells.find((c: any) => c.info.header === 'status')?.value || 'Approved');
-                                      setEditComments(row.comments || '');
+                                      setEditStatus(row.cells.find((c: DataCell) => c.info.header === 'status')?.value || 'Approved');
+                                      setEditComments((row as unknown as VerifiedRecordRow).comments || '');
                                     }}
                                     style={{ marginRight: '0.5rem' }}
                                   >
@@ -377,7 +401,7 @@ export default function VerifiedRecords() {
             open={!!editingRecord}
             onRequestClose={() => setEditingRecord(null)}
             onRequestSubmit={handleSaveEdit}
-            modalHeading={`Edit Decision: ${editingRecord?.cells.find((c: any) => c.info.header === 'appId')?.value}`}
+            modalHeading={`Edit Decision: ${editingRecord?.cells?.find((c: DataCell) => c.info.header === 'appId')?.value}`}
             primaryButtonText={isSaving ? "Saving..." : "Save Changes"}
             secondaryButtonText="Cancel"
             primaryButtonDisabled={isSaving}
@@ -408,28 +432,28 @@ export default function VerifiedRecords() {
             open={!!viewingRecord}
             onRequestClose={() => setViewingRecord(null)}
             passiveModal
-            modalHeading={`Application Details: ${viewingRecord?.cells.find((c: any) => c.info.header === 'appId')?.value}`}
+            modalHeading={`Application Details: ${viewingRecord?.cells?.find((c: DataCell) => c.info.header === 'appId')?.value}`}
           >
             {viewingRecord && (
               <div style={{ padding: '1rem 0', fontSize: '1rem', color: '#161616' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
                   <div>
                     <span style={{ fontSize: '0.75rem', color: '#525252', textTransform: 'uppercase', letterSpacing: '0.32px' }}>Citizen Name</span>
-                    <p style={{ marginTop: '0.25rem', fontWeight: 600 }}>{viewingRecord.cells.find((c: any) => c.info.header === 'citizen')?.value}</p>
+                    <p style={{ marginTop: '0.25rem', fontWeight: 600 }}>{viewingRecord.cells?.find((c: DataCell) => c.info.header === 'citizen')?.value}</p>
                   </div>
                   <div>
                     <span style={{ fontSize: '0.75rem', color: '#525252', textTransform: 'uppercase', letterSpacing: '0.32px' }}>Service Type</span>
-                    <p style={{ marginTop: '0.25rem', fontWeight: 600 }}>{viewingRecord.cells.find((c: any) => c.info.header === 'service')?.value}</p>
+                    <p style={{ marginTop: '0.25rem', fontWeight: 600 }}>{viewingRecord.cells?.find((c: DataCell) => c.info.header === 'service')?.value}</p>
                   </div>
                   <div>
                     <span style={{ fontSize: '0.75rem', color: '#525252', textTransform: 'uppercase', letterSpacing: '0.32px' }}>Date Verified</span>
-                    <p style={{ marginTop: '0.25rem', fontWeight: 600 }}>{viewingRecord.cells.find((c: any) => c.info.header === 'dateVerified')?.value}</p>
+                    <p style={{ marginTop: '0.25rem', fontWeight: 600 }}>{viewingRecord.cells?.find((c: DataCell) => c.info.header === 'dateVerified')?.value}</p>
                   </div>
                   <div>
                     <span style={{ fontSize: '0.75rem', color: '#525252', textTransform: 'uppercase', letterSpacing: '0.32px' }}>Decision Status</span>
                     <div style={{ marginTop: '0.25rem' }}>
-                      <Tag type={viewingRecord.cells.find((c: any) => c.info.header === 'status')?.value === 'Approved' ? 'green' : 'red'}>
-                        {viewingRecord.cells.find((c: any) => c.info.header === 'status')?.value}
+                      <Tag type={viewingRecord.cells?.find((c: DataCell) => c.info.header === 'status')?.value === 'Approved' ? 'green' : 'red'}>
+                        {viewingRecord.cells?.find((c: DataCell) => c.info.header === 'status')?.value}
                       </Tag>
                     </div>
                   </div>

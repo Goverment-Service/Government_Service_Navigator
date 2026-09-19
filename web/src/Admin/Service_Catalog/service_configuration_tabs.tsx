@@ -71,6 +71,7 @@ interface ServiceOption {
   serviceId: string;
   name: string;
   category?: string;
+  status?: string;
 }
 
 interface DocumentRequirement {
@@ -132,7 +133,7 @@ export default function ServiceConfigurationTabs() {
     fetch("http://localhost:5119/api/services")
       .then((res) => res.json())
       .then((data) => {
-        const activeServices = data.filter((srv: any) => srv.status === "Active");
+        const activeServices = data.filter((srv: ServiceOption) => srv.status === "Active");
         setServices(activeServices);
         const scopedServices = activeServices.filter(
           (srv: ServiceOption) => !isDepartmentAdmin || !scopedCategory || srv.category === scopedCategory
@@ -147,7 +148,7 @@ export default function ServiceConfigurationTabs() {
         console.error("Error fetching services:", error);
         setIsLoading(false);
       });
-  }, []);
+  }, [isDepartmentAdmin, scopedCategory]);
 
 
   // 2. Fetch procedure details (documents and fees) when selected procedure changes

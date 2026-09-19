@@ -6,6 +6,9 @@ import ManageOfficers from "./Admin/manage_officers";
 import OfficerDashboard from "./Officer/officer_dashboard";
 import AuditLogs from "./Admin/audit_logs";
 import SystemSettings from "./Admin/system_settings";
+import AdminInstallmentPlans from "./Admin/admin_installment_plans";
+import AdminAnalytics from "./Admin/admin_analytics";
+import AdminAnomalyReview from "./Admin/admin_anomaly_review";
 import ApplicationCreate from "./Officer/Application_create/application_create";
 
 /*
@@ -26,6 +29,7 @@ import EligibilitySimulator from "./Admin/Service_Catalog/eligibility_simulator"
 import FinanceDashboard from "./Finance/finance_dashboard";
 import FinanceLedger from "./Finance/finance_ledger";
 import FinanceProfile from "./Finance/finance_profile";
+import FinanceRefunds from "./Finance/finance_refunds";
 
 export default function App() {
   return (
@@ -42,6 +46,9 @@ export default function App() {
         <Route path="/officer/dashboard" element={<OfficerDashboard />} />
         <Route path="/admin/audit-logs" element={<AuditLogs />} />
         <Route path="/admin/system-settings" element={<SystemSettings />} />
+        <Route path="/admin/installment-plans" element={<AdminInstallmentPlans />} />
+        <Route path="/admin/analytics" element={<AdminAnalytics />} />
+        <Route path="/admin/anomaly-review" element={<AdminAnomalyReview />} />
         <Route path="/admin/services" element={<ServiceCatalogManager />} />
         <Route
           path="/admin/services/rules"
@@ -78,6 +85,7 @@ export default function App() {
         {/* finance officer routes */}
         <Route path="/finance/dashboard" element={<FinanceDashboard />} />
         <Route path="/finance/ledger" element={<FinanceLedger />} />
+        <Route path="/finance/refunds" element={<FinanceRefunds />} />
         <Route path="/finance/profile" element={<FinanceProfile />} />
       </Routes>
     </BrowserRouter>

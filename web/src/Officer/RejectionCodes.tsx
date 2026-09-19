@@ -1,5 +1,5 @@
 import '@carbon/styles/css/styles.css';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Header,
@@ -42,10 +42,17 @@ import {
   TrashCan
 } from "@carbon/icons-react";
 
+interface RejectionCodeItem {
+  id: number;
+  code: string;
+  description: string;
+  [key: string]: unknown;
+}
+
 export default function RejectionCodes() {
   const navigate = useNavigate();
   const [isSideNavExpanded, setIsSideNavExpanded] = useState(false);
-  const [codes, setCodes] = useState<any[]>([]);
+  const [codes, setCodes] = useState<RejectionCodeItem[]>([]);
   const [notification, setNotification] = useState<{ kind: "success" | "error", message: string } | null>(null);
   
   // Modals state
@@ -57,11 +64,7 @@ export default function RejectionCodes() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ code: '', description: '' });
 
-  useEffect(() => {
-    fetchCodes();
-  }, []);
-
-  const fetchCodes = async () => {
+  const fetchCodes = useCallback(async () => {
     const token = localStorage.getItem("officerToken");
     try {
       const response = await fetch(`http://localhost:5119/api/Verification/rejection-reasons`, {
@@ -71,10 +74,17 @@ export default function RejectionCodes() {
         const data = await response.json();
         setCodes(data);
       }
-    } catch (error) {
-      console.error("Failed to fetch rejection codes", error);
+    } catch (err) {
+      console.error("Failed to fetch rejection codes", err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchCodes();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchCodes]);
 
   const handleCreate = async () => {
     const token = localStorage.getItem("officerToken");
@@ -96,7 +106,7 @@ export default function RejectionCodes() {
       } else {
         setNotification({ kind: "error", message: "Failed to create rejection code." });
       }
-    } catch (error) {
+    } catch {
       setNotification({ kind: "error", message: "An error occurred." });
     }
   };
@@ -121,7 +131,7 @@ export default function RejectionCodes() {
       } else {
         setNotification({ kind: "error", message: "Failed to update rejection code." });
       }
-    } catch (error) {
+    } catch {
       setNotification({ kind: "error", message: "An error occurred." });
     }
   };
@@ -142,12 +152,12 @@ export default function RejectionCodes() {
       } else {
         setNotification({ kind: "error", message: "Failed to delete rejection code." });
       }
-    } catch (error) {
+    } catch {
       setNotification({ kind: "error", message: "An error occurred." });
     }
   };
 
-  const openEditModal = (codeItem: any) => {
+  const openEditModal = (codeItem: RejectionCodeItem) => {
     setSelectedId(codeItem.id);
     setFormData({ code: codeItem.code, description: codeItem.description });
     setIsEditModalOpen(true);
@@ -290,7 +300,6 @@ export default function RejectionCodes() {
                             <TableRow {...getRowProps({ row })} key={row.id}>
                               {row.cells.map((cell) => {
                                 if (cell.info.header === 'actions') {
-                                  const codeItem = codes.find(c => c.id.toString() === row.id);
                                   return (
                                     <TableCell key={cell.id}>
                                       <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -300,7 +309,10 @@ export default function RejectionCodes() {
                                           hasIconOnly 
                                           renderIcon={Edit} 
                                           iconDescription="Edit Code"
-                                          onClick={() => openEditModal(codeItem)}
+                                          onClick={() => {
+                                            const codeItem = codes.find(c => c.id.toString() === row.id);
+                                            if (codeItem) openEditModal(codeItem);
+                                          }}
                                         />
                                         <Button 
                                           kind="danger--ghost" 

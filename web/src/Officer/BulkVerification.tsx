@@ -1,5 +1,5 @@
 import '@carbon/styles/css/styles.css';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Header,
@@ -41,20 +41,24 @@ import {
   CheckmarkOutline
 , DataStructured } from "@carbon/icons-react";
 
+interface VerificationTaskItem {
+  id: number;
+  applicationId: number;
+  status: string;
+  createdDate: string;
+  [key: string]: unknown;
+}
+
 export default function BulkVerification() {
   const navigate = useNavigate();
   const [isSideNavExpanded, setIsSideNavExpanded] = useState(false);
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<VerificationTaskItem[]>([]);
   const [selectedTaskIds, setSelectedTaskIds] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [notification, setNotification] = useState<{ kind: "success" | "error", message: string } | null>(null);
 
-  useEffect(() => {
-    fetchPendingTasks();
-  }, []);
-
-  const fetchPendingTasks = async () => {
+  const fetchPendingTasks = useCallback(async () => {
     // In a real scenario, this would fetch only tasks eligible for bulk approval
     const token = localStorage.getItem("officerToken");
     try {
@@ -66,12 +70,19 @@ export default function BulkVerification() {
       if (response.ok) {
         const data = await response.json();
         // Filter to only pending/in-progress tasks for demonstration
-        setTasks(data.filter((t: any) => t.status !== "Approved" && t.status !== "Rejected"));
+        setTasks(data.filter((t: VerificationTaskItem) => t.status !== "Approved" && t.status !== "Rejected"));
       }
-    } catch (error) {
-      console.error("Failed to fetch tasks", error);
+    } catch (err) {
+      console.error("Failed to fetch tasks", err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchPendingTasks();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchPendingTasks]);
 
   const handleBulkApprove = async () => {
     setIsSubmitting(true);
@@ -97,7 +108,7 @@ export default function BulkVerification() {
       } else {
         setNotification({ kind: "error", message: "Failed to process bulk approval." });
       }
-    } catch (error) {
+    } catch {
       setNotification({ kind: "error", message: "An error occurred during bulk approval." });
     } finally {
       setIsSubmitting(false);

@@ -9,9 +9,11 @@ using Government_Service_Navigator.Backend.Services;
 using Government_Service_Navigator.Backend.Services.Interfaces;
 using Microsoft.OpenApi.Models;
 using Npgsql;
+using Stripe;
 
 // Load environment variables from .env file
 Env.Load();
+StripeConfiguration.ApiKey = Environment.GetEnvironmentVariable("STRIPE_SECRET_KEY");
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -69,7 +71,12 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IVerificationService, VerificationService>();
 builder.Services.AddScoped<ITemplateService, TemplateService>();
 builder.Services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
-builder.Services.AddScoped<IRefundService, RefundService>();
+builder.Services.AddScoped<IRefundService, Government_Service_Navigator.Backend.Services.RefundService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IInstallmentPlanService, InstallmentPlanService>();
+builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
+builder.Services.AddScoped<IAnomalyDetectionService, AnomalyDetectionService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // 3. Setup CORS (Crucial for Flutter/Mobile/Web app connectivity)
 builder.Services.AddCors(options =>

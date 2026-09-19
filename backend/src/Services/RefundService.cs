@@ -8,10 +8,12 @@ namespace Government_Service_Navigator.Backend.Services
     public class RefundService : IRefundService
     {
         private readonly AppDbContext _context;
+        private readonly INotificationService _notificationService;
 
-        public RefundService(AppDbContext context)
+        public RefundService(AppDbContext context, INotificationService notificationService)
         {
             _context = context;
+            _notificationService = notificationService;
         }
 
         // Methods implemented in upcoming commits.
@@ -55,7 +57,38 @@ namespace Government_Service_Navigator.Backend.Services
             _context.RefundRequests.Add(refund);
             await _context.SaveChangesAsync();
 
+                        await _notificationService.NotifyRefundStatusAsync(requestedByEmail, refund.Id, "Pending", null);
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ApplicationId = payment.ApplicationId,
+                Action = "RefundRequestCreated",
+                PerformedBy = requestedByEmail,
+                Timestamp = DateTime.UtcNow,
+                OldValues = "",
+                NewValues = $"RefundId={refund.Id}, Amount={refund.RefundAmount}, Status=Pending"
+            });
+            await _context.SaveChangesAsync();
+
             return refund;
+        }
+
+
+        public async Task<List<RefundRequest>> GetAllAsync(string? status)
+        {
+            var query = _context.RefundRequests
+                .Include(r => r.Payment)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(status) &&
+                Enum.TryParse<RefundStatus>(status, ignoreCase: true, out var parsedStatus))
+            {
+                query = query.Where(r => r.Status == parsedStatus);
+            }
+
+            return await query
+                .OrderByDescending(r => r.RequestedDate)
+                .ToListAsync();
         }
 
         public async Task<RefundRequest?> GetRefundByIdAsync(int id)
@@ -86,8 +119,22 @@ namespace Government_Service_Navigator.Backend.Services
 
             await _context.SaveChangesAsync();
 
+                        await _notificationService.NotifyRefundStatusAsync(refund.RequestedByEmail, refund.Id, "Approved", note);
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ApplicationId = 0,
+                Action = "RefundApproved",
+                PerformedBy = decidedByEmail,
+                Timestamp = DateTime.UtcNow,
+                OldValues = "Status=Pending",
+                NewValues = $"RefundId={refund.Id}, Status=Approved, Note={note}"
+            });
+            await _context.SaveChangesAsync();
+
             return refund;
         }
+
 
         public async Task<RefundRequest> RejectAsync(int id, string decidedByEmail, string? note)
         {
@@ -108,6 +155,19 @@ namespace Government_Service_Navigator.Backend.Services
             refund.DecisionNote = note;
             refund.DecidedDate = DateTime.UtcNow;
 
+            await _context.SaveChangesAsync();
+
+                        await _notificationService.NotifyRefundStatusAsync(refund.RequestedByEmail, refund.Id, "Rejected", note);
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ApplicationId = 0,
+                Action = "RefundRejected",
+                PerformedBy = decidedByEmail,
+                Timestamp = DateTime.UtcNow,
+                OldValues = "Status=Pending",
+                NewValues = $"RefundId={refund.Id}, Status=Rejected, Note={note}"
+            });
             await _context.SaveChangesAsync();
 
             return refund;
@@ -165,6 +225,19 @@ namespace Government_Service_Navigator.Backend.Services
                 refund.Payment.Status = "Refunded";
             }
 
+            await _context.SaveChangesAsync();
+
+                        await _notificationService.NotifyRefundStatusAsync(refund.RequestedByEmail, refund.Id, "Completed", null);
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ApplicationId = refund.Payment?.ApplicationId ?? 0,
+                Action = "RefundCompleted",
+                PerformedBy = "system",
+                Timestamp = DateTime.UtcNow,
+                OldValues = "Status=Processing",
+                NewValues = $"RefundId={refund.Id}, Status=Completed"
+            });
             await _context.SaveChangesAsync();
 
             return refund;

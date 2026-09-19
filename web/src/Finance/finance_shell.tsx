@@ -12,11 +12,11 @@ import {
   Search,
   HeaderMenuButton,
 } from "@carbon/react";
-import { Wallet, Report, User, Logout, Notification } from "@carbon/icons-react";
+import { Wallet, Report, User, Logout, Notification, Receipt } from "@carbon/icons-react";
 import { getDisplayName, getStoredUser } from "../utils/currentUser";
 
 interface FinanceShellProps {
-  active: "dashboard" | "ledger" | "profile";
+  active: "dashboard" | "ledger" | "refunds" | "profile";
   children: ReactNode;
 }
 
@@ -73,6 +73,9 @@ export default function FinanceShell({ active, children }: FinanceShellProps) {
                 </SideNavLink>
                 <SideNavLink renderIcon={Report} href="/finance/ledger" isActive={active === "ledger"}>
                   Account Ledger
+                </SideNavLink>
+                <SideNavLink renderIcon={Receipt} href="/finance/refunds" isActive={active === "refunds"}>
+                  Refund Requests
                 </SideNavLink>
                 <SideNavLink renderIcon={User} href="/finance/profile" isActive={active === "profile"}>
                   My Profile

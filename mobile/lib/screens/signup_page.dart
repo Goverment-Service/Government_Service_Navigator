@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import 'dashboard_screen.dart';
@@ -55,7 +56,12 @@ class _SignUpPageState extends State<SignUpPage> {
     if (result.success) {
       // TODO: persist result.token (e.g. flutter_secure_storage)
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        CupertinoPageRoute(
+          builder: (_) => DashboardScreen(
+            token: result.token ?? '',
+            userEmail: _emailController.text.trim(),
+          ),
+        ),
         (route) => false,
       );
     } else {

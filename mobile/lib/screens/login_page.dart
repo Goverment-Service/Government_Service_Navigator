@@ -43,7 +43,12 @@ class _LoginPageState extends State<LoginPage> {
 
     if (result.success) {
       Navigator.of(context).pushAndRemoveUntil(
-        CupertinoPageRoute(builder: (_) => const DashboardScreen()),
+        CupertinoPageRoute(
+          builder: (_) => DashboardScreen(
+            token: result.token ?? '',
+            userEmail: _emailController.text.trim(),
+          ),
+        ),
         (route) => false,
       );
     } else {

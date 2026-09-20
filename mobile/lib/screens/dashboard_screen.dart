@@ -8,7 +8,14 @@ import '../widgets/dashboard/applications_tab.dart';
 import '../widgets/dashboard/profile_tab.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final String token;
+  final String userEmail;
+
+  const DashboardScreen({
+    super.key,
+    required this.token,
+    required this.userEmail,
+  });
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -17,11 +24,11 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _tabs = const [
-    HomeDashboardTab(),
-    ServicesTab(),
-    ApplicationsTab(),
-    ProfileTab(),
+  List<Widget> get _tabs => [
+    const HomeDashboardTab(),
+    const ServicesTab(),
+    ApplicationsTab(token: widget.token, userEmail: widget.userEmail),
+    const ProfileTab(),
   ];
 
   @override

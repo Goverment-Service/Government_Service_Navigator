@@ -34,6 +34,16 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(payment);
         }
 
+        // Citizen: list their own payments.
+        [HttpGet("mine")]
+        [Authorize]
+        public async Task<IActionResult> GetMine()
+        {
+            var email = User.Identity?.Name ?? "unknown@user";
+            var payments = await _paymentService.GetByUserAsync(email);
+            return Ok(payments);
+        }
+
         // Finance Officer verifies/rejects a manual payment slip.
         [HttpPost("{id}/verify")]
         [Authorize]

@@ -49,6 +49,14 @@ namespace Government_Service_Navigator.Backend.Services
                 .FirstOrDefaultAsync(p => p.Id == id);
         }
 
+        public async Task<List<Payment>> GetByUserAsync(string email)
+        {
+            return await _context.Payments
+                .Where(p => p.UserEmail == email)
+                .OrderByDescending(p => p.CreatedDate)
+                .ToListAsync();
+        }
+
         public async Task<Payment> VerifyManualPaymentAsync(int id, bool approved, string? note)
         {
             var payment = await _context.Payments.FindAsync(id);

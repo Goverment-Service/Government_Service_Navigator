@@ -1,12 +1,26 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import '../../models/verification_models.dart';
 import '../../screens/verification_detail_screen.dart';
 import '../../services/verification_api_service.dart';
 import '../../theme/app_colors.dart';
+import '../../screens/payments/payment_screen.dart';
+import '../../screens/payments/installment_plan_view.dart';
+import '../../screens/payments/transaction_history_screen.dart';
+import '../../screens/refunds/refund_request_screen.dart';
+import '../../screens/payments/my_payments_screen.dart';
+import '../../screens/refunds/my_refunds_screen.dart';
+import '../../screens/analytics/approval_likelihood_screen.dart';
 
 class ApplicationsTab extends StatefulWidget {
-  const ApplicationsTab({super.key});
+  final String? token;
+  final String? userEmail;
+
+  const ApplicationsTab({
+    super.key,
+    this.token,
+    this.userEmail,
+  });
 
   @override
   State<ApplicationsTab> createState() => _ApplicationsTabState();
@@ -44,7 +58,6 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
 
   List<ApplicationItemModel> get _filteredApplications {
     return _applications.where((app) {
-      // Filter tab check
       if (_selectedFilter == 'In Review' && app.status.toLowerCase() != 'pending') {
         return false;
       }
@@ -57,7 +70,6 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
         return false;
       }
 
-      // Search query check
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
         final matchesRef = app.referenceNumber.toLowerCase().contains(query);
@@ -110,6 +122,9 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveToken = widget.token ?? '';
+    final effectiveUserEmail = widget.userEmail ?? '';
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -130,77 +145,283 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // 1. Search Bar & Status Chips
-          Container(
-            color: AppColors.cardBg,
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-            child: Column(
-              children: [
-                // iOS-Style Search Field
-                CupertinoSearchTextField(
-                  controller: _searchController,
-                  placeholder: 'Search by reference ID or service...',
-                  onChanged: (val) => setState(() => _searchQuery = val),
-                  onSubmitted: (val) => setState(() => _searchQuery = val),
-                ),
-                const SizedBox(height: 12),
-                // Filter Segment Chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  child: Row(
-                    children: [
-                      _buildFilterChip('All', _applications.length),
-                      const SizedBox(width: 8),
-                      _buildFilterChip(
-                        'In Review',
-                        _applications.where((a) => a.status.toLowerCase() == 'pending').length,
-                      ),
-                      const SizedBox(width: 8),
-                      _buildFilterChip(
-                        'Approved',
-                        _applications.where((a) => a.status.toLowerCase() == 'approved').length,
-                      ),
-                      const SizedBox(width: 8),
-                      _buildFilterChip(
-                        'Needs Action',
-                        _applications.where((a) =>
-                            a.status.toLowerCase() == 'revised' ||
-                            a.status.toLowerCase() == 'rejected').length,
-                      ),
-                    ],
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          children: [
+            // 1. Search Bar & Status Chips
+            Container(
+              color: AppColors.cardBg,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+              child: Column(
+                children: [
+                  CupertinoSearchTextField(
+                    controller: _searchController,
+                    placeholder: 'Search by reference ID or service...',
+                    onChanged: (val) => setState(() => _searchQuery = val),
+                    onSubmitted: (val) => setState(() => _searchQuery = val),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: [
+                        _buildFilterChip('All', _applications.length),
+                        const SizedBox(width: 8),
+                        _buildFilterChip(
+                          'In Review',
+                          _applications.where((a) => a.status.toLowerCase() == 'pending').length,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildFilterChip(
+                          'Approved',
+                          _applications.where((a) => a.status.toLowerCase() == 'approved').length,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildFilterChip(
+                          'Needs Action',
+                          _applications.where((a) =>
+                              a.status.toLowerCase() == 'revised' ||
+                              a.status.toLowerCase() == 'rejected').length,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Divider(height: 1, color: AppColors.divider),
+            const Divider(height: 1, color: AppColors.divider),
 
-          // 2. Application List
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CupertinoActivityIndicator(radius: 14))
-                : RefreshIndicator(
-                    onRefresh: _loadApplications,
-                    child: _filteredApplications.isEmpty
-                        ? _buildEmptyState()
-                        : ListView.builder(
-                            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                            padding: const EdgeInsets.all(16.0),
-                            itemCount: _filteredApplications.length,
-                            itemBuilder: (context, index) {
-                              final app = _filteredApplications[index];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 14.0),
-                                child: _buildTrackingCard(app),
-                              );
-                            },
+            // 2. Application List
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _isLoading
+                  ? const Center(child: CupertinoActivityIndicator(radius: 14))
+                  : _filteredApplications.isEmpty
+                      ? _buildEmptyState()
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _filteredApplications.length,
+                          itemBuilder: (context, index) {
+                            final app = _filteredApplications[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 14.0),
+                              child: _buildTrackingCard(app),
+                            );
+                          },
+                        ),
+            ),
+
+            // 3. Payments Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionHeader('Payments'),
+                  const SizedBox(height: 10),
+                  _buildActionTile(
+                    context: context,
+                    icon: CupertinoIcons.creditcard,
+                    iconColor: AppColors.primary,
+                    title: 'Payment Details',
+                    subtitle: 'Pay service fees for your application',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        CupertinoPageRoute(
+                          builder: (_) => PaymentScreen(
+                            token: effectiveToken,
+                            userEmail: effectiveUserEmail,
                           ),
+                        ),
+                      );
+                    },
                   ),
-          ),
-        ],
+                  const SizedBox(height: 10),
+                  _buildActionTile(
+                    context: context,
+                    icon: CupertinoIcons.calendar,
+                    iconColor: AppColors.warning,
+                    title: 'Installment Schedule',
+                    subtitle: 'View installment breakdown & due dates',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        CupertinoPageRoute(
+                          builder: (_) => InstallmentPlanView(
+                            token: effectiveToken,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _buildActionTile(
+                    context: context,
+                    icon: CupertinoIcons.doc_text,
+                    iconColor: AppColors.success,
+                    title: 'Transaction History',
+                    subtitle: 'View payment history & ledger receipts',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        CupertinoPageRoute(
+                          builder: (_) => TransactionHistoryScreen(
+                            token: effectiveToken,
+                            userEmail: effectiveUserEmail,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _buildActionTile(
+                    context: context,
+                    icon: CupertinoIcons.money_dollar_circle,
+                    iconColor: AppColors.primary,
+                    title: 'My Payments',
+                    subtitle: 'View all your payment transactions',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        CupertinoPageRoute(
+                          builder: (_) => MyPaymentsScreen(
+                            token: effectiveToken,
+                            userEmail: effectiveUserEmail,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 28),
+
+                  // 4. Refunds Section
+                  _buildSectionHeader('Refunds'),
+                  const SizedBox(height: 10),
+                  _buildActionTile(
+                    context: context,
+                    icon: CupertinoIcons.plus_circle,
+                    iconColor: AppColors.danger,
+                    title: 'Request a Refund',
+                    subtitle: 'Submit a new refund request for a payment',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        CupertinoPageRoute(
+                          builder: (_) => RefundRequestScreen(
+                            token: effectiveToken,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _buildActionTile(
+                    context: context,
+                    icon: CupertinoIcons.arrow_uturn_left,
+                    iconColor: AppColors.warning,
+                    title: 'My Refund Requests',
+                    subtitle: 'Track status of your refund requests',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        CupertinoPageRoute(
+                          builder: (_) => MyRefundsScreen(token: effectiveToken),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 28),
+
+                  // 5. Analytics Section
+                  _buildSectionHeader('Analytics'),
+                  const SizedBox(height: 10),
+                  _buildActionTile(
+                    context: context,
+                    icon: CupertinoIcons.chart_bar_fill,
+                    iconColor: AppColors.primary,
+                    title: 'Approval Likelihood',
+                    subtitle: 'Predict your application approval chance',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        CupertinoPageRoute(
+                          builder: (_) => ApprovalLikelihoodScreen(token: effectiveToken),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title.toUpperCase(),
+      style: const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: AppColors.secondaryLabel,
+        letterSpacing: 0.6,
+      ),
+    );
+  }
+
+  Widget _buildActionTile({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.cardBg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.divider, width: 0.8),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.dark),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                        fontSize: 13, color: AppColors.secondaryLabel),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(CupertinoIcons.chevron_right,
+                size: 14, color: AppColors.secondaryLabel),
+          ],
+        ),
       ),
     );
   }
@@ -286,7 +507,6 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Row: Ref ID & Status Pill
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -330,8 +550,6 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
               ],
             ),
             const SizedBox(height: 10),
-
-            // Service Title
             Text(
               app.serviceName,
               style: const TextStyle(
@@ -348,8 +566,6 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
                 color: AppColors.secondaryLabel,
               ),
             ),
-
-            // Officer feedback preview if available
             if (latestReview != null && latestReview.comments.isNotEmpty) ...[
               const SizedBox(height: 10),
               Container(
@@ -377,12 +593,9 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
                 ),
               ),
             ],
-
             const SizedBox(height: 12),
             const Divider(height: 1, color: AppColors.divider),
             const SizedBox(height: 10),
-
-            // Bottom row: Submitted date and Action CTA
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -418,7 +631,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32.0),
+        padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

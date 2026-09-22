@@ -101,18 +101,22 @@ class ProfileTab extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.divider, width: 0.8),
       ),
-      child: ListTile(
-        leading: Icon(icon, color: iconColor),
-        title: Text(
-          title,
-          style: TextStyle(fontWeight: FontWeight.w500, color: color),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: ListTile(
+          leading: Icon(icon, color: iconColor),
+          title: Text(
+            title,
+            style: TextStyle(fontWeight: FontWeight.w500, color: color),
+          ),
+          trailing: const Icon(
+            CupertinoIcons.chevron_right,
+            size: 16,
+            color: AppColors.secondaryLabel,
+          ),
+          onTap: () {},
         ),
-        trailing: const Icon(
-          CupertinoIcons.chevron_right,
-          size: 16,
-          color: AppColors.secondaryLabel,
-        ),
-        onTap: () {},
       ),
     );
   }

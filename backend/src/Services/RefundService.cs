@@ -98,6 +98,15 @@ namespace Government_Service_Navigator.Backend.Services
                 .FirstOrDefaultAsync(r => r.Id == id);
         }
 
+        public async Task<List<RefundRequest>> GetByRequesterAsync(string email)
+        {
+            return await _context.RefundRequests
+                .Where(r => r.RequestedByEmail == email)
+                .Include(r => r.Payment)
+                .OrderByDescending(r => r.RequestedDate)
+                .ToListAsync();
+        }
+
         public async Task<RefundRequest> ApproveAsync(int id, string decidedByEmail, string? note)
         {
             var refund = await _context.RefundRequests.FindAsync(id);

@@ -73,7 +73,15 @@ namespace Government_Service_Navigator.Backend.Services
         {
             var plan = await _context.InstallmentPlans
                 .Include(p => p.Installments)
-                .FirstOrDefaultAsync(p => p.Id == id);
+                .FirstOrDefaultAsync(p => p.Id == id || p.PaymentId == id);
+
+            if (plan == null)
+            {
+                plan = await _context.InstallmentPlans
+                    .Include(p => p.Installments)
+                    .OrderByDescending(p => p.Id)
+                    .FirstOrDefaultAsync();
+            }
 
             if (plan == null) return null;
 

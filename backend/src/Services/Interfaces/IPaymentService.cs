@@ -11,5 +11,6 @@ namespace Government_Service_Navigator.Backend.Services.Interfaces
         Task<PaymentLedgerDto> GetLedgerAsync(int id);
         Task<(Payment payment, string checkoutUrl)> CreateStripeCheckoutAsync(int applicationId, decimal amount, string userEmail);    
         Task<Payment> ConfirmStripePaymentAsync(int paymentId); // for  testing in swagger
+        Task<List<Payment>> GetByUserAsync(string email);
     }
 }

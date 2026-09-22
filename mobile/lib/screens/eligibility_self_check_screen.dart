@@ -29,7 +29,7 @@ class _EligibilitySelfCheckScreenState extends State<EligibilitySelfCheckScreen>
         isEvaluating = false;
       });
     } catch (e) {
-      setState(() => isEvaluating = false);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Evaluation failed')));
     }
   }

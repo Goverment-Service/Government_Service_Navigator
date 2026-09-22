@@ -59,6 +59,19 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(new { refund.Id, refund.Status });
         }
 
+        // Citizen: list their own refund requests.
+        [HttpGet("mine")]
+        [Authorize]
+        public async Task<IActionResult> GetMine()
+        {
+            var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value 
+                     ?? User.FindFirst("email")?.Value 
+                     ?? User.Identity?.Name 
+                     ?? "unknown@user";
+            var refunds = await _refundService.GetByRequesterAsync(email);
+            return Ok(refunds.Select(RefundResponseDto.FromEntity));
+        }
+
         // TODO: restrict to the FinanceOfficer/Officer role once role claims are finalized.
         [HttpPost("{id}/approve")]
         [Authorize]

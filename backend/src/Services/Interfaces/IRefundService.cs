@@ -11,5 +11,6 @@ namespace Government_Service_Navigator.Backend.Services.Interfaces
         Task<RefundRequest> RejectAsync(int id, string decidedByEmail, string? note);
         Task<RefundRequest> ProcessAsync(int id, string transactionRef);
         Task<RefundRequest> CompleteAsync(int id);
+        Task<List<RefundRequest>> GetByRequesterAsync(string email);
     }
 }

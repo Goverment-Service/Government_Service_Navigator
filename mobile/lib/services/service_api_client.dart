@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/app_config.dart';
 
 class ServiceApiClient {
   // Use 10.0.2.2 for Android Emulator, or localhost for iOS simulator/web
-  static const String baseUrl = 'http://localhost:5119/api/services';
+  static String get baseUrl => '${AppConfig.baseUrl}/services';
 
   static Future<List<dynamic>> fetchServices() async {
     final response = await http.get(Uri.parse(baseUrl));

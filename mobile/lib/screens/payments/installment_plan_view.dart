@@ -195,6 +195,17 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
       return const Center(child: Text('No installment plan data found.'));
     }
 
+    int? nextUpcomingIndex;
+    for (int i = 0; i < plan.installments.length; i++) {
+      final inst = plan.installments[i];
+      final statusStr = inst.status?.toLowerCase() ?? 'pending';
+      final isPaid = statusStr == 'paid' || statusStr == 'completed';
+      if (!isPaid) {
+        nextUpcomingIndex = i;
+        break;
+      }
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -294,7 +305,7 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
           const SizedBox(height: 12),
 
           // Installments List
-          if (plan.installments.isEmpty) ...[
+          if (plan.installments.isEmpty)
             Container(
               padding: const EdgeInsets.all(20),
               width: double.infinity,
@@ -309,8 +320,8 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
                   style: TextStyle(color: AppColors.secondaryLabel),
                 ),
               ),
-            ),
-          ] else ...[
+            )
+          else
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -318,50 +329,100 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final item = plan.installments[index];
-                return _buildInstallmentTile(item);
+                final isNextUpcoming = (index == nextUpcomingIndex);
+                return _buildInstallmentTile(item, isNextUpcoming: isNextUpcoming);
               },
             ),
-          ],
         ],
       ),
     );
   }
 
-  Widget _buildInstallmentTile(Installment item) {
-    final isPaid = item.status?.toLowerCase() == 'paid' || item.status?.toLowerCase() == 'completed';
+  bool _checkIsOverdue(Installment item) {
+    final statusStr = item.status?.toLowerCase() ?? '';
+    if (statusStr == 'overdue') return true;
+    if (statusStr == 'paid' || statusStr == 'completed') return false;
+    if (item.dueDate != null && item.dueDate!.isNotEmpty) {
+      try {
+        final due = DateTime.parse(item.dueDate!);
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final dueDateOnly = DateTime(due.year, due.month, due.day);
+        return dueDateOnly.isBefore(today);
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  Widget _buildInstallmentTile(Installment item, {required bool isNextUpcoming}) {
+    final statusStr = item.status?.toLowerCase() ?? 'pending';
+    final isPaid = statusStr == 'paid' || statusStr == 'completed';
+    final isOverdue = _checkIsOverdue(item);
+
+    // Dynamic styles based on state
+    Color tileBgColor = AppColors.cardBg;
+    Color borderColor = AppColors.divider;
+    double borderWidth = 0.8;
+
+    if (isPaid) {
+      tileBgColor = AppColors.cardBg.withValues(alpha: 0.65);
+      borderColor = AppColors.divider.withValues(alpha: 0.5);
+    } else if (isOverdue) {
+      tileBgColor = AppColors.danger.withValues(alpha: 0.05);
+      borderColor = AppColors.danger.withValues(alpha: 0.4);
+      borderWidth = 1.2;
+    } else if (isNextUpcoming) {
+      tileBgColor = AppColors.primary.withValues(alpha: 0.05);
+      borderColor = AppColors.primary;
+      borderWidth = 1.5;
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.cardBg,
+        color: tileBgColor,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isPaid ? AppColors.success.withValues(alpha: 0.3) : AppColors.divider,
-          width: isPaid ? 1.0 : 0.8,
+          color: borderColor,
+          width: borderWidth,
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Index Badge Circle
+          // Index Badge Circle / Muted Checkmark
           Container(
-            width: 40,
-            height: 40,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
               color: isPaid
                   ? AppColors.success.withValues(alpha: 0.12)
-                  : AppColors.primary.withValues(alpha: 0.08),
+                  : isOverdue
+                      ? AppColors.danger.withValues(alpha: 0.12)
+                      : isNextUpcoming
+                          ? AppColors.primary
+                          : AppColors.primary.withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
             child: Center(
-              child: Text(
-                '#${item.installmentNumber}',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                  color: isPaid ? AppColors.success : AppColors.primary,
-                ),
-              ),
+              child: isPaid
+                  ? const Icon(
+                      CupertinoIcons.checkmark,
+                      color: AppColors.success,
+                      size: 20,
+                    )
+                  : Text(
+                      '#${item.installmentNumber}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: isNextUpcoming
+                            ? Colors.white
+                            : isOverdue
+                                ? AppColors.danger
+                                : AppColors.primary,
+                      ),
+                    ),
             ),
           ),
           const SizedBox(width: 14),
@@ -371,28 +432,58 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'LKR ${item.amount.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.dark,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      'LKR ${item.amount.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: isPaid ? AppColors.secondaryLabel : AppColors.dark,
+                        decoration: isPaid ? TextDecoration.lineThrough : null,
+                        decorationColor: AppColors.secondaryLabel,
+                      ),
+                    ),
+                    if (isNextUpcoming && !isPaid) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'NEXT DUE',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(
-                      CupertinoIcons.clock,
+                    Icon(
+                      isOverdue
+                          ? CupertinoIcons.exclamationmark_circle_fill
+                          : CupertinoIcons.clock,
                       size: 13,
-                      color: AppColors.secondaryLabel,
+                      color: isOverdue
+                          ? AppColors.danger
+                          : AppColors.secondaryLabel,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       'Due: ${_formatDate(item.dueDate)}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.secondaryLabel,
+                        fontWeight: isOverdue ? FontWeight.w600 : FontWeight.w400,
+                        color: isOverdue ? AppColors.danger : AppColors.secondaryLabel,
                       ),
                     ),
                   ],
@@ -413,10 +504,14 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
           ),
 
           // Status Badge
-          StatusBadge(status: item.status ?? 'Pending'),
+          StatusBadge(
+            status: isOverdue ? 'Overdue' : (item.status ?? 'Pending'),
+            showDot: isOverdue || isNextUpcoming,
+          ),
         ],
       ),
     );
   }
 }
+
 

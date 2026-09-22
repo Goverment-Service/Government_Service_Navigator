@@ -194,7 +194,7 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
               border: Border.all(color: AppColors.divider, width: 0.8),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
+                  color: AppColors.dark.withValues(alpha: 0.04),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -286,7 +286,7 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
                 border: Border.all(color: AppColors.divider, width: 0.8),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
+                    color: AppColors.dark.withValues(alpha: 0.03),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),

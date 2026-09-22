@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../theme/app_colors.dart';
 import '../models/refund.dart';
@@ -53,7 +52,7 @@ class RefundTrackerWidget extends StatelessWidget {
         border: Border.all(color: AppColors.divider, width: 0.8),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: AppColors.dark.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -255,7 +254,7 @@ class RefundTrackerWidget extends StatelessWidget {
         ),
         child: const Icon(
           CupertinoIcons.xmark,
-          color: Colors.white,
+          color: AppColors.cardBg,
           size: 18,
         ),
       );
@@ -271,7 +270,7 @@ class RefundTrackerWidget extends StatelessWidget {
         ),
         child: const Icon(
           CupertinoIcons.checkmark,
-          color: Colors.white,
+          color: AppColors.cardBg,
           size: 18,
         ),
       );

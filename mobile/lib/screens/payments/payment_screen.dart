@@ -247,7 +247,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         const Text(
                           'Calculated Service Fee',
                           style: TextStyle(
-                            color: Colors.white70,
+                            color: AppColors.secondaryLabel,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -255,13 +255,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
+                            color: AppColors.cardBg.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Text(
                             'LKR Currency',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppColors.cardBg,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
@@ -273,7 +273,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     Text(
                       'LKR ${feeAmount.toStringAsFixed(2)}',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.cardBg,
                         fontSize: 32,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
@@ -282,8 +282,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     const SizedBox(height: 12),
                     Text(
                       'Application ID: $appId',
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style: TextStyle(
+                        color: AppColors.cardBg.withValues(alpha: 0.7),
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -330,7 +330,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   borderRadius: BorderRadius.circular(14),
                   onPressed: _isLoading ? null : _onPayNowPressed,
                   child: _isLoading
-                      ? const CupertinoActivityIndicator(color: Colors.white, radius: 11)
+                      ? const CupertinoActivityIndicator(color: AppColors.cardBg, radius: 11)
                       : const Text(
                           'Pay Now',
                           style: TextStyle(
@@ -452,14 +452,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(CupertinoIcons.wifi_exclamationmark, color: Colors.white, size: 18),
+                                Icon(CupertinoIcons.wifi_exclamationmark, color: AppColors.cardBg, size: 18),
                                 SizedBox(width: 8),
                                 Text(
                                   'Retry Connection',
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.white,
+                                    color: AppColors.cardBg,
                                   ),
                                 ),
                               ],
@@ -508,14 +508,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               child: const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(CupertinoIcons.refresh, color: Colors.white, size: 18),
+                                  Icon(CupertinoIcons.refresh, color: AppColors.cardBg, size: 18),
                                   SizedBox(width: 8),
                                   Text(
                                     'Check Again',
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w600,
-                                      color: Colors.white,
+                                      color: AppColors.cardBg,
                                     ),
                                   ),
                                 ],

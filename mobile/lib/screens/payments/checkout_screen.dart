@@ -121,17 +121,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.18),
+                          color: AppColors.cardBg.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(CupertinoIcons.creditcard,
-                            color: Colors.white, size: 24),
+                            color: AppColors.cardBg, size: 24),
                       ),
                       const SizedBox(height: 14),
                       const Text(
                         'Payment Checkout',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppColors.cardBg,
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.3,
@@ -141,7 +141,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       Text(
                         'Complete your government service payment securely.',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.85),
+                          color: AppColors.cardBg.withValues(alpha: 0.85),
                           fontSize: 14,
                         ),
                       ),
@@ -208,7 +208,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     onPressed: _isLoading ? null : _submit,
                     child: _isLoading
                         ? const CupertinoActivityIndicator(
-                            color: Colors.white, radius: 11)
+                            color: AppColors.cardBg, radius: 11)
                         : const Text(
                             'Proceed to Payment',
                             style: TextStyle(

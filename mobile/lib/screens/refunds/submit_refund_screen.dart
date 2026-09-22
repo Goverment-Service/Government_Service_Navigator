@@ -257,7 +257,7 @@ class _SubmitRefundScreenState extends State<SubmitRefundScreen> {
                 onPressed: _isLoading ? null : _submit,
                 child: _isLoading
                     ? const CupertinoActivityIndicator(
-                        color: Colors.white, radius: 11)
+                        color: AppColors.cardBg, radius: 11)
                     : const Text(
                         'Submit Refund Request',
                         style: TextStyle(

@@ -215,11 +215,15 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
       }
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return RefreshIndicator(
+      onRefresh: _fetchPlan,
+      color: AppColors.primary,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           // Header Plan Summary Card
           Container(
             width: double.infinity,
@@ -344,6 +348,7 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
             ),
         ],
       ),
+    ),
     );
   }
 
@@ -523,44 +528,54 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                CupertinoIcons.doc_text_search,
-                size: 48,
-                color: AppColors.primary,
+    return RefreshIndicator(
+      onRefresh: _fetchPlan,
+      color: AppColors.primary,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      CupertinoIcons.doc_text_search,
+                      size: 48,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No Installment Plan Found',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.dark,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _errorMessage ?? 'No installment plan for this payment',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.secondaryLabel,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'No Installment Plan Found',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.dark,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _errorMessage ?? 'No installment plan for this payment',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.secondaryLabel,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

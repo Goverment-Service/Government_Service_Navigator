@@ -26,13 +26,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _isLoading = false;
   String? _resultMessage;
   bool _isSuccess = false;
+  bool _isNetworkError = false;
 
   String? _paymentId;
   String? _checkoutUrl;
   String? _paymentStatus;
   bool _isPaid = false;
-
-
 
   String get _effectiveToken {
     if (widget.token != null && widget.token!.isNotEmpty) {
@@ -81,6 +80,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<void> _onPayNowPressed() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _resultMessage = null;
@@ -89,6 +89,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _paymentStatus = null;
       _isPaid = false;
       _isSuccess = false;
+      _isNetworkError = false;
     });
 
     try {
@@ -105,7 +106,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _checkoutUrl = response.checkoutUrl;
       });
 
-
       if (response.checkoutUrl.isNotEmpty) {
         final result = await Navigator.of(context).push<bool>(
           CupertinoPageRoute(
@@ -120,36 +120,47 @@ class _PaymentScreenState extends State<PaymentScreen> {
           setState(() {
             _isLoading = false;
             _isSuccess = false;
-            _resultMessage = 'Payment checkout was cancelled or failed.';
+            _resultMessage = 'Payment checkout was cancelled by the user.';
           });
         } else {
           setState(() {
             _isLoading = false;
-            _isSuccess = true;
-            _resultMessage = 'Checkout session created (ID: $_paymentId). Complete payment or check status.';
+            _isSuccess = false;
+            _resultMessage = 'Checkout backed out without completing. Tap Pay Now to try again.';
           });
         }
       } else {
         setState(() {
           _isLoading = false;
+          _isSuccess = true;
           _resultMessage = 'Checkout session created (ID: ${response.paymentId}).';
         });
       }
     } catch (e) {
-
       if (!mounted) return;
+      final errorStr = e.toString().replaceAll('Exception: ', '');
+      final isNetwork = errorStr.toLowerCase().contains('connect') ||
+          errorStr.toLowerCase().contains('network') ||
+          errorStr.toLowerCase().contains('socket') ||
+          errorStr.toLowerCase().contains('client');
+
       setState(() {
         _isLoading = false;
         _isSuccess = false;
-        _resultMessage = e.toString().replaceAll('Exception: ', '');
+        _isNetworkError = isNetwork;
+        _resultMessage = isNetwork
+            ? 'Network Connection Error: Could not reach backend server.'
+            : 'Checkout Error: $errorStr';
       });
     }
   }
 
   Future<void> _confirmPayment(String paymentId) async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _resultMessage = null;
+      _isNetworkError = false;
     });
 
     try {
@@ -173,10 +184,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
       });
     } catch (e) {
       if (!mounted) return;
+      final errorStr = e.toString().replaceAll('Exception: ', '');
+      final isNetwork = errorStr.toLowerCase().contains('connect') ||
+          errorStr.toLowerCase().contains('network') ||
+          errorStr.toLowerCase().contains('socket');
+
       setState(() {
         _isLoading = false;
         _isSuccess = false;
-        _resultMessage = e.toString().replaceAll('Exception: ', '');
+        _isNetworkError = isNetwork;
+        _resultMessage = isNetwork
+            ? 'Network Connection Error: Unable to verify payment status.'
+            : 'Confirmation Error: $errorStr';
       });
     }
   }
@@ -381,7 +400,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   ),
                 ),
               ] else if (_resultMessage != null || _paymentStatus != null) ...[
-                // Non-paid / Status result card with "Check Again" button if not paid
+                // Error / Non-paid / Status result card with retry option
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
@@ -421,51 +440,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           ),
                         ],
                       ),
-                      if (_checkoutUrl != null && _checkoutUrl!.isNotEmpty && !_isPaid) ...[
-                        const SizedBox(height: 10),
+                      if (_isNetworkError) ...[
+                        const SizedBox(height: 14),
                         SizedBox(
                           width: double.infinity,
                           child: CupertinoButton(
-                            color: AppColors.primary.withValues(alpha: 0.12),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            borderRadius: BorderRadius.circular(10),
-                            onPressed: () async {
-                              final result = await Navigator.of(context).push<bool>(
-                                CupertinoPageRoute(
-                                  builder: (_) => CheckoutWebViewScreen(checkoutUrl: _checkoutUrl!),
-                                ),
-                              );
-                              if (result == true && _paymentId != null) {
-                                await _confirmPayment(_paymentId!);
-                              }
-                            },
-                            child: const Text(
-                              'Open Checkout Gateway',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                      if (_paymentId != null && !_isPaid) ...[
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          width: double.infinity,
-                          child: CupertinoButton(
-                            color: AppColors.primary,
+                            color: AppColors.danger,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             borderRadius: BorderRadius.circular(10),
-                            onPressed: () => _confirmPayment(_paymentId!),
+                            onPressed: _onPayNowPressed,
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(CupertinoIcons.refresh, color: Colors.white, size: 18),
+                                Icon(CupertinoIcons.wifi_exclamationmark, color: Colors.white, size: 18),
                                 SizedBox(width: 8),
                                 Text(
-                                  'Check Again',
+                                  'Retry Connection',
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
@@ -476,8 +466,64 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             ),
                           ),
                         ),
+                      ] else ...[
+                        if (_checkoutUrl != null && _checkoutUrl!.isNotEmpty && !_isPaid) ...[
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: CupertinoButton(
+                              color: AppColors.primary.withValues(alpha: 0.12),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              borderRadius: BorderRadius.circular(10),
+                              onPressed: () async {
+                                final result = await Navigator.of(context).push<bool>(
+                                  CupertinoPageRoute(
+                                    builder: (_) => CheckoutWebViewScreen(checkoutUrl: _checkoutUrl!),
+                                  ),
+                                );
+                                if (result == true && _paymentId != null) {
+                                  await _confirmPayment(_paymentId!);
+                                }
+                              },
+                              child: const Text(
+                                'Open Checkout Gateway',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (_paymentId != null && !_isPaid) ...[
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: CupertinoButton(
+                              color: AppColors.primary,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              borderRadius: BorderRadius.circular(10),
+                              onPressed: () => _confirmPayment(_paymentId!),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(CupertinoIcons.refresh, color: Colors.white, size: 18),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Check Again',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
-
                     ],
                   ),
                 ),
@@ -515,5 +561,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 }
+
 
 

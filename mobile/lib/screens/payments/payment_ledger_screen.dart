@@ -3,15 +3,16 @@ import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
 import '../../services/payment_service.dart';
 import '../../models/ledger.dart';
+import '../../widgets/status_badge.dart';
 
 class PaymentLedgerScreen extends StatefulWidget {
-  final String token;
-  final String paymentId;
+  final String? token;
+  final String? paymentId;
 
   const PaymentLedgerScreen({
     super.key,
-    required this.token,
-    required this.paymentId,
+    this.token,
+    this.paymentId,
   });
 
   @override
@@ -23,25 +24,72 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
+  String get _effectiveToken {
+    if (widget.token != null && widget.token!.isNotEmpty) {
+      return widget.token!;
+    }
+    final routeArgs = ModalRoute.of(context)?.settings.arguments;
+    if (routeArgs is Map<String, dynamic> && routeArgs.containsKey('token')) {
+      return routeArgs['token']?.toString() ?? '';
+    }
+    return '';
+  }
+
+  String get _effectivePaymentId {
+    if (widget.paymentId != null && widget.paymentId!.isNotEmpty) {
+      return widget.paymentId!;
+    }
+    final routeArgs = ModalRoute.of(context)?.settings.arguments;
+    if (routeArgs is Map<String, dynamic>) {
+      if (routeArgs.containsKey('paymentId')) {
+        return routeArgs['paymentId']?.toString() ?? '';
+      }
+      if (routeArgs.containsKey('id')) {
+        return routeArgs['id']?.toString() ?? '';
+      }
+    }
+    return '';
+  }
+
   @override
   void initState() {
     super.initState();
-    _loadLedger();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadLedger();
+    });
   }
 
   Future<void> _loadLedger() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
+
+    final targetId = _effectivePaymentId;
+    if (targetId.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'No payment ID specified.';
+      });
+      return;
+    }
+
     try {
-      final service = PaymentService(widget.token);
-      final ledger = await service.getLedger(widget.paymentId);
-      if (mounted) setState(() => _ledger = ledger);
+      final service = PaymentService(_effectiveToken);
+      final ledger = await service.getLedger(targetId);
+      if (!mounted) return;
+      setState(() {
+        _ledger = ledger;
+        _isLoading = false;
+      });
     } catch (e) {
-      if (mounted) setState(() => _errorMessage = e.toString());
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+      });
     }
   }
 
@@ -50,21 +98,22 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Payment Ledger'),
+        title: const Text('Payment Ledger Receipt'),
         backgroundColor: AppColors.cardBg,
         elevation: 0,
         leading: CupertinoButton(
           padding: EdgeInsets.zero,
           onPressed: () => Navigator.of(context).pop(),
-          child: const Icon(CupertinoIcons.chevron_left,
-              color: AppColors.primary),
+          child: const Icon(CupertinoIcons.chevron_left, color: AppColors.primary),
         ),
       ),
-      body: _isLoading
-          ? const Center(child: CupertinoActivityIndicator(radius: 14))
-          : _errorMessage != null
-              ? _buildError()
-              : _buildContent(),
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CupertinoActivityIndicator(radius: 14))
+            : _errorMessage != null
+                ? _buildError()
+                : _buildContent(),
+      ),
     );
   }
 
@@ -75,15 +124,20 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(CupertinoIcons.exclamationmark_circle,
+            const Icon(CupertinoIcons.exclamationmark_triangle_fill,
                 color: AppColors.danger, size: 48),
             const SizedBox(height: 16),
-            Text(_errorMessage!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.secondaryLabel)),
+            Text(
+              _errorMessage ?? 'Failed to load ledger details.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.secondaryLabel, fontSize: 14),
+            ),
             const SizedBox(height: 20),
             CupertinoButton.filled(
-                onPressed: _loadLedger, child: const Text('Retry')),
+              borderRadius: BorderRadius.circular(12),
+              onPressed: _loadLedger,
+              child: const Text('Retry'),
+            ),
           ],
         ),
       ),
@@ -92,111 +146,173 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
 
   Widget _buildContent() {
     final l = _ledger!;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Summary cards row
-          Row(
-            children: [
-              Expanded(
-                  child: _buildSummaryTile(
-                      'Original', l.originalAmount, AppColors.primary)),
-              const SizedBox(width: 10),
-              Expanded(
-                  child: _buildSummaryTile(
-                      'Refunded', l.totalRefunded, AppColors.warning)),
-              const SizedBox(width: 10),
-              Expanded(
-                  child: _buildSummaryTile(
-                      'Balance', l.runningBalance, AppColors.success)),
-            ],
-          ),
-          const SizedBox(height: 16),
+          // Receipt Summary Card (Prominent Header)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.cardBg,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.divider, width: 0.8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Payment #${l.paymentId}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.secondaryLabel,
+                      ),
+                    ),
+                    if (l.status != null)
+                      StatusBadge(status: l.status!),
+                  ],
+                ),
+                const SizedBox(height: 16),
 
-          // Status
-          if (l.status != null)
+                // Grid: Original Amount, Total Refunded, Running Balance
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildSummaryMetric(
+                        label: 'Original',
+                        amount: l.originalAmount,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildSummaryMetric(
+                        label: 'Refunded',
+                        amount: l.totalRefunded,
+                        color: AppColors.warning,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildSummaryMetric(
+                        label: 'Balance',
+                        amount: l.runningBalance,
+                        color: AppColors.success,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Ledger Entries Section
+          const Text(
+            'Ledger Transactions',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.dark,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          if (l.entries.isEmpty)
             Container(
+              padding: const EdgeInsets.all(20),
               width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: AppColors.cardBg,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.divider, width: 0.8),
+                border: Border.all(color: AppColors.divider),
               ),
-              child: Row(
-                children: [
-                  const Text('Status',
-                      style: TextStyle(
-                          color: AppColors.secondaryLabel, fontSize: 15)),
-                  const Spacer(),
-                  Text(l.status!,
-                      style: const TextStyle(
-                          color: AppColors.dark,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-          const SizedBox(height: 24),
-
-          // Entries
-          const Text(
-            'Ledger Entries',
-            style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.dark,
-                letterSpacing: -0.3),
-          ),
-          const SizedBox(height: 12),
-          if (l.entries.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Center(
-                child: Text('No entries found.',
-                    style: TextStyle(color: AppColors.secondaryLabel)),
+              child: const Center(
+                child: Text('No ledger entries recorded.'),
               ),
             )
           else
-            ...l.entries.map((entry) => _buildEntryRow(entry)),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: l.entries.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final entry = l.entries[index];
+                return _buildEntryRow(entry);
+              },
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildSummaryTile(String label, double amount, Color color) {
+  Widget _buildSummaryMetric({
+    required String label,
+    required double amount,
+    required Color color,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
       decoration: BoxDecoration(
-        color: AppColors.cardBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.divider, width: 0.8),
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'LKR\n${amount.toStringAsFixed(0)}',
+            label,
             style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w700, color: color),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
           ),
           const SizedBox(height: 4),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 12, color: AppColors.secondaryLabel)),
+          Text(
+            'LKR ${amount.toStringAsFixed(2)}',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildEntryRow(LedgerEntry entry) {
-    final isCredit = entry.amount >= 0;
-    final color = isCredit ? AppColors.success : AppColors.danger;
+    final entryTypeLower = (entry.type ?? '').toLowerCase();
+    final descLower = (entry.description ?? '').toLowerCase();
+    final isRefund = entryTypeLower.contains('refund') ||
+        descLower.contains('refund') ||
+        entry.amount < 0;
+
+    final color = isRefund ? AppColors.warning : AppColors.success;
+    final icon = isRefund ? CupertinoIcons.arrow_uturn_left : CupertinoIcons.arrow_down_circle;
+
+    final displayDate = entry.createdAt ?? entry.date ?? '—';
+    final descriptionStr = entry.description ?? entry.type ?? 'Ledger Entry';
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.cardBg,
@@ -209,16 +325,10 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              isCredit
-                  ? CupertinoIcons.arrow_down_circle
-                  : CupertinoIcons.arrow_up_circle,
-              color: color,
-              size: 20,
-            ),
+            child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -226,28 +336,35 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  entry.type ?? entry.description ?? 'Entry',
+                  descriptionStr,
                   style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.dark),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.dark,
+                  ),
                 ),
-                if (entry.createdAt != null) ...[
-                  const SizedBox(height: 2),
-                  Text(entry.createdAt!,
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.secondaryLabel)),
-                ],
+                const SizedBox(height: 3),
+                Text(
+                  displayDate,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryLabel,
+                  ),
+                ),
               ],
             ),
           ),
           Text(
-            '${isCredit ? '+' : ''}LKR ${entry.amount.toStringAsFixed(2)}',
+            '${isRefund ? '-' : '+'}LKR ${entry.amount.abs().toStringAsFixed(2)}',
             style: TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w600, color: color),
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
           ),
         ],
       ),
     );
   }
 }
+

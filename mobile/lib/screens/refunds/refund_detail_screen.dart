@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
@@ -23,6 +24,7 @@ class _RefundDetailScreenState extends State<RefundDetailScreen> {
   Refund? _refund;
   bool _isLoading = true;
   String? _errorMessage;
+  Timer? _refreshTimer;
 
   String get _effectiveToken {
     if (widget.token != null && widget.token!.isNotEmpty) {
@@ -56,7 +58,34 @@ class _RefundDetailScreenState extends State<RefundDetailScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadRefund();
+      _startAutoRefresh();
     });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _silentRefresh();
+    });
+  }
+
+  Future<void> _silentRefresh() async {
+    if (!mounted) return;
+    final rId = _effectiveRefundId;
+    if (rId.isEmpty) return;
+
+    try {
+      final service = RefundService(_effectiveToken);
+      final refund = await service.getRefund(rId);
+      if (!mounted) return;
+      setState(() => _refund = refund);
+    } catch (_) {}
   }
 
   Future<void> _loadRefund() async {
@@ -181,11 +210,15 @@ class _RefundDetailScreenState extends State<RefundDetailScreen> {
   Widget _buildContent() {
     final r = _refund!;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return RefreshIndicator(
+      onRefresh: _loadRefund,
+      color: AppColors.primary,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           // Visual Stepper / Progress Tracker Widget
           RefundTrackerWidget(
             status: r.status,
@@ -213,6 +246,7 @@ class _RefundDetailScreenState extends State<RefundDetailScreen> {
           ]),
         ],
       ),
+    ),
     );
   }
 

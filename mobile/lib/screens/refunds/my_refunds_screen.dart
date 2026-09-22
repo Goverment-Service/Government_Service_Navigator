@@ -89,12 +89,31 @@ class _MyRefundsScreenState extends State<MyRefundsScreen> {
       ),
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CupertinoActivityIndicator(radius: 14))
+            ? _buildLoading()
             : _errorMessage != null
                 ? _buildError()
                 : _refunds.isEmpty
                     ? _buildEmpty()
                     : _buildList(),
+      ),
+    );
+  }
+
+  Widget _buildLoading() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CupertinoActivityIndicator(radius: 14),
+          SizedBox(height: 12),
+          Text(
+            'Loading refund requests...',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.secondaryLabel,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -109,12 +128,21 @@ class _MyRefundsScreenState extends State<MyRefundsScreen> {
             const Icon(CupertinoIcons.exclamationmark_triangle_fill,
                 color: AppColors.danger, size: 48),
             const SizedBox(height: 16),
+            const Text(
+              'Failed to load refunds',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.dark,
+              ),
+            ),
+            const SizedBox(height: 8),
             Text(
               _errorMessage ?? 'Failed to load refund requests.',
               textAlign: TextAlign.center,
               style: const TextStyle(color: AppColors.secondaryLabel, fontSize: 14),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             CupertinoButton.filled(
               borderRadius: BorderRadius.circular(12),
               onPressed: _loadRefunds,
@@ -133,7 +161,7 @@ class _MyRefundsScreenState extends State<MyRefundsScreen> {
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+          SizedBox(height: MediaQuery.of(context).size.height * 0.22),
           Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -147,7 +175,7 @@ class _MyRefundsScreenState extends State<MyRefundsScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
-                      CupertinoIcons.arrow_uturn_left_circle,
+                      CupertinoIcons.arrow_uturn_left_circle_fill,
                       color: AppColors.primary,
                       size: 48,
                     ),
@@ -163,7 +191,7 @@ class _MyRefundsScreenState extends State<MyRefundsScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Tap the + button to submit a new refund request.',
+                    'You have not submitted any refund requests yet. Tap + to create one.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 14, color: AppColors.secondaryLabel),
                   ),

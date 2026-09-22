@@ -64,6 +64,38 @@ class AppDrawer extends StatelessWidget {
               onTap: () => Navigator.pop(context),
             ),
             ListTile(
+              leading: const Icon(Icons.payment),
+              title: const Text('Make Payment'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).pushNamed('/payment');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.calendar_month),
+              title: const Text('Installment Plans'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).pushNamed('/installment-plan');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.money_off),
+              title: const Text('Request Refund'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).pushNamed('/refund-request');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('Transaction History'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).pushNamed('/transaction-history');
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.person),
               title: const Text('Profile'),
               onTap: () => Navigator.pop(context),

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-//import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile/screens/index/loading_page.dart';
+import 'package:mobile/screens/payments/payment_screen.dart';
+import 'package:mobile/screens/payments/installment_plan_view.dart';
+import 'package:mobile/screens/refunds/refund_request_screen.dart';
+import 'package:mobile/screens/payments/transaction_history_screen.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -31,6 +34,12 @@ class MyApp extends StatelessWidget {
         );
       },
       home: const LoadingPage(),
+      routes: {
+        '/payment': (context) => const PaymentScreen(),
+        '/installment-plan': (context) => const InstallmentPlanView(),
+        '/refund-request': (context) => const RefundRequestScreen(),
+        '/transaction-history': (context) => const TransactionHistoryScreen(),
+      },
     );
   }
 }
@@ -40,4 +49,4 @@ class _IOSScrollBehavior extends ScrollBehavior {
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) =>
       const BouncingScrollPhysics();
-}
+}

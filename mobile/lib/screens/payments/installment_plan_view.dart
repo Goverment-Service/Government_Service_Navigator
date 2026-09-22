@@ -224,85 +224,8 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-          // Header Plan Summary Card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.cardBg,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.divider, width: 0.8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Plan ID: ${plan.id}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.secondaryLabel,
-                      ),
-                    ),
-                    StatusBadge(status: plan.status ?? 'Active', showDot: true),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Total Plan Amount',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.secondaryLabel,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'LKR ${plan.totalAmount.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    const Icon(CupertinoIcons.calendar, size: 16, color: AppColors.secondaryLabel),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${plan.numberOfInstallments} Total Installments',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.dark,
-                      ),
-                    ),
-                    if (plan.paymentId.isNotEmpty) ...[
-                      const Spacer(),
-                      Text(
-                        'Payment #${plan.paymentId}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.secondaryLabel,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
+          // Summary Header Card
+          _buildSummaryHeaderCard(plan),
           const SizedBox(height: 24),
 
           // Schedule Section Title
@@ -349,6 +272,87 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
         ],
       ),
     ),
+    );
+  }
+
+  Widget _buildSummaryHeaderCard(InstallmentPlan plan) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider, width: 0.8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Plan ID: ${plan.id}',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.secondaryLabel,
+                ),
+              ),
+              StatusBadge(status: plan.status ?? 'Active', showDot: true),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Total Plan Amount',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.secondaryLabel,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'LKR ${plan.totalAmount.toStringAsFixed(2)}',
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              const Icon(CupertinoIcons.calendar, size: 16, color: AppColors.secondaryLabel),
+              const SizedBox(width: 6),
+              Text(
+                '${plan.numberOfInstallments} Total Installments',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.dark,
+                ),
+              ),
+              if (plan.paymentId.isNotEmpty) ...[
+                const Spacer(),
+                Text(
+                  'Payment #${plan.paymentId}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryLabel,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 

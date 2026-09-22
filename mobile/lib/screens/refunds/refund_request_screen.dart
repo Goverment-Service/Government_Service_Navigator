@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
+import '../../services/refund_service.dart';
+import 'refund_detail_screen.dart';
 
 class RefundRequestScreen extends StatefulWidget {
   final String? token;
@@ -23,6 +25,9 @@ class _RefundRequestScreenState extends State<RefundRequestScreen> {
   late final TextEditingController _paymentIdController;
   late final TextEditingController _amountController;
   final TextEditingController _reasonController = TextEditingController();
+
+  bool _isLoading = false;
+  String? _errorMessage;
 
   String get _effectiveToken {
     if (widget.token != null && widget.token!.isNotEmpty) {
@@ -73,12 +78,64 @@ class _RefundRequestScreenState extends State<RefundRequestScreen> {
     super.dispose();
   }
 
-  void _onSubmitPressed() {
+  String _mapErrorMessage(String rawError) {
+    final clean = rawError.replaceAll('Exception: ', '').trim();
+    final lower = clean.toLowerCase();
+
+    if (lower.contains('not found')) {
+      return "We couldn't find that payment";
+    }
+    if (lower.contains('only paid payments are eligible')) {
+      return "This payment isn't eligible for a refund yet";
+    }
+    if (lower.contains('refund window has expired') || lower.contains('expired')) {
+      return "Refunds must be requested within 3 days of payment";
+    }
+    if (lower.contains('already exists') || lower.contains('active refund request')) {
+      return "You already have a refund request in progress for this payment";
+    }
+    return clean;
+  }
+
+  Future<void> _onSubmitPressed() async {
     if (!_formKey.currentState!.validate()) return;
-    final token = _effectiveToken;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Form validated! (Token length: ${token.length})')),
-    );
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final service = RefundService(_effectiveToken);
+      final pId = _paymentIdController.text.trim();
+      final amt = double.parse(_amountController.text.trim());
+      final rsn = _reasonController.text.trim();
+
+      final refundReq = await service.submitRefund(
+        paymentId: pId,
+        refundAmount: amt,
+        reason: rsn,
+      );
+
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      Navigator.of(context).pushReplacement(
+        CupertinoPageRoute(
+          builder: (_) => RefundDetailScreen(
+            token: _effectiveToken,
+            refundId: refundReq.id,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = _mapErrorMessage(e.toString());
+      });
+    }
   }
 
   @override
@@ -201,20 +258,51 @@ class _RefundRequestScreenState extends State<RefundRequestScreen> {
                 ),
                 const SizedBox(height: 28),
 
+                if (_errorMessage != null) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.danger.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(CupertinoIcons.exclamationmark_circle_fill, color: AppColors.danger, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _errorMessage!,
+                            style: const TextStyle(
+                              color: AppColors.danger,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                ],
+
                 // Submit Button
                 SizedBox(
                   width: double.infinity,
                   height: 52,
                   child: CupertinoButton.filled(
                     borderRadius: BorderRadius.circular(14),
-                    onPressed: _onSubmitPressed,
-                    child: const Text(
-                      'Submit Refund Request',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    onPressed: _isLoading ? null : _onSubmitPressed,
+                    child: _isLoading
+                        ? const CupertinoActivityIndicator(color: Colors.white, radius: 11)
+                        : const Text(
+                            'Submit Refund Request',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
                 ),
               ],

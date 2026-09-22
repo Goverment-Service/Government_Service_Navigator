@@ -99,6 +99,43 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
     }
   }
 
+  String? _payingInstallmentId;
+
+  Future<void> _payInstallment(String installmentId) async {
+    if (_payingInstallmentId != null) return;
+    setState(() {
+      _payingInstallmentId = installmentId;
+    });
+
+    try {
+      final service = InstallmentService(_effectiveToken);
+      await service.payInstallment(installmentId);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Installment paid successfully!'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      await _fetchPlan();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to pay installment: ${e.toString().replaceAll('Exception: ', '')}'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _payingInstallmentId = null;
+        });
+      }
+    }
+  }
+
   String _formatDate(String? rawDate) {
     if (rawDate == null || rawDate.isEmpty) return '—';
     try {
@@ -521,10 +558,40 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
             ),
           ),
 
-          // Status Badge
-          StatusBadge(
-            status: isOverdue ? 'Overdue' : (item.status ?? 'Pending'),
-            showDot: isOverdue || isNextUpcoming,
+          // Status Badge & Action Button
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              StatusBadge(
+                status: isOverdue ? 'Overdue' : (item.status ?? 'Pending'),
+                showDot: isOverdue || isNextUpcoming,
+              ),
+              if (!isPaid) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 32,
+                  child: CupertinoButton(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(8),
+                    onPressed: _payingInstallmentId == item.id.toString()
+                        ? null
+                        : () => _payInstallment(item.id.toString()),
+                    child: _payingInstallmentId == item.id.toString()
+                        ? const CupertinoActivityIndicator(color: AppColors.cardBg, radius: 7)
+                        : const Text(
+                            'Pay Now',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.cardBg,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),

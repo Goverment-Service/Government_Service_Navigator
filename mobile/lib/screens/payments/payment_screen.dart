@@ -322,25 +322,27 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ),
               const SizedBox(height: 28),
 
-              // Pay Now Action Button
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: CupertinoButton.filled(
-                  borderRadius: BorderRadius.circular(14),
-                  onPressed: _isLoading ? null : _onPayNowPressed,
-                  child: _isLoading
-                      ? const CupertinoActivityIndicator(color: AppColors.cardBg, radius: 11)
-                      : const Text(
-                          'Pay Now',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
+              // Pay Now Action Button (only visible if not paid)
+              if (!_isPaid) ...[
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: CupertinoButton.filled(
+                    borderRadius: BorderRadius.circular(14),
+                    onPressed: _isLoading ? null : _onPayNowPressed,
+                    child: _isLoading
+                        ? const CupertinoActivityIndicator(color: AppColors.cardBg, radius: 11)
+                        : const Text(
+                            'Pay Now',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
+              ],
 
               // Space for loading / result state display below button
               if (_isLoading) ...[

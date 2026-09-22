@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
 import '../../services/installment_service.dart';
+import '../../services/payment_service.dart';
 import '../../models/installment_plan.dart';
 import '../../widgets/status_badge.dart';
 
@@ -68,6 +69,18 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
     });
   }
 
+  bool get _hasExplicitPlanId {
+    if (widget.planId != null && widget.planId!.isNotEmpty) return true;
+    if (widget.paymentId != null && widget.paymentId!.isNotEmpty) return true;
+    final routeArgs = ModalRoute.of(context)?.settings.arguments;
+    if (routeArgs is Map<String, dynamic>) {
+      if (routeArgs.containsKey('planId') && routeArgs['planId'] != null && routeArgs['planId'].toString().isNotEmpty) return true;
+      if (routeArgs.containsKey('installmentPlanId') && routeArgs['installmentPlanId'] != null && routeArgs['installmentPlanId'].toString().isNotEmpty) return true;
+      if (routeArgs.containsKey('paymentId') && routeArgs['paymentId'] != null && routeArgs['paymentId'].toString().isNotEmpty) return true;
+    }
+    return false;
+  }
+
   Future<void> _fetchPlan() async {
     if (!mounted) return;
     setState(() {
@@ -76,16 +89,43 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
       _isNotFound = false;
     });
 
-    final targetId = _effectivePlanId;
-
     try {
-      final service = InstallmentService(_effectiveToken);
-      final plan = await service.getInstallmentPlan(targetId);
+      final installmentService = InstallmentService(_effectiveToken);
+
+      if (_hasExplicitPlanId) {
+        final plan = await installmentService.getInstallmentPlan(_effectivePlanId);
+        if (!mounted) return;
+        setState(() {
+          _plan = plan;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // If opened from dashboard without planId/paymentId, auto-search user payments for an active plan
+      final paymentService = PaymentService(_effectiveToken);
+      final myPayments = await paymentService.myPayments();
+
+      for (final payment in myPayments) {
+        try {
+          final plan = await installmentService.getInstallmentPlan(payment.id);
+          if (mounted) {
+            setState(() {
+              _plan = plan;
+              _isLoading = false;
+            });
+            return;
+          }
+        } catch (_) {
+          // Continue searching remaining payments
+        }
+      }
 
       if (!mounted) return;
       setState(() {
-        _plan = plan;
         _isLoading = false;
+        _isNotFound = true;
+        _errorMessage = 'No active installment plans found for your account.';
       });
     } catch (e) {
       if (!mounted) return;
@@ -94,7 +134,7 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
       setState(() {
         _isLoading = false;
         _isNotFound = is404;
-        _errorMessage = is404 ? 'No installment plan for this payment' : msg;
+        _errorMessage = is404 ? 'No active installment plans found for your account.' : msg;
       });
     }
   }

@@ -1,0 +1,96 @@
+name: Agentic AI CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Agentic AI Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agentic-ai
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # agentic-ai.yml has no `paths:` filter (unlike before) so this check always
+      # fires and can safely be required on main. Instead, this step decides
+      # whether the actual build steps below need to run at all.
+      - name: Detect agentic-ai changes
+        id: filter
+        working-directory: .
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+          fi
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$BASE" "$HEAD" | grep -qE '^(agentic-ai/|\.github/workflows/agentic-ai\.yml$)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # No agent framework is chosen yet (tracked as an ADR — project plan §5.2,
+      # decision 3), so there is nothing to install/build/test. This step just
+      # guards that the required scaffolding from the project plan (§2) hasn't
+      # been accidentally deleted.
+      - name: Verify agent scaffold structure
+        if: steps.filter.outputs.changed == 'true'
+        working-directory: .
+        run: |
+          required=(
+            "agentic-ai/README.md"
+            "agentic-ai/agents/01-intake-planning-agent"
+            "agentic-ai/agents/02-eligibility-document-agent"
+            "agentic-ai/agents/03-action-tool-agent"
+            "agentic-ai/agents/04-validation-safety-agent"
+            "agentic-ai/tools/search-service-catalog"
+            "agentic-ai/tools/check-eligibility-rules"
+            "agentic-ai/tools/get-document-requirements"
+            "agentic-ai/tools/calculate-fee"
+            "agentic-ai/tools/find-appointment-slot"
+            "agentic-ai/tools/prefill-application"
+            "agentic-ai/tools/validate-schema"
+            "agentic-ai/tools/check-duplicate-application"
+            "agentic-ai/orchestration"
+            "agentic-ai/schemas"
+            "agentic-ai/state"
+            "agentic-ai/config"
+            "agentic-ai/tests"
+          )
+          missing=0
+          for path in "${required[@]}"; do
+            if [ ! -e "$path" ]; then
+              echo "::error::Missing required agentic-ai scaffold path: $path"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            exit 1
+          fi
+          echo "Agentic AI scaffold structure OK."
+
+      # TODO: once the agent framework/language is chosen (ADR — project plan
+      # §5.2, decision 3), replace the step above with real install/lint/test
+      # steps, e.g.:
+      #   - Setup runtime (dotnet/node/python) matching the ADR decision
+      #   - Install dependencies
+      #   - Lint
+      #   - Run unit tests (agentic-ai/tests/unit)
+      #   - Run golden-case evaluation (agentic-ai/tests/golden-cases)
+
+      - name: Skipped (no agentic-ai changes)
+        if: steps.filter.outputs.changed != 'true'
+        working-directory: .
+        run: echo "No changes under agentic-ai/ — skipping build."

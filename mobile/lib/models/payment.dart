@@ -2,8 +2,13 @@ class Payment {
   final String id;
   final String? applicationId;
   final double amount;
-  final String? userEmail;
+  final String? currency;
+  final String? method;
   final String? status;
+  final String? stripePaymentIntentId;
+  final String? userEmail;
+  final String? createdDate;
+  final String? paidDate;
   final String? paymentId;
   final String? checkoutUrl;
 
@@ -11,8 +16,13 @@ class Payment {
     required this.id,
     this.applicationId,
     required this.amount,
-    this.userEmail,
+    this.currency,
+    this.method,
     this.status,
+    this.stripePaymentIntentId,
+    this.userEmail,
+    this.createdDate,
+    this.paidDate,
     this.paymentId,
     this.checkoutUrl,
   });
@@ -22,8 +32,13 @@ class Payment {
       id: json['id']?.toString() ?? '',
       applicationId: json['applicationId']?.toString(),
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
-      userEmail: json['userEmail'] as String?,
+      currency: json['currency'] as String?,
+      method: json['method'] as String?,
       status: json['status']?.toString(),
+      stripePaymentIntentId: json['stripePaymentIntentId'] as String?,
+      userEmail: json['userEmail'] as String?,
+      createdDate: json['createdDate'] as String?,
+      paidDate: json['paidDate'] as String?,
       paymentId: json['paymentId']?.toString(),
       checkoutUrl: json['checkoutUrl'] as String?,
     );
@@ -47,3 +62,4 @@ class CheckoutResponse {
     );
   }
 }
+

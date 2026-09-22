@@ -1,22 +1,28 @@
 class Installment {
   final String id;
-  final String? dueDate;
+  final int installmentNumber;
   final double amount;
+  final String? dueDate;
   final String? status;
+  final String? paidDate;
 
   const Installment({
     required this.id,
-    this.dueDate,
+    required this.installmentNumber,
     required this.amount,
+    this.dueDate,
     this.status,
+    this.paidDate,
   });
 
   factory Installment.fromJson(Map<String, dynamic> json) {
     return Installment(
       id: json['id']?.toString() ?? '',
-      dueDate: json['dueDate'] as String?,
+      installmentNumber: (json['installmentNumber'] as num?)?.toInt() ?? 0,
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      dueDate: json['dueDate'] as String?,
       status: json['status']?.toString(),
+      paidDate: json['paidDate'] as String?,
     );
   }
 }
@@ -52,3 +58,4 @@ class InstallmentPlan {
     );
   }
 }
+

@@ -93,6 +93,38 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
     }
   }
 
+  String _formatCurrency(double amount) {
+    final isNegative = amount < 0;
+    final absAmt = amount.abs();
+    final parts = absAmt.toStringAsFixed(2).split('.');
+    final integerPart = parts[0];
+    final decimalPart = parts[1];
+
+    final buffer = StringBuffer();
+    for (int i = 0; i < integerPart.length; i++) {
+      if (i > 0 && (integerPart.length - i) % 3 == 0) {
+        buffer.write(',');
+      }
+      buffer.write(integerPart[i]);
+    }
+    final formattedStr = '${buffer.toString()}.$decimalPart';
+    return isNegative ? '-LKR $formattedStr' : 'LKR $formattedStr';
+  }
+
+  String _formatDate(String? raw) {
+    if (raw == null || raw.isEmpty) return '—';
+    try {
+      final parsed = DateTime.parse(raw);
+      final months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      ];
+      return '${parsed.day} ${months[parsed.month - 1]} ${parsed.year}';
+    } catch (_) {
+      return raw.contains('T') ? raw.split('T')[0] : raw;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -152,7 +184,7 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Receipt Summary Card (Prominent Header)
+          // Receipt Header Card
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
@@ -223,7 +255,7 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
 
           // Ledger Entries Section
           const Text(
-            'Ledger Transactions',
+            'Receipt Statement',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -247,15 +279,37 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
               ),
             )
           else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: l.entries.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                final entry = l.entries[index];
-                return _buildEntryRow(entry);
-              },
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.cardBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.divider, width: 0.8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: List.generate(l.entries.length, (index) {
+                  final entry = l.entries[index];
+                  final isLast = index == l.entries.length - 1;
+                  return Column(
+                    children: [
+                      _buildEntryRow(entry),
+                      if (!isLast)
+                        const Divider(
+                          height: 1,
+                          color: AppColors.divider,
+                          indent: 16,
+                          endIndent: 16,
+                        ),
+                    ],
+                  );
+                }),
+              ),
             ),
         ],
       ),
@@ -287,11 +341,12 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'LKR ${amount.toStringAsFixed(2)}',
+            _formatCurrency(amount),
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w700,
               color: color,
+              fontFamily: 'Courier',
             ),
           ),
         ],
@@ -309,16 +364,11 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
     final color = isRefund ? AppColors.warning : AppColors.success;
     final icon = isRefund ? CupertinoIcons.arrow_uturn_left : CupertinoIcons.arrow_down_circle;
 
-    final displayDate = entry.createdAt ?? entry.date ?? '—';
+    final displayDate = _formatDate(entry.createdAt ?? entry.date);
     final descriptionStr = entry.description ?? entry.type ?? 'Ledger Entry';
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.cardBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.divider, width: 0.8),
-      ),
+    return Padding(
+      padding: const EdgeInsets.all(16),
       child: Row(
         children: [
           Container(
@@ -330,7 +380,7 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
             ),
             child: Icon(icon, color: color, size: 20),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,11 +405,12 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
             ),
           ),
           Text(
-            '${isRefund ? '-' : '+'}LKR ${entry.amount.abs().toStringAsFixed(2)}',
+            '${isRefund ? '-' : '+'}${_formatCurrency(entry.amount.abs())}',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
               color: color,
+              fontFamily: 'Courier',
             ),
           ),
         ],
@@ -367,4 +418,3 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
     );
   }
 }
-

@@ -104,38 +104,15 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(child: CupertinoActivityIndicator(radius: 14));
+      return _buildLoading();
     }
 
     if (_errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(CupertinoIcons.exclamationmark_triangle_fill,
-                  color: AppColors.danger, size: 48),
-              const SizedBox(height: 16),
-              Text(
-                _errorMessage!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.secondaryLabel, fontSize: 14),
-              ),
-              const SizedBox(height: 20),
-              CupertinoButton.filled(
-                borderRadius: BorderRadius.circular(12),
-                onPressed: _loadPayments,
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildError();
     }
 
     if (_payments.isEmpty) {
-      return const Center(child: Text('No payments found.'));
+      return _buildEmpty();
     }
 
     return ListView.separated(
@@ -146,6 +123,101 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
         final p = _payments[index];
         return _buildPaymentTile(p);
       },
+    );
+  }
+
+  Widget _buildLoading() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CupertinoActivityIndicator(radius: 14),
+          SizedBox(height: 12),
+          Text(
+            'Loading transactions...',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.secondaryLabel,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(CupertinoIcons.exclamationmark_triangle_fill,
+                color: AppColors.danger, size: 48),
+            const SizedBox(height: 16),
+            const Text(
+              'Failed to load transactions',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.dark,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage ?? 'Failed to load transaction history.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.secondaryLabel, fontSize: 14),
+            ),
+            const SizedBox(height: 24),
+            CupertinoButton.filled(
+              borderRadius: BorderRadius.circular(12),
+              onPressed: _loadPayments,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmpty() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                CupertinoIcons.creditcard_fill,
+                color: AppColors.primary,
+                size: 48,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'No transactions yet',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.dark,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Your payment history and transaction receipts will appear here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: AppColors.secondaryLabel),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
 import '../../services/payment_service.dart';
-import 'payment_confirm_screen.dart';
 import 'checkout_webview_screen.dart';
-
 
 class PaymentScreen extends StatefulWidget {
   final String? token;
@@ -31,6 +29,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   String? _paymentId;
   String? _checkoutUrl;
+  String? _paymentStatus;
+  bool _isPaid = false;
+
+
 
   String get _effectiveToken {
     if (widget.token != null && widget.token!.isNotEmpty) {
@@ -84,6 +86,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _resultMessage = null;
       _paymentId = null;
       _checkoutUrl = null;
+      _paymentStatus = null;
+      _isPaid = false;
       _isSuccess = false;
     });
 
@@ -97,11 +101,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       if (!mounted) return;
       setState(() {
-        _isLoading = false;
-        _isSuccess = true;
         _paymentId = response.paymentId;
         _checkoutUrl = response.checkoutUrl;
       });
+
 
       if (response.checkoutUrl.isNotEmpty) {
         final result = await Navigator.of(context).push<bool>(
@@ -111,24 +114,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
         );
 
         if (!mounted) return;
-        setState(() {
-          if (result == true) {
-            _isSuccess = true;
-            _resultMessage = 'Payment completed successfully!';
-          } else if (result == false) {
+        if (result == true && _paymentId != null) {
+          await _confirmPayment(_paymentId!);
+        } else if (result == false) {
+          setState(() {
+            _isLoading = false;
             _isSuccess = false;
             _resultMessage = 'Payment checkout was cancelled or failed.';
-          } else {
+          });
+        } else {
+          setState(() {
+            _isLoading = false;
             _isSuccess = true;
-            _resultMessage = 'Checkout session created. Complete your payment above.';
-          }
-        });
+            _resultMessage = 'Checkout session created (ID: $_paymentId). Complete payment or check status.';
+          });
+        }
       } else {
         setState(() {
+          _isLoading = false;
           _resultMessage = 'Checkout session created (ID: ${response.paymentId}).';
         });
       }
     } catch (e) {
+
       if (!mounted) return;
       setState(() {
         _isLoading = false;
@@ -138,6 +146,40 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+  Future<void> _confirmPayment(String paymentId) async {
+    setState(() {
+      _isLoading = true;
+      _resultMessage = null;
+    });
+
+    try {
+      final service = PaymentService(_effectiveToken);
+      final payment = await service.confirmPayment(paymentId);
+
+      if (!mounted) return;
+      final statusStr = payment.status ?? 'Pending';
+      final isPaid = statusStr.toLowerCase() == 'paid' || statusStr.toLowerCase() == 'completed';
+
+      setState(() {
+        _isLoading = false;
+        _paymentStatus = statusStr;
+        _isPaid = isPaid;
+        _isSuccess = isPaid;
+        if (isPaid) {
+          _resultMessage = 'Payment successful';
+        } else {
+          _resultMessage = 'Payment status: $statusStr';
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _isSuccess = false;
+        _resultMessage = e.toString().replaceAll('Exception: ', '');
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -289,18 +331,68 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     child: CupertinoActivityIndicator(radius: 14),
                   ),
                 ),
-              ] else if (_resultMessage != null) ...[
+              ] else if (_isPaid) ...[
+                // Paid Success State Card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.success.withValues(alpha: 0.3),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          CupertinoIcons.checkmark_seal_fill,
+                          color: AppColors.success,
+                          size: 32,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Payment successful',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.success,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Status: ${_paymentStatus ?? "Paid"} • ID: ${_paymentId ?? ""}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.secondaryLabel,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else if (_resultMessage != null || _paymentStatus != null) ...[
+                // Non-paid / Status result card with "Check Again" button if not paid
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: _isSuccess
-                        ? AppColors.success.withValues(alpha: 0.08)
+                        ? AppColors.primary.withValues(alpha: 0.08)
                         : AppColors.danger.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: _isSuccess
-                          ? AppColors.success.withValues(alpha: 0.3)
+                          ? AppColors.primary.withValues(alpha: 0.3)
                           : AppColors.danger.withValues(alpha: 0.3),
                     ),
                   ),
@@ -311,17 +403,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         children: [
                           Icon(
                             _isSuccess
-                                ? CupertinoIcons.checkmark_circle_fill
+                                ? CupertinoIcons.info_circle_fill
                                 : CupertinoIcons.exclamationmark_circle_fill,
-                            color: _isSuccess ? AppColors.success : AppColors.danger,
+                            color: _isSuccess ? AppColors.primary : AppColors.danger,
                             size: 22,
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              _resultMessage!,
+                              _resultMessage ?? 'Status: ${_paymentStatus ?? "Pending"}',
                               style: TextStyle(
-                                color: _isSuccess ? AppColors.success : AppColors.danger,
+                                color: _isSuccess ? AppColors.dark : AppColors.danger,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -329,36 +421,63 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           ),
                         ],
                       ),
-                      if (_isSuccess && _paymentId != null) ...[
-                        const SizedBox(height: 14),
+                      if (_checkoutUrl != null && _checkoutUrl!.isNotEmpty && !_isPaid) ...[
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: CupertinoButton(
+                            color: AppColors.primary.withValues(alpha: 0.12),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            borderRadius: BorderRadius.circular(10),
+                            onPressed: () async {
+                              final result = await Navigator.of(context).push<bool>(
+                                CupertinoPageRoute(
+                                  builder: (_) => CheckoutWebViewScreen(checkoutUrl: _checkoutUrl!),
+                                ),
+                              );
+                              if (result == true && _paymentId != null) {
+                                await _confirmPayment(_paymentId!);
+                              }
+                            },
+                            child: const Text(
+                              'Open Checkout Gateway',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (_paymentId != null && !_isPaid) ...[
+                        const SizedBox(height: 10),
                         SizedBox(
                           width: double.infinity,
                           child: CupertinoButton(
                             color: AppColors.primary,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             borderRadius: BorderRadius.circular(10),
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                CupertinoPageRoute(
-                                  builder: (_) => PaymentConfirmScreen(
-                                    token: _effectiveToken,
-                                    paymentId: _paymentId!,
-                                    checkoutUrl: _checkoutUrl,
+                            onPressed: () => _confirmPayment(_paymentId!),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(CupertinoIcons.refresh, color: Colors.white, size: 18),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Check Again',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
                                   ),
                                 ),
-                              );
-                            },
-                            child: const Text(
-                              'Proceed to Complete Payment',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
+                              ],
                             ),
                           ),
                         ),
                       ],
+
                     ],
                   ),
                 ),
@@ -396,4 +515,5 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 }
+
 

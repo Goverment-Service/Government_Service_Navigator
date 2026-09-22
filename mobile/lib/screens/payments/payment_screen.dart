@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
+import '../../services/payment_service.dart';
+import 'payment_confirm_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
   final String? token;
@@ -24,6 +26,31 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _isLoading = false;
   String? _resultMessage;
   bool _isSuccess = false;
+
+  String? _paymentId;
+  String? _checkoutUrl;
+
+  String get _effectiveToken {
+    if (widget.token != null && widget.token!.isNotEmpty) {
+      return widget.token!;
+    }
+    final routeArgs = ModalRoute.of(context)?.settings.arguments;
+    if (routeArgs is Map<String, dynamic> && routeArgs.containsKey('token')) {
+      return routeArgs['token']?.toString() ?? '';
+    }
+    return '';
+  }
+
+  String get _effectiveUserEmail {
+    if (widget.userEmail != null && widget.userEmail!.isNotEmpty) {
+      return widget.userEmail!;
+    }
+    final routeArgs = ModalRoute.of(context)?.settings.arguments;
+    if (routeArgs is Map<String, dynamic> && routeArgs.containsKey('userEmail')) {
+      return routeArgs['userEmail']?.toString() ?? 'citizen@example.com';
+    }
+    return 'citizen@example.com';
+  }
 
   String get _effectiveAppId {
     if (widget.applicationId != null && widget.applicationId!.isNotEmpty) {
@@ -49,21 +76,39 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return 2500.00;
   }
 
-  void _onPayNowPressed() {
+  Future<void> _onPayNowPressed() async {
     setState(() {
       _isLoading = true;
       _resultMessage = null;
+      _paymentId = null;
+      _checkoutUrl = null;
+      _isSuccess = false;
     });
 
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _isSuccess = true;
-          _resultMessage = 'Ready for checkout process.';
-        });
-      }
-    });
+    try {
+      final service = PaymentService(_effectiveToken);
+      final response = await service.checkout(
+        applicationId: _effectiveAppId,
+        amount: _effectiveAmount,
+        userEmail: _effectiveUserEmail,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _isSuccess = true;
+        _paymentId = response.paymentId;
+        _checkoutUrl = response.checkoutUrl;
+        _resultMessage = 'Checkout session created successfully! Payment ID: ${response.paymentId}';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _isSuccess = false;
+        _resultMessage = e.toString().replaceAll('Exception: ', '');
+      });
+    }
   }
 
   @override
@@ -182,7 +227,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     const Divider(height: 1, color: AppColors.divider, indent: 16),
                     _buildRow('Fee Amount', 'LKR ${feeAmount.toStringAsFixed(2)}'),
                     const Divider(height: 1, color: AppColors.divider, indent: 16),
-                    _buildRow('Payment Gateway', 'Stripe / Bank Transfer'),
+                    _buildRow('Payer Email', _effectiveUserEmail),
                   ],
                 ),
               ),
@@ -231,26 +276,61 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           : AppColors.danger.withValues(alpha: 0.3),
                     ),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        _isSuccess
-                            ? CupertinoIcons.checkmark_circle_fill
-                            : CupertinoIcons.exclamationmark_circle_fill,
-                        color: _isSuccess ? AppColors.success : AppColors.danger,
-                        size: 22,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _resultMessage!,
-                          style: TextStyle(
+                      Row(
+                        children: [
+                          Icon(
+                            _isSuccess
+                                ? CupertinoIcons.checkmark_circle_fill
+                                : CupertinoIcons.exclamationmark_circle_fill,
                             color: _isSuccess ? AppColors.success : AppColors.danger,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _resultMessage!,
+                              style: TextStyle(
+                                color: _isSuccess ? AppColors.success : AppColors.danger,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_isSuccess && _paymentId != null) ...[
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: CupertinoButton(
+                            color: AppColors.primary,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            borderRadius: BorderRadius.circular(10),
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                CupertinoPageRoute(
+                                  builder: (_) => PaymentConfirmScreen(
+                                    token: _effectiveToken,
+                                    paymentId: _paymentId!,
+                                    checkoutUrl: _checkoutUrl,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: const Text(
+                              'Proceed to Complete Payment',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -288,3 +368,4 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 }
+

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 
@@ -40,10 +41,10 @@ class AuthService {
       );
     } catch (e, stackTrace) {
       // Print the exact network error to the Flutter console for debugging
-      print('--- LOGIN NETWORK ERROR ---');
-      print('Error: $e');
-      print('Stack Trace: $stackTrace');
-      print('---------------------------');
+      debugPrint('--- LOGIN NETWORK ERROR ---');
+      debugPrint('Error: $e');
+      debugPrint('Stack Trace: $stackTrace');
+      debugPrint('---------------------------');
 
       return const AuthResult(
         success: false,
@@ -80,10 +81,10 @@ class AuthService {
       );
     } catch (e, stackTrace) {
       // Print the exact network error to the Flutter console for debugging
-      print('--- SIGNUP NETWORK ERROR ---');
-      print('Error: $e');
-      print('Stack Trace: $stackTrace');
-      print('----------------------------');
+      debugPrint('--- SIGNUP NETWORK ERROR ---');
+      debugPrint('Error: $e');
+      debugPrint('Stack Trace: $stackTrace');
+      debugPrint('----------------------------');
 
       return const AuthResult(
         success: false,

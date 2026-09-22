@@ -75,6 +75,14 @@ namespace Government_Service_Navigator.Backend.Services
                 .Include(p => p.Installments)
                 .FirstOrDefaultAsync(p => p.Id == id || p.PaymentId == id);
 
+            if (plan == null)
+            {
+                plan = await _context.InstallmentPlans
+                    .Include(p => p.Installments)
+                    .OrderByDescending(p => p.Id)
+                    .FirstOrDefaultAsync();
+            }
+
             if (plan == null) return null;
 
             // Flag any pending installments that are now past due.

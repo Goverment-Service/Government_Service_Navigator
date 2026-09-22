@@ -3,6 +3,8 @@ import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
 import '../../services/payment_service.dart';
 import 'payment_confirm_screen.dart';
+import 'checkout_webview_screen.dart';
+
 
 class PaymentScreen extends StatefulWidget {
   final String? token;
@@ -99,8 +101,33 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _isSuccess = true;
         _paymentId = response.paymentId;
         _checkoutUrl = response.checkoutUrl;
-        _resultMessage = 'Checkout session created successfully! Payment ID: ${response.paymentId}';
       });
+
+      if (response.checkoutUrl.isNotEmpty) {
+        final result = await Navigator.of(context).push<bool>(
+          CupertinoPageRoute(
+            builder: (_) => CheckoutWebViewScreen(checkoutUrl: response.checkoutUrl),
+          ),
+        );
+
+        if (!mounted) return;
+        setState(() {
+          if (result == true) {
+            _isSuccess = true;
+            _resultMessage = 'Payment completed successfully!';
+          } else if (result == false) {
+            _isSuccess = false;
+            _resultMessage = 'Payment checkout was cancelled or failed.';
+          } else {
+            _isSuccess = true;
+            _resultMessage = 'Checkout session created. Complete your payment above.';
+          }
+        });
+      } else {
+        setState(() {
+          _resultMessage = 'Checkout session created (ID: ${response.paymentId}).';
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -110,6 +137,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       });
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

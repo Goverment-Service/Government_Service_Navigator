@@ -7,5 +7,5 @@
 class AppConfig {
   AppConfig._();
 
-  static const String baseUrl = 'http://localhost:5119/api';
+  static const String baseUrl = 'http://10.0.2.2:5119/api';
 }

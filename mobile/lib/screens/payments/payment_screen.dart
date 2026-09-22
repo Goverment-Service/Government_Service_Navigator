@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
 import '../../services/payment_service.dart';
+import '../../services/installment_service.dart';
 import 'checkout_webview_screen.dart';
+import 'installment_plan_view.dart';
 
 class PaymentScreen extends StatefulWidget {
   final String? token;
@@ -32,6 +34,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String? _checkoutUrl;
   String? _paymentStatus;
   bool _isPaid = false;
+
+  int _paymentMethodIndex = 0; // 0 = Full Payment, 1 = Installment Plan
+  int _selectedInstallments = 3; // 2, 3, 4, 6 months
 
   String get _effectiveToken {
     if (widget.token != null && widget.token!.isNotEmpty) {
@@ -200,6 +205,67 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+  Future<void> _onSetupInstallmentPlanPressed() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _resultMessage = null;
+      _paymentId = null;
+      _checkoutUrl = null;
+      _paymentStatus = null;
+      _isPaid = false;
+      _isSuccess = false;
+      _isNetworkError = false;
+    });
+
+    try {
+      final paymentService = PaymentService(_effectiveToken);
+      final response = await paymentService.checkout(
+        applicationId: _effectiveAppId,
+        amount: _effectiveAmount,
+        userEmail: _effectiveUserEmail,
+      );
+
+      final installmentService = InstallmentService(_effectiveToken);
+      final plan = await installmentService.createInstallmentPlan(
+        response.paymentId,
+        numberOfInstallments: _selectedInstallments,
+        intervalDays: 30,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _paymentId = response.paymentId;
+      });
+
+      await Navigator.of(context).push(
+        CupertinoPageRoute(
+          builder: (_) => InstallmentPlanView(
+            token: _effectiveToken,
+            planId: plan.id.toString(),
+            paymentId: response.paymentId,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final errorStr = e.toString().replaceAll('Exception: ', '');
+      final isNetwork = errorStr.toLowerCase().contains('connect') ||
+          errorStr.toLowerCase().contains('network') ||
+          errorStr.toLowerCase().contains('socket');
+
+      setState(() {
+        _isLoading = false;
+        _isSuccess = false;
+        _isNetworkError = isNetwork;
+        _resultMessage = isNetwork
+            ? 'Network Connection Error: Could not setup installment plan.'
+            : 'Installment Plan Setup Error: $errorStr';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final appId = _effectiveAppId;
@@ -322,19 +388,183 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ),
               const SizedBox(height: 28),
 
-              // Pay Now Action Button (only visible if not paid)
+              // Payment Option Selector (Full Payment vs Installment Plan)
               if (!_isPaid) ...[
+                const Text(
+                  'Select Payment Option',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.dark,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppColors.cardBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.divider, width: 0.8),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _paymentMethodIndex = 0),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: _paymentMethodIndex == 0 ? AppColors.primary : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              'Full Payment',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: _paymentMethodIndex == 0 ? AppColors.cardBg : AppColors.secondaryLabel,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _paymentMethodIndex = 1),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: _paymentMethodIndex == 1 ? AppColors.primary : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              'Installment Plan',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: _paymentMethodIndex == 1 ? AppColors.cardBg : AppColors.secondaryLabel,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Installment Details Card (If Installment Plan selected)
+                if (_paymentMethodIndex == 1) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.cardBg,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.divider, width: 0.8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Select Duration',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.dark,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [2, 3, 4, 6].map((months) {
+                            final isSelected = _selectedInstallments == months;
+                            final monthlyAmount = feeAmount / months;
+                            return Expanded(
+                              child: GestureDetector(
+                                onTap: () => setState(() => _selectedInstallments = months),
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : AppColors.background,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: isSelected ? AppColors.primary : AppColors.divider,
+                                      width: isSelected ? 1.5 : 0.8,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        '$months Mos',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: isSelected ? AppColors.primary : AppColors.dark,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'LKR ${(monthlyAmount).toStringAsFixed(0)}',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                          color: isSelected ? AppColors.primary : AppColors.secondaryLabel,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 16),
+                        const Divider(height: 1, color: AppColors.divider),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Monthly Amount:', style: TextStyle(color: AppColors.secondaryLabel, fontSize: 14)),
+                            Text(
+                              'LKR ${(feeAmount / _selectedInstallments).toStringAsFixed(2)}',
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Payment Interval:', style: TextStyle(color: AppColors.secondaryLabel, fontSize: 14)),
+                            const Text('Every 30 Days', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.dark)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                // Dynamic Action Button
                 SizedBox(
                   width: double.infinity,
                   height: 52,
                   child: CupertinoButton.filled(
                     borderRadius: BorderRadius.circular(14),
-                    onPressed: _isLoading ? null : _onPayNowPressed,
+                    onPressed: _isLoading
+                        ? null
+                        : (_paymentMethodIndex == 0 ? _onPayNowPressed : _onSetupInstallmentPlanPressed),
                     child: _isLoading
                         ? const CupertinoActivityIndicator(color: AppColors.cardBg, radius: 11)
-                        : const Text(
-                            'Pay Now',
-                            style: TextStyle(
+                        : Text(
+                            _paymentMethodIndex == 0 ? 'Pay Now' : 'Set Up Installment Plan',
+                            style: const TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w600,
                             ),

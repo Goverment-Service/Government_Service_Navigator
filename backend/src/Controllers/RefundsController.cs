@@ -64,7 +64,10 @@ namespace Government_Service_Navigator.Backend.Controllers
         [Authorize]
         public async Task<IActionResult> GetMine()
         {
-            var email = User.Identity?.Name ?? "unknown@user";
+            var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value 
+                     ?? User.FindFirst("email")?.Value 
+                     ?? User.Identity?.Name 
+                     ?? "unknown@user";
             var refunds = await _refundService.GetByRequesterAsync(email);
             return Ok(refunds.Select(RefundResponseDto.FromEntity));
         }

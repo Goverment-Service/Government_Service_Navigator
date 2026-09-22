@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile/screens/index/loading_page.dart';
 import 'package:mobile/screens/payments/payment_screen.dart';
@@ -34,11 +35,28 @@ class MyApp extends StatelessWidget {
         );
       },
       home: const LoadingPage(),
-      routes: {
-        '/payment': (context) => const PaymentScreen(),
-        '/installment-plan': (context) => const InstallmentPlanView(),
-        '/refund-request': (context) => const RefundRequestScreen(),
-        '/transaction-history': (context) => const TransactionHistoryScreen(),
+      onGenerateRoute: (settings) {
+        Widget page;
+        switch (settings.name) {
+          case '/payment':
+            page = const PaymentScreen();
+            break;
+          case '/installment-plan':
+            page = const InstallmentPlanView();
+            break;
+          case '/refund-request':
+            page = const RefundRequestScreen();
+            break;
+          case '/transaction-history':
+            page = const TransactionHistoryScreen();
+            break;
+          default:
+            return null;
+        }
+        return CupertinoPageRoute(
+          builder: (_) => page,
+          settings: settings,
+        );
       },
     );
   }

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
+import '../../screens/payments/payment_screen.dart';
+import '../../screens/payments/installment_plan_view.dart';
+import '../../screens/payments/transaction_history_screen.dart';
+import '../../screens/refunds/refund_request_screen.dart';
 import '../../screens/payments/my_payments_screen.dart';
-import '../../screens/payments/checkout_screen.dart';
 import '../../screens/refunds/my_refunds_screen.dart';
-import '../../screens/refunds/submit_refund_screen.dart';
 import '../../screens/analytics/approval_likelihood_screen.dart';
 
 class ApplicationsTab extends StatelessWidget {
@@ -56,12 +58,47 @@ class ApplicationsTab extends StatelessWidget {
             context: context,
             icon: CupertinoIcons.creditcard,
             iconColor: AppColors.primary,
-            title: 'My Payments',
-            subtitle: 'View all your payment transactions',
+            title: 'Payment Details',
+            subtitle: 'Pay service fees for your application',
             onTap: () {
               Navigator.of(context).push(
                 CupertinoPageRoute(
-                  builder: (_) => MyPaymentsScreen(
+                  builder: (_) => PaymentScreen(
+                    token: token,
+                    userEmail: userEmail,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          _buildActionTile(
+            context: context,
+            icon: CupertinoIcons.calendar,
+            iconColor: AppColors.warning,
+            title: 'Installment Schedule',
+            subtitle: 'View installment breakdown & due dates',
+            onTap: () {
+              Navigator.of(context).push(
+                CupertinoPageRoute(
+                  builder: (_) => InstallmentPlanView(
+                    token: token,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          _buildActionTile(
+            context: context,
+            icon: CupertinoIcons.doc_text,
+            iconColor: AppColors.success,
+            title: 'Transaction History',
+            subtitle: 'View payment history & ledger receipts',
+            onTap: () {
+              Navigator.of(context).push(
+                CupertinoPageRoute(
+                  builder: (_) => TransactionHistoryScreen(
                     token: token,
                     userEmail: userEmail,
                   ),
@@ -73,13 +110,13 @@ class ApplicationsTab extends StatelessWidget {
           _buildActionTile(
             context: context,
             icon: CupertinoIcons.money_dollar_circle,
-            iconColor: AppColors.success,
-            title: 'New Payment',
-            subtitle: 'Initiate a checkout for an application',
+            iconColor: AppColors.primary,
+            title: 'My Payments',
+            subtitle: 'View all your payment transactions',
             onTap: () {
               Navigator.of(context).push(
                 CupertinoPageRoute(
-                  builder: (_) => CheckoutScreen(
+                  builder: (_) => MyPaymentsScreen(
                     token: token,
                     userEmail: userEmail,
                   ),
@@ -94,6 +131,23 @@ class ApplicationsTab extends StatelessWidget {
           const SizedBox(height: 10),
           _buildActionTile(
             context: context,
+            icon: CupertinoIcons.plus_circle,
+            iconColor: AppColors.danger,
+            title: 'Request a Refund',
+            subtitle: 'Submit a new refund request for a payment',
+            onTap: () {
+              Navigator.of(context).push(
+                CupertinoPageRoute(
+                  builder: (_) => RefundRequestScreen(
+                    token: token,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          _buildActionTile(
+            context: context,
             icon: CupertinoIcons.arrow_uturn_left,
             iconColor: AppColors.warning,
             title: 'My Refund Requests',
@@ -102,21 +156,6 @@ class ApplicationsTab extends StatelessWidget {
               Navigator.of(context).push(
                 CupertinoPageRoute(
                   builder: (_) => MyRefundsScreen(token: token),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 10),
-          _buildActionTile(
-            context: context,
-            icon: CupertinoIcons.plus_circle,
-            iconColor: AppColors.danger,
-            title: 'Request a Refund',
-            subtitle: 'Submit a new refund for a payment',
-            onTap: () {
-              Navigator.of(context).push(
-                CupertinoPageRoute(
-                  builder: (_) => SubmitRefundScreen(token: token),
                 ),
               );
             },

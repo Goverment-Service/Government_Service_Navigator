@@ -1,0 +1,183 @@
+class ComplianceCheckModel {
+  final int id;
+  final String checkType;
+  final bool isPassed;
+  final String details;
+
+  ComplianceCheckModel({
+    required this.id,
+    required this.checkType,
+    required this.isPassed,
+    required this.details,
+  });
+
+  factory ComplianceCheckModel.fromJson(Map<String, dynamic> json) {
+    return ComplianceCheckModel(
+      id: json['id'] ?? 0,
+      checkType: json['checkType'] ?? 'General Compliance',
+      isPassed: json['isPassed'] ?? true,
+      details: json['details'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'checkType': checkType,
+      'isPassed': isPassed,
+      'details': details,
+    };
+  }
+}
+
+class OfficerReviewModel {
+  final int id;
+  final String officerId;
+  final DateTime reviewDate;
+  final String comments;
+  final int? rejectionReasonId;
+  final String? rejectionReasonCode;
+  final String? rejectionReasonDescription;
+
+  OfficerReviewModel({
+    required this.id,
+    required this.officerId,
+    required this.reviewDate,
+    required this.comments,
+    this.rejectionReasonId,
+    this.rejectionReasonCode,
+    this.rejectionReasonDescription,
+  });
+
+  factory OfficerReviewModel.fromJson(Map<String, dynamic> json) {
+    return OfficerReviewModel(
+      id: json['id'] ?? 0,
+      officerId: json['officerId'] ?? 'Officer',
+      reviewDate: json['reviewDate'] != null
+          ? DateTime.tryParse(json['reviewDate'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      comments: json['comments'] ?? '',
+      rejectionReasonId: json['rejectionReasonId'],
+      rejectionReasonCode: json['rejectionReason'] != null
+          ? json['rejectionReason']['code']
+          : json['rejectionReasonCode'],
+      rejectionReasonDescription: json['rejectionReason'] != null
+          ? json['rejectionReason']['description']
+          : json['rejectionReasonDescription'],
+    );
+  }
+}
+
+class AuditLogModel {
+  final int id;
+  final int applicationId;
+  final String action;
+  final String performedBy;
+  final DateTime timestamp;
+  final String oldValues;
+  final String newValues;
+
+  AuditLogModel({
+    required this.id,
+    required this.applicationId,
+    required this.action,
+    required this.performedBy,
+    required this.timestamp,
+    required this.oldValues,
+    required this.newValues,
+  });
+
+  factory AuditLogModel.fromJson(Map<String, dynamic> json) {
+    return AuditLogModel(
+      id: json['id'] ?? 0,
+      applicationId: json['applicationId'] ?? 0,
+      action: json['action'] ?? '',
+      performedBy: json['performedBy'] ?? 'System',
+      timestamp: json['timestamp'] != null
+          ? DateTime.tryParse(json['timestamp'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      oldValues: json['oldValues'] ?? '',
+      newValues: json['newValues'] ?? '',
+    );
+  }
+}
+
+class VerificationTaskModel {
+  final int id;
+  final int applicationId;
+  final String status; // 'Pending', 'Approved', 'Rejected', 'Revised'
+  final DateTime createdDate;
+  final List<OfficerReviewModel> reviews;
+  final List<ComplianceCheckModel> complianceChecks;
+
+  VerificationTaskModel({
+    required this.id,
+    required this.applicationId,
+    required this.status,
+    required this.createdDate,
+    required this.reviews,
+    required this.complianceChecks,
+  });
+
+  factory VerificationTaskModel.fromJson(Map<String, dynamic> json) {
+    var rawReviews = json['reviews'] as List<dynamic>? ?? [];
+    var rawChecks = json['complianceChecks'] as List<dynamic>? ?? [];
+
+    return VerificationTaskModel(
+      id: json['id'] ?? 0,
+      applicationId: json['applicationId'] ?? 0,
+      status: json['status'] ?? 'Pending',
+      createdDate: json['createdDate'] != null
+          ? DateTime.tryParse(json['createdDate'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      reviews: rawReviews
+          .map((r) => OfficerReviewModel.fromJson(r as Map<String, dynamic>))
+          .toList(),
+      complianceChecks: rawChecks
+          .map((c) => ComplianceCheckModel.fromJson(c as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class ApplicationItemModel {
+  final int applicationId;
+  final String referenceNumber;
+  final String serviceName;
+  final String category;
+  final DateTime submittedDate;
+  final String status; // 'Pending', 'Approved', 'Rejected', 'Revised'
+  final String? applicantName;
+  final VerificationTaskModel? verificationTask;
+  final List<AuditLogModel> auditLogs;
+
+  ApplicationItemModel({
+    required this.applicationId,
+    required this.referenceNumber,
+    required this.serviceName,
+    required this.category,
+    required this.submittedDate,
+    required this.status,
+    this.applicantName,
+    this.verificationTask,
+    this.auditLogs = const [],
+  });
+
+  ApplicationItemModel copyWith({
+    String? status,
+    VerificationTaskModel? verificationTask,
+    List<AuditLogModel>? auditLogs,
+  }) {
+    return ApplicationItemModel(
+      applicationId: applicationId,
+      referenceNumber: referenceNumber,
+      serviceName: serviceName,
+      category: category,
+      submittedDate: submittedDate,
+      status: status ?? this.status,
+      applicantName: applicantName,
+      verificationTask: verificationTask ?? this.verificationTask,
+      auditLogs: auditLogs ?? this.auditLogs,
+    );
+  }
+}

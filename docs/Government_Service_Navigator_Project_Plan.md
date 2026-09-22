@@ -55,6 +55,45 @@ Pick one and route it through ASP.NET Core:
 
 **Safe failure example:** if the citizen's query doesn't match any known service, or eligibility fails, the agent returns a clear "no matching procedure" or "not eligible — missing X" result rather than guessing.
 
+### Agentic AI Service — Folder Structure
+
+Deployed as its own service (see startup order in §5.1: DB → API → **Agentic AI service** → React → Flutter). Scaffolding only at this stage — implementation language/framework is finalized in the ADR (§5.2, decision 3) before any code is written.
+
+```
+agentic-ai/
+├── README.md                          # service overview, how it plugs into ASP.NET Core
+├── config/                             # environment config, model/provider settings
+├── schemas/                            # shared data contracts between agents
+│   ├── plan.schema                     #   Intake output: service ID, steps, assigned agents
+│   ├── eligibility-result.schema       #   Eligibility output: eligible?, missing docs
+│   ├── draft-application.schema        #   Action agent output: pre-filled application
+│   └── validation-result.schema        #   Validation output: validated / rejection reasons
+├── agents/
+│   ├── 01-intake-planning-agent/       # parses free text → structured multi-step plan
+│   ├── 02-eligibility-document-agent/  # checks eligibility, finds missing documents
+│   ├── 03-action-tool-agent/           # drafts application, calculates fee, proposes slot
+│   └── 04-validation-safety-agent/     # schema/business-rule checks, duplicate detection
+├── tools/                              # tool functions the agents call
+│   ├── search-service-catalog/
+│   ├── check-eligibility-rules/
+│   ├── get-document-requirements/
+│   ├── calculate-fee/
+│   ├── find-appointment-slot/
+│   ├── prefill-application/
+│   ├── validate-schema/
+│   └── check-duplicate-application/
+├── orchestration/                      # wires the 4 agents into the plan → approve pipeline,
+│                                        # calls the human-approval hook before final submission
+├── state/                              # persistence for WorkflowExecutions (workflow ID,
+│                                        # objective, plan, each agent's output, tool results,
+│                                        # validation results, approval decision, outcome)
+└── tests/
+    ├── golden-cases/                   # golden-case scenarios for agent evaluation (§5.4)
+    └── unit/
+```
+
+Each `agents/*` and `tools/*` folder currently holds only a `README.md` placeholder describing its responsibility — no implementation yet (see Week 4 in §4).
+
 ---
 
 ## 3. Required Cross-Platform Workflow (the one you'll demo)

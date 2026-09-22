@@ -11,7 +11,7 @@ class PaymentService {
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $_token',
+        if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
       };
 
   /// POST /api/payments/checkout
@@ -24,7 +24,7 @@ class PaymentService {
       Uri.parse('${AppConfig.baseUrl}/payments/checkout'),
       headers: _headers,
       body: jsonEncode({
-        'applicationId': applicationId,
+        'applicationId': int.tryParse(applicationId) ?? applicationId,
         'amount': amount,
         'userEmail': userEmail,
       }),
@@ -34,6 +34,19 @@ class PaymentService {
           jsonDecode(response.body) as Map<String, dynamic>);
     }
     throw Exception('Checkout failed (${response.statusCode})');
+  }
+
+  /// GET /api/payments/{id}
+  Future<Payment> getPayment(String id) async {
+    final response = await http.get(
+      Uri.parse('${AppConfig.baseUrl}/payments/$id'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return Payment.fromJson(
+          jsonDecode(response.body) as Map<String, dynamic>);
+    }
+    throw Exception('Failed to load payment (${response.statusCode})');
   }
 
   /// GET /api/payments/{id}/confirm
@@ -64,6 +77,51 @@ class PaymentService {
     throw Exception('Failed to load payments (${response.statusCode})');
   }
 
+  /// POST /api/payments/manual
+  Future<Payment> createManualPayment({
+    required String applicationId,
+    required double amount,
+    required String userEmail,
+    required String manualSlipUrl,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${AppConfig.baseUrl}/payments/manual'),
+      headers: _headers,
+      body: jsonEncode({
+        'applicationId': int.tryParse(applicationId) ?? applicationId,
+        'amount': amount,
+        'userEmail': userEmail,
+        'manualSlipUrl': manualSlipUrl,
+      }),
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return Payment.fromJson(
+          jsonDecode(response.body) as Map<String, dynamic>);
+    }
+    throw Exception('Failed to create manual payment (${response.statusCode})');
+  }
+
+  /// POST /api/payments/{id}/verify
+  Future<Payment> verifyManualPayment(
+    String id, {
+    required bool approved,
+    String? note,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${AppConfig.baseUrl}/payments/$id/verify'),
+      headers: _headers,
+      body: jsonEncode({
+        'approved': approved,
+        'note': note ?? '',
+      }),
+    );
+    if (response.statusCode == 200) {
+      return Payment.fromJson(
+          jsonDecode(response.body) as Map<String, dynamic>);
+    }
+    throw Exception('Failed to verify manual payment (${response.statusCode})');
+  }
+
   /// GET /api/payments/{id}/ledger
   Future<PaymentLedger> getLedger(String id) async {
     final response = await http.get(
@@ -77,3 +135,4 @@ class PaymentService {
     throw Exception('Failed to load ledger (${response.statusCode})');
   }
 }
+

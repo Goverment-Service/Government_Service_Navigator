@@ -14,17 +14,25 @@ class PaymentService {
         if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
       };
 
+  int _cleanIntId(String rawId) {
+    final parsed = int.tryParse(rawId);
+    if (parsed != null) return parsed;
+    final digits = rawId.replaceAll(RegExp(r'[^\d]'), '');
+    return int.tryParse(digits) ?? 1;
+  }
+
   /// POST /api/payments/checkout
   Future<CheckoutResponse> checkout({
     required String applicationId,
     required double amount,
     required String userEmail,
   }) async {
+    final cleanAppId = _cleanIntId(applicationId);
     final response = await http.post(
       Uri.parse('${AppConfig.baseUrl}/payments/checkout'),
       headers: _headers,
       body: jsonEncode({
-        'applicationId': int.tryParse(applicationId) ?? applicationId,
+        'applicationId': cleanAppId,
         'amount': amount,
         'userEmail': userEmail,
       }),
@@ -38,8 +46,9 @@ class PaymentService {
 
   /// GET /api/payments/{id}
   Future<Payment> getPayment(String id) async {
+    final cleanId = _cleanIntId(id);
     final response = await http.get(
-      Uri.parse('${AppConfig.baseUrl}/payments/$id'),
+      Uri.parse('${AppConfig.baseUrl}/payments/$cleanId'),
       headers: _headers,
     );
     if (response.statusCode == 200) {
@@ -51,8 +60,9 @@ class PaymentService {
 
   /// GET /api/payments/{id}/confirm
   Future<Payment> confirmPayment(String id) async {
+    final cleanId = _cleanIntId(id);
     final response = await http.get(
-      Uri.parse('${AppConfig.baseUrl}/payments/$id/confirm'),
+      Uri.parse('${AppConfig.baseUrl}/payments/$cleanId/confirm'),
       headers: _headers,
     );
     if (response.statusCode == 200) {
@@ -84,11 +94,12 @@ class PaymentService {
     required String userEmail,
     required String manualSlipUrl,
   }) async {
+    final cleanAppId = _cleanIntId(applicationId);
     final response = await http.post(
       Uri.parse('${AppConfig.baseUrl}/payments/manual'),
       headers: _headers,
       body: jsonEncode({
-        'applicationId': int.tryParse(applicationId) ?? applicationId,
+        'applicationId': cleanAppId,
         'amount': amount,
         'userEmail': userEmail,
         'manualSlipUrl': manualSlipUrl,
@@ -107,8 +118,9 @@ class PaymentService {
     required bool approved,
     String? note,
   }) async {
+    final cleanId = _cleanIntId(id);
     final response = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/payments/$id/verify'),
+      Uri.parse('${AppConfig.baseUrl}/payments/$cleanId/verify'),
       headers: _headers,
       body: jsonEncode({
         'approved': approved,
@@ -124,8 +136,9 @@ class PaymentService {
 
   /// GET /api/payments/{id}/ledger
   Future<PaymentLedger> getLedger(String id) async {
+    final cleanId = _cleanIntId(id);
     final response = await http.get(
-      Uri.parse('${AppConfig.baseUrl}/payments/$id/ledger'),
+      Uri.parse('${AppConfig.baseUrl}/payments/$cleanId/ledger'),
       headers: _headers,
     );
     if (response.statusCode == 200) {

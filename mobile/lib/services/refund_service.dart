@@ -13,17 +13,25 @@ class RefundService {
         if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
       };
 
+  int _cleanIntId(String rawId) {
+    final parsed = int.tryParse(rawId);
+    if (parsed != null) return parsed;
+    final digits = rawId.replaceAll(RegExp(r'[^\d]'), '');
+    return int.tryParse(digits) ?? 1;
+  }
+
   /// POST /api/refunds
   Future<RefundRequest> submitRefund({
     required String paymentId,
     required double refundAmount,
     required String reason,
   }) async {
+    final cleanPaymentId = _cleanIntId(paymentId);
     final response = await http.post(
       Uri.parse('${AppConfig.baseUrl}/refunds'),
       headers: _headers,
       body: jsonEncode({
-        'paymentId': int.tryParse(paymentId) ?? paymentId,
+        'paymentId': cleanPaymentId,
         'refundAmount': refundAmount,
         'reason': reason,
       }),
@@ -54,8 +62,9 @@ class RefundService {
 
   /// GET /api/refunds/{id}
   Future<RefundRequest> getRefund(String id) async {
+    final cleanId = _cleanIntId(id);
     final response = await http.get(
-      Uri.parse('${AppConfig.baseUrl}/refunds/$id'),
+      Uri.parse('${AppConfig.baseUrl}/refunds/$cleanId'),
       headers: _headers,
     );
     if (response.statusCode == 200) {
@@ -67,8 +76,9 @@ class RefundService {
 
   /// GET /api/refunds/{id}/status → { id, status }
   Future<RefundStatus> getRefundStatus(String id) async {
+    final cleanId = _cleanIntId(id);
     final response = await http.get(
-      Uri.parse('${AppConfig.baseUrl}/refunds/$id/status'),
+      Uri.parse('${AppConfig.baseUrl}/refunds/$cleanId/status'),
       headers: _headers,
     );
     if (response.statusCode == 200) {
@@ -101,8 +111,9 @@ class RefundService {
 
   /// POST /api/refunds/{id}/approve
   Future<RefundRequest> approveRefund(String id, {String? note}) async {
+    final cleanId = _cleanIntId(id);
     final response = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/refunds/$id/approve'),
+      Uri.parse('${AppConfig.baseUrl}/refunds/$cleanId/approve'),
       headers: _headers,
       body: jsonEncode({'note': note ?? ''}),
     );
@@ -115,8 +126,9 @@ class RefundService {
 
   /// POST /api/refunds/{id}/reject
   Future<RefundRequest> rejectRefund(String id, {String? note}) async {
+    final cleanId = _cleanIntId(id);
     final response = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/refunds/$id/reject'),
+      Uri.parse('${AppConfig.baseUrl}/refunds/$cleanId/reject'),
       headers: _headers,
       body: jsonEncode({'note': note ?? ''}),
     );
@@ -132,8 +144,9 @@ class RefundService {
     String id, {
     required String transactionRef,
   }) async {
+    final cleanId = _cleanIntId(id);
     final response = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/refunds/$id/process'),
+      Uri.parse('${AppConfig.baseUrl}/refunds/$cleanId/process'),
       headers: _headers,
       body: jsonEncode({'transactionRef': transactionRef}),
     );
@@ -146,8 +159,9 @@ class RefundService {
 
   /// POST /api/refunds/{id}/complete
   Future<RefundRequest> completeRefund(String id) async {
+    final cleanId = _cleanIntId(id);
     final response = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/refunds/$id/complete'),
+      Uri.parse('${AppConfig.baseUrl}/refunds/$cleanId/complete'),
       headers: _headers,
     );
     if (response.statusCode == 200) {

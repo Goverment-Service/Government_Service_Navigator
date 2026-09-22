@@ -13,14 +13,22 @@ class InstallmentService {
         if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
       };
 
+  int _cleanIntId(String rawId) {
+    final parsed = int.tryParse(rawId);
+    if (parsed != null) return parsed;
+    final digits = rawId.replaceAll(RegExp(r'[^\d]'), '');
+    return int.tryParse(digits) ?? 1;
+  }
+
   /// PUT /api/payments/{id}/installment-plan
   Future<InstallmentPlan> createInstallmentPlan(
     String paymentId, {
     required int numberOfInstallments,
     int intervalDays = 30,
   }) async {
+    final cleanPaymentId = _cleanIntId(paymentId);
     final response = await http.put(
-      Uri.parse('${AppConfig.baseUrl}/payments/$paymentId/installment-plan'),
+      Uri.parse('${AppConfig.baseUrl}/payments/$cleanPaymentId/installment-plan'),
       headers: _headers,
       body: jsonEncode({
         'numberOfInstallments': numberOfInstallments,
@@ -36,8 +44,9 @@ class InstallmentService {
 
   /// GET /api/installment-plans/{id}
   Future<InstallmentPlan> getInstallmentPlan(String id) async {
+    final cleanId = _cleanIntId(id);
     final response = await http.get(
-      Uri.parse('${AppConfig.baseUrl}/installment-plans/$id'),
+      Uri.parse('${AppConfig.baseUrl}/installment-plans/$cleanId'),
       headers: _headers,
     );
     if (response.statusCode == 200) {
@@ -49,8 +58,9 @@ class InstallmentService {
 
   /// POST /api/installment-plans/installments/{installmentId}/pay
   Future<Installment> payInstallment(String installmentId) async {
+    final cleanInstallmentId = _cleanIntId(installmentId);
     final response = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/installment-plans/installments/$installmentId/pay'),
+      Uri.parse('${AppConfig.baseUrl}/installment-plans/installments/$cleanInstallmentId/pay'),
       headers: _headers,
     );
     if (response.statusCode == 200) {
@@ -62,8 +72,9 @@ class InstallmentService {
 
   /// POST /api/installment-plans/{id}/cancel
   Future<InstallmentPlan> cancelInstallmentPlan(String id) async {
+    final cleanId = _cleanIntId(id);
     final response = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/installment-plans/$id/cancel'),
+      Uri.parse('${AppConfig.baseUrl}/installment-plans/$cleanId/cancel'),
       headers: _headers,
     );
     if (response.statusCode == 200) {

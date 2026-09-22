@@ -24,6 +24,7 @@ class InstallmentPlanView extends StatefulWidget {
 class _InstallmentPlanViewState extends State<InstallmentPlanView> {
   bool _isLoading = true;
   String? _errorMessage;
+  bool _isNotFound = false;
   InstallmentPlan? _plan;
 
   String get _effectiveToken {
@@ -72,6 +73,7 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _isNotFound = false;
     });
 
     final targetId = _effectivePlanId;
@@ -87,9 +89,12 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
       });
     } catch (e) {
       if (!mounted) return;
+      final msg = e.toString().replaceAll('Exception: ', '');
+      final is404 = msg.contains('404') || msg.toLowerCase().contains('not found');
       setState(() {
         _isLoading = false;
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _isNotFound = is404;
+        _errorMessage = is404 ? 'No installment plan for this payment' : msg;
       });
     }
   }
@@ -148,6 +153,10 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
       );
     }
 
+    if (_isNotFound) {
+      return _buildEmptyState();
+    }
+
     if (_errorMessage != null) {
       return Center(
         child: Padding(
@@ -161,9 +170,9 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
                 size: 48,
               ),
               const SizedBox(height: 16),
-              Text(
+              const Text(
                 'Failed to load plan',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: AppColors.dark,
@@ -192,7 +201,7 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
 
     final plan = _plan;
     if (plan == null) {
-      return const Center(child: Text('No installment plan data found.'));
+      return _buildEmptyState();
     }
 
     int? nextUpcomingIndex;
@@ -509,6 +518,49 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
             showDot: isOverdue || isNextUpcoming,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                CupertinoIcons.doc_text_search,
+                size: 48,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'No Installment Plan Found',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.dark,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage ?? 'No installment plan for this payment',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.secondaryLabel,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

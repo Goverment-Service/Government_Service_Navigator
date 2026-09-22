@@ -115,14 +115,18 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       return _buildEmpty();
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: _payments.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final p = _payments[index];
-        return _buildPaymentTile(p);
-      },
+    return RefreshIndicator(
+      onRefresh: _loadPayments,
+      color: AppColors.primary,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _payments.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final p = _payments[index];
+          return _buildPaymentTile(p);
+        },
+      ),
     );
   }
 
@@ -182,41 +186,51 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   }
 
   Widget _buildEmpty() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                CupertinoIcons.creditcard_fill,
-                color: AppColors.primary,
-                size: 48,
+    return RefreshIndicator(
+      onRefresh: _loadPayments,
+      color: AppColors.primary,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      CupertinoIcons.creditcard_fill,
+                      color: AppColors.primary,
+                      size: 48,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'No transactions yet',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.dark,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Your payment history and transaction receipts will appear here.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: AppColors.secondaryLabel),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'No transactions yet',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.dark,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Your payment history and transaction receipts will appear here.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: AppColors.secondaryLabel),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

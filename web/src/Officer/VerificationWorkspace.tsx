@@ -94,7 +94,7 @@ export default function VerificationWorkspace() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          status: status,
+          status: status === "Revision Requested" ? "Revised" : status,
           comments: comments,
           rejectionReasonId: reasonId ? parseInt(reasonId) : null
         })

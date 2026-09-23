@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Government_Service_Navigator.AgenticAi.Agents.ValidationSafety;
+using Government_Service_Navigator.AgenticAi.Orchestration;
 using Government_Service_Navigator.AgenticAi.Schemas;
+using Government_Service_Navigator.AgenticAi.State;
 using Government_Service_Navigator.AgenticAi.Tools.CheckDuplicateApplication;
 using Government_Service_Navigator.AgenticAi.Tools.ValidateSchema;
 using Xunit;
@@ -161,5 +163,27 @@ namespace Government_Service_Navigator.AgenticAi.Tests
             Assert.Equal("Rejected", result.Decision);
             Assert.Contains(result.RejectionReasons, r => r.Contains("SAFETY-001"));
         }
+
+        [Fact]
+public async Task Orchestrator_ValidDraft_TransitionsToPendingHumanApproval()
+{
+    var orchestrator = new ValidationOrchestrator(_agent);
+    var state = WorkflowExecutionState.Create(8841, "199423401928", "Small Business Registration");
+    var draft = new DraftApplication
+    {
+        ApplicationId = 8841,
+        ServiceProcedureId = 1,
+        CitizenNic = "199423401928",
+        CitizenAge = 32,
+        AttachedDocumentNames = new List<string> { "Identity Document.pdf" }
+    };
+
+    var updatedState = await orchestrator.ExecuteStageAsync(state, draft, new List<string> { "Identity Document" });
+
+    Assert.Equal("PendingHumanApproval", updatedState.CurrentStage);
+    Assert.Equal("AwaitingOfficerReview", updatedState.HumanApprovalStatus);
+    Assert.True(updatedState.ValidationResult!.IsValid);
+}
+
     }
 }

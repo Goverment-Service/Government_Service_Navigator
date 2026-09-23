@@ -203,7 +203,7 @@ namespace Government_Service_Navigator.Backend.Services
         public async Task<List<VerificationTask>> GetPendingTasksAsync()
         {
             return await _context.VerificationTasks
-                .Where(t => t.Status == "Pending")
+                .Where(t => t.Status == "Pending" || t.Status == "Revised" || t.Status == "Revision Requested")
                 .OrderBy(t => t.CreatedDate)
                 .ToListAsync();
         }

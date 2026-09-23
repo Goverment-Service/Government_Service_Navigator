@@ -66,6 +66,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
       }
       if (_selectedFilter == 'Needs Action' &&
           app.status.toLowerCase() != 'revised' &&
+          app.status.toLowerCase() != 'revision requested' &&
           app.status.toLowerCase() != 'rejected') {
         return false;
       }
@@ -86,6 +87,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
       case 'approved':
         return AppColors.success;
       case 'revised':
+      case 'revision requested':
         return AppColors.warning;
       case 'rejected':
         return AppColors.danger;
@@ -99,6 +101,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
       case 'approved':
         return 'Verified';
       case 'revised':
+      case 'revision requested':
         return 'Action Required';
       case 'rejected':
         return 'Rejected';
@@ -112,6 +115,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
       case 'approved':
         return CupertinoIcons.checkmark_seal_fill;
       case 'revised':
+      case 'revision requested':
         return CupertinoIcons.exclamationmark_triangle_fill;
       case 'rejected':
         return CupertinoIcons.xmark_circle_fill;
@@ -183,6 +187,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
                           'Needs Action',
                           _applications.where((a) =>
                               a.status.toLowerCase() == 'revised' ||
+                              a.status.toLowerCase() == 'revision requested' ||
                               a.status.toLowerCase() == 'rejected').length,
                         ),
                       ],

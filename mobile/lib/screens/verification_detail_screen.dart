@@ -41,11 +41,15 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
     }
   }
 
+  bool _isRevised(String s) =>
+      s.toLowerCase() == 'revised' || s.toLowerCase() == 'revision requested';
+
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'approved':
         return AppColors.success;
       case 'revised':
+      case 'revision requested':
         return AppColors.warning;
       case 'rejected':
         return AppColors.danger;
@@ -59,6 +63,7 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
       case 'approved':
         return 'Verified & Approved';
       case 'revised':
+      case 'revision requested':
         return 'Action Required';
       case 'rejected':
         return 'Verification Rejected';
@@ -72,6 +77,7 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
       case 'approved':
         return CupertinoIcons.checkmark_seal_fill;
       case 'revised':
+      case 'revision requested':
         return CupertinoIcons.exclamationmark_triangle_fill;
       case 'rejected':
         return CupertinoIcons.xmark_circle_fill;
@@ -120,8 +126,8 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
             _buildHeroStatusBanner(statusColor),
             const SizedBox(height: 20),
 
-            // 2. Action Required Banner (Only if status == 'Revised')
-            if (_app.status.toLowerCase() == 'revised') ...[
+            // 2. Action Required Banner (Only if status is Revised)
+            if (_isRevised(_app.status)) ...[
               _buildActionRequiredBanner(),
               const SizedBox(height: 20),
             ],
@@ -471,7 +477,7 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
       currentStep = 4;
     } else if (_app.status.toLowerCase() == 'rejected') {
       currentStep = 4;
-    } else if (_app.status.toLowerCase() == 'revised') {
+    } else if (_isRevised(_app.status)) {
       currentStep = 3;
     }
 
@@ -525,7 +531,7 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
             stepNumber: 4,
             title: _app.status.toLowerCase() == 'rejected'
                 ? 'Verification Decision: Rejected'
-                : (_app.status.toLowerCase() == 'revised'
+                : (_isRevised(_app.status)
                     ? 'Officer Decision: Revision Requested'
                     : 'Final Verification Sign-Off & Seal'),
             description: _app.status.toLowerCase() == 'approved'
@@ -538,7 +544,7 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
             isLast: true,
             customColor: _app.status.toLowerCase() == 'rejected'
                 ? AppColors.danger
-                : (_app.status.toLowerCase() == 'revised'
+                : (_isRevised(_app.status)
                     ? AppColors.warning
                     : AppColors.success),
           ),

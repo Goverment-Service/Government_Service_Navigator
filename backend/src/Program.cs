@@ -1,3 +1,5 @@
+using AgenticAi.Agents.IntakePlanningAgent;
+using Backend.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using DotNetEnv;
@@ -10,6 +12,10 @@ using Government_Service_Navigator.Backend.Services.Interfaces;
 using Microsoft.OpenApi.Models;
 using Npgsql;
 using Stripe;
+using Government_Service_Navigator.AgenticAi.Tools.CheckDuplicateApplication;
+using Government_Service_Navigator.AgenticAi.Agents.ValidationSafety;
+
+
 
 // Load environment variables from .env file
 Env.Load();
@@ -44,7 +50,7 @@ if (!string.IsNullOrEmpty(databaseUrl))
 }
 else
 {
-    var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
+        var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
     var dbPort = Environment.GetEnvironmentVariable("DB_PORT");
     var dbName = Environment.GetEnvironmentVariable("DB_NAME");
     var dbUser = Environment.GetEnvironmentVariable("DB_USER");
@@ -58,10 +64,18 @@ else
     connectionString = $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword}";
 }
 
+// 1.5 Register the Vector Database for the RAG Agent
+var vectorConnectionString = builder.Configuration.GetConnectionString("VectorDb");
+builder.Services.AddDbContext<VectorDbContext>(options =>
+    options.UseNpgsql(vectorConnectionString, o => o.UseVector()));
+
+// Register the Main Application Database
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 // 2. Setup Dependency Injection
+
+
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
@@ -71,12 +85,20 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IVerificationService, VerificationService>();
 builder.Services.AddScoped<ITemplateService, TemplateService>();
 builder.Services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
+builder.Services.AddScoped<IDuplicateApplicationRepository, DuplicateApplicationRepository>();
+builder.Services.AddScoped<IVerificationTaskEnqueuer, VerificationTaskEnqueuerService>();
+
 builder.Services.AddScoped<IRefundService, Government_Service_Navigator.Backend.Services.RefundService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IInstallmentPlanService, InstallmentPlanService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IAnomalyDetectionService, AnomalyDetectionService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IVectorRetriever, VectorRetrieverService>();
+builder.Services.AddScoped<IIntakePlanningAgent, IntakePlanningAgent>();
+builder.Services.AddHttpClient<IGenerativeAiService, GeminiAiService>();
+
+
 
 // 3. Setup CORS (Crucial for Flutter/Mobile/Web app connectivity)
 builder.Services.AddCors(options =>

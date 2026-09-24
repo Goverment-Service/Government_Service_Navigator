@@ -5,8 +5,6 @@ using System.Threading.Tasks;
 using Government_Service_Navigator.AgenticAi.Schemas;
 using Government_Service_Navigator.AgenticAi.Tools.CheckDuplicateApplication;
 using Government_Service_Navigator.AgenticAi.Tools.ValidateSchema;
-using Government_Service_Navigator.Backend.DTOs.Requests;
-using Government_Service_Navigator.Backend.Services.Interfaces;
 
 namespace Government_Service_Navigator.AgenticAi.Agents.ValidationSafety
 {
@@ -14,16 +12,16 @@ namespace Government_Service_Navigator.AgenticAi.Agents.ValidationSafety
     {
         private readonly ISchemaValidatorTool _schemaTool;
         private readonly IDuplicateCheckTool _duplicateTool;
-        private readonly IVerificationService? _verificationService;
+        private readonly IVerificationTaskEnqueuer? _taskEnqueuer;
 
         public ValidationSafetyAgent(
             ISchemaValidatorTool schemaTool,
             IDuplicateCheckTool duplicateTool,
-            IVerificationService? verificationService = null)
+            IVerificationTaskEnqueuer? taskEnqueuer = null)
         {
             _schemaTool = schemaTool;
             _duplicateTool = duplicateTool;
-            _verificationService = verificationService;
+            _taskEnqueuer = taskEnqueuer;
         }
 
         public async Task<ValidationResult> ValidateAndEnqueueAsync(DraftApplication draft, List<string>? requiredDocuments = null)
@@ -73,16 +71,12 @@ namespace Government_Service_Navigator.AgenticAi.Agents.ValidationSafety
             // 5. High-Impact Action: Pass -> Enqueue into human Verifying Officer's review queue
             int taskId = draft.ApplicationId > 0 ? draft.ApplicationId : new Random().Next(1000, 9999);
 
-            if (_verificationService != null)
+            if (_taskEnqueuer != null)
             {
                 try
                 {
-                    var task = await _verificationService.CreateTaskAsync(new CreateTaskRequest
-                    {
-                        ApplicationId = draft.ApplicationId
-                    }, agentId: "AGENT-04-VALIDATION-SAFETY");
-
-                    taskId = task.Id;
+                    // Calls the decoupled interface instead of the backend service directly
+                    taskId = await _taskEnqueuer.EnqueueTaskAsync(draft.ApplicationId, "AGENT-04-VALIDATION-SAFETY");
                 }
                 catch
                 {

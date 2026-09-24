@@ -3,19 +3,18 @@ using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
 using Government_Service_Navigator.AgenticAi.Schemas;
-using Government_Service_Navigator.Backend.Data.Context;
-using Microsoft.EntityFrameworkCore;
 
 namespace Government_Service_Navigator.AgenticAi.Tools.CheckDuplicateApplication
 {
     public class DuplicateCheckTool : IDuplicateCheckTool
     {
-        private readonly AppDbContext? _dbContext;
+        private readonly IDuplicateApplicationRepository? _repository;
         private static readonly ConcurrentDictionary<string, string> ActiveApplicationRegistry = new();
 
-        public DuplicateCheckTool(AppDbContext? dbContext = null)
+        // Inject the interface instead of AppDbContext
+        public DuplicateCheckTool(IDuplicateApplicationRepository? repository = null)
         {
-            _dbContext = dbContext;
+            _repository = repository;
         }
 
         public async Task<DuplicateCheckOutcome> CheckAsync(string citizenNic, int serviceProcedureId)
@@ -38,20 +37,24 @@ namespace Government_Service_Navigator.AgenticAi.Tools.CheckDuplicateApplication
                 };
             }
 
-            // 2. Check Database if DbContext is provided
-            if (_dbContext != null)
+            // 2. Check Database via decoupled repository
+            if (_repository != null)
             {
-                try
+                bool isDuplicate = await _repository.HasDuplicateAsync(citizenNic, serviceProcedureId);
+                
+                if (isDuplicate)
                 {
-                    // Look for existing pending verification task with this application
-                    // When applications table is populated, check citizen match
-                    var pendingCount = await _dbContext.VerificationTasks
-                        .Where(t => t.Status == "Pending")
-                        .CountAsync();
-                }
-                catch
-                {
-                    // Fall back to registry if DB not connected during standalone unit tests
+                    return new DuplicateCheckOutcome
+                    {
+                        IsDuplicate = true,
+                        ExistingReference = "DB-MATCH",
+                        Message = "DUP-002: Active application already exists in the system.",
+                        ComplianceCheck = new ComplianceCheckItem(
+                            "Anti-Fraud Duplicate Application Check", 
+                            false, 
+                            "Found active application in database."
+                        )
+                    };
                 }
             }
 

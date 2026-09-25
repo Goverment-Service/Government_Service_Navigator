@@ -64,6 +64,7 @@ class VerificationApiService {
       status: task.status,
       applicantName: json['applicantName']?.toString(),
       verificationTask: task,
+      installmentPlan: InstallmentSummary.fromJson(json['installmentPlan']),
     );
   }
 

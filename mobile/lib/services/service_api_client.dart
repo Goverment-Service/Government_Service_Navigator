@@ -59,11 +59,35 @@ class ServiceApiClient {
     throw Exception('Failed to load application form');
   }
 
+  /// Uploads one supporting document for a "file" field. Returns {id, fileName, contentType, sizeBytes}.
+  static Future<Map<String, dynamic>> uploadDocument({
+    required String fieldLabel,
+    required String fileName,
+    required List<int> bytes,
+    required String token,
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('${AppConfig.baseUrl}/applications/documents'))
+      ..headers['Authorization'] = 'Bearer $token'
+      ..fields['fieldLabel'] = fieldLabel
+      ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
+
+    final response = await http.Response.fromStream(await request.send());
+    if (response.statusCode == 200) return jsonDecode(response.body);
+
+    String message = 'Failed to upload $fileName';
+    try {
+      final body = jsonDecode(response.body);
+      if (body is Map && body['message'] != null) message = body['message'].toString();
+    } catch (_) {}
+    throw Exception(message);
+  }
+
   /// Submits the citizen's answers (keyed by field label). Returns the created application reference.
   static Future<Map<String, dynamic>> submitApplication({
     required int serviceId,
     required String? templateId,
     required Map<String, String> answers,
+    Map<String, String> documents = const {},
     required String token,
   }) async {
     final response = await http.post(
@@ -73,6 +97,7 @@ class ServiceApiClient {
         'serviceProcedureId': serviceId,
         'templateId': templateId,
         'answers': answers,
+        'documents': documents,
       }),
     );
     if (response.statusCode == 200) return jsonDecode(response.body);
@@ -86,5 +111,19 @@ class ServiceApiClient {
       }
     } catch (_) {}
     throw Exception(message);
+  }
+
+  /// Sends a paid application to the officer queue. Returns the submitted reference, or — if the fee
+  /// isn't fully paid yet (HTTP 402) — the payment details with `paymentRequired: true`.
+  static Future<Map<String, dynamic>> finalizeApplication({
+    required int applicationId,
+    required String token,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${AppConfig.baseUrl}/applications/$applicationId/finalize'),
+      headers: _authHeaders(token),
+    );
+    if (response.statusCode == 200 || response.statusCode == 402) return jsonDecode(response.body);
+    throw Exception('Could not confirm your application (${response.statusCode})');
   }
 }

@@ -18,12 +18,11 @@ calculates fees, and proposes an appointment slot.
      when requested.
    - `find_appointment_slot` — proposes (does not reserve) the earliest 30-min
      slot, Mon–Fri 09:00–15:00 Sri Lanka time, ≥2 working days ahead.
-3. **RAG over the vector DB** — embeds a query with Gemini `text-embedding-004`,
-   retrieves `ActionTool:*` chunks from `KnowledgeChunks` (pgvector, cosine),
-   and asks Gemini to fill remaining fields *only* from citizen-supplied data
-   and write officer notes. Model values not found in citizen data are discarded;
-   fee and slot are never changed by the model.
-4. If embedding/Gemini fails, a deterministic reasoning fallback is used.
+3. **RAG over the vector DB** — embeds a query locally (`LocalEmbeddingService`,
+   no external API), retrieves `ActionTool:*` chunks from `KnowledgeChunks`
+   (pgvector, cosine) and returns them as official context for the officer.
+   No LLM is called; fee, slot and form values come only from the tools.
+4. If the vector DB is unavailable, the draft is still produced from the tools.
 
 The draft is `IsReadyForValidation` only when every required field is filled.
 

@@ -11,5 +11,8 @@ namespace Government_Service_Navigator.Backend.DTOs.Requests
 
         // Answers keyed by FormField label.
         public Dictionary<string, string> Answers { get; set; } = new();
+
+        // "file" field label -> id returned by POST api/Applications/documents.
+        public Dictionary<string, Guid> Documents { get; set; } = new();
     }
 }

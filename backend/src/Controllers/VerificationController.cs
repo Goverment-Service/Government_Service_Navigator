@@ -94,6 +94,27 @@ namespace Government_Service_Navigator.Backend.Controllers
                 .Select(s => new { s.Id, s.ServiceProcedure!.Name, s.ServiceProcedure.Category })
                 .ToDictionaryAsync(s => s.Id);
 
+            // Latest installment plan per application, so the app can open its schedule from the application card
+            var plans = await _context.InstallmentPlans
+                .Where(p => appIds.Contains(p.Payment!.ApplicationId))
+                .Select(p => new
+                {
+                    p.Id,
+                    p.Payment!.ApplicationId,
+                    p.Status,
+                    p.NumberOfInstallments,
+                    PaidCount = p.Installments!.Count(i => i.Status == "Paid"),
+                    Next = p.Installments!
+                        .Where(i => i.Status != "Paid")
+                        .OrderBy(i => i.InstallmentNumber)
+                        .Select(i => new { i.Amount, i.DueDate, i.Status })
+                        .FirstOrDefault()
+                })
+                .ToListAsync();
+            var planByApp = plans
+                .GroupBy(p => p.ApplicationId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.Id).First());
+
             return Ok(tasks.Select(t => new
             {
                 t.Id,
@@ -102,7 +123,19 @@ namespace Government_Service_Navigator.Backend.Controllers
                 t.CreatedDate,
                 ReferenceNumber = $"APP-{t.ApplicationId}",
                 ServiceName = services.TryGetValue(t.ApplicationId, out var s) ? s.Name : null,
-                Category = s?.Category
+                Category = s?.Category,
+                InstallmentPlan = planByApp.TryGetValue(t.ApplicationId, out var plan)
+                    ? new
+                    {
+                        PlanId = plan.Id,
+                        plan.Status,
+                        plan.NumberOfInstallments,
+                        plan.PaidCount,
+                        NextAmount = plan.Next?.Amount,
+                        NextDueDate = plan.Next?.DueDate,
+                        NextStatus = plan.Next?.Status
+                    }
+                    : null
             }));
         }
 
@@ -140,13 +173,35 @@ namespace Government_Service_Navigator.Backend.Controllers
                 catch (JsonException) { }
             }
 
+            // Metadata only; the officer fetches each file's bytes from documents/{id}/content
+            var documents = await _context.SubmissionDocuments
+                .Where(d => d.ApplicationId == task.ApplicationId)
+                .OrderBy(d => d.UploadedAt)
+                .Select(d => new { d.Id, d.FieldLabel, d.FileName, d.ContentType, d.SizeBytes, d.UploadedAt })
+                .ToListAsync();
+
             return Ok(new
             {
                 task = summary,
                 submittedAt = submission?.SubmittedAt,
                 userEmail = submission?.UserEmail,
-                answers
+                answers,
+                documents
             });
+        }
+
+        // The file a citizen uploaded, streamed with its detected content type for in-browser preview.
+        [Authorize(Roles = OfficerRoles)]
+        [HttpGet("documents/{documentId:guid}/content")]
+        public async Task<IActionResult> GetDocumentContent(Guid documentId)
+        {
+            var document = await _context.SubmissionDocuments
+                .FirstOrDefaultAsync(d => d.Id == documentId && d.ApplicationId != null);
+            if (document == null) return NotFound("Document not found.");
+
+            // No file name here so the browser shows it inline instead of downloading it
+            Response.Headers["X-Content-Type-Options"] = "nosniff";
+            return File(document.Content, document.ContentType);
         }
 
         // Agent 3 (Action/Tool Agent) draft for the task's application: pre-filled fields, fee,

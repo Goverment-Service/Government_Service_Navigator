@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using AgenticAi.Agents.IntakePlanningAgent;
@@ -13,21 +12,25 @@ using Pgvector;
 
 namespace Government_Service_Navigator.AgenticAi.Agents.EligibilityDocumentAgent;
 
+/// <summary>
+/// Agent 2 — evaluates eligibility with the allow-listed rules tool and takes the service's
+/// required documents from the vector DB catalog chunk. No external LLM is called.
+/// </summary>
 public class EligibilityDocumentAgent : IEligibilityDocumentAgent
 {
     private readonly IEligibilityVectorRetriever _retriever;
-    private readonly IGenerativeAiService _aiService;
+    private readonly IEmbeddingService _embeddingService;
     private readonly ICheckEligibilityRulesTool _rulesTool;
     private readonly IGetDocumentRequirementsTool _docsTool;
 
     public EligibilityDocumentAgent(
         IEligibilityVectorRetriever retriever, 
-        IGenerativeAiService aiService,
+        IEmbeddingService embeddingService,
         ICheckEligibilityRulesTool rulesTool,
         IGetDocumentRequirementsTool docsTool)
     {
         _retriever = retriever;
-        _aiService = aiService;
+        _embeddingService = embeddingService;
         _rulesTool = rulesTool;
         _docsTool = docsTool;
     }
@@ -37,122 +40,112 @@ public class EligibilityDocumentAgent : IEligibilityDocumentAgent
         CancellationToken cancellationToken = default)
     {
         var profile = request.Profile ?? new CitizenProfile();
-        var providedDocsStr = profile.ProvidedDocuments != null && profile.ProvidedDocuments.Count > 0
-            ? string.Join(", ", profile.ProvidedDocuments)
-            : "None";
+        var providedDocs = profile.ProvidedDocuments ?? new List<string>();
+        int serviceId = request.ServiceId ?? 1;
 
+        // 1. Retrieve the service's catalog chunk from the vector DB
+        var topContexts = new List<string>();
+        ServiceCatalogChunk? serviceChunk = null;
         try
         {
-            // 1. Build composite query string for embedding search
-            var queryText = $"Service: {request.ServiceName}. Age: {profile.Age}, Citizenship: {profile.CitizenshipStatus}, Income: {profile.AnnualIncome}, Employment: {profile.EmploymentStatus}, Documents: {providedDocsStr}. {request.PlanSummary}";
+            var queryText = $"{request.ServiceName}. {request.PlanSummary}";
+            Vector queryEmbedding = await _embeddingService.GetEmbeddingAsync(queryText);
 
-            // 2. Vectorize user & service profile query
-            Vector queryEmbedding = await _aiService.GetEmbeddingAsync(queryText);
-
-            // 3. Retrieve relevant knowledge chunks from vector DB
-            var topContexts = await _retriever.GetRelevantEligibilityContextAsync(
+            topContexts = await _retriever.GetRelevantEligibilityContextAsync(
                 queryEmbedding, 
                 categoryFilter: null, 
                 limit: 5, 
                 cancellationToken: cancellationToken);
 
-            var retrievedContext = string.Join("\n\n---\n\n", topContexts);
-
-            // 4. Construct prompt for Gemini API with strict structured JSON contract
-            var systemPrompt = $$"""
-                You are the Eligibility & Document Analysis Agent (Agent 2) for the Government Service Navigator system.
-                Your task is to analyze a citizen's profile and plan against official government service requirements and rules.
-
-                Determine:
-                1. Is the citizen eligible? (isEligible: true/false)
-                2. Match percentage (matchPercentage: 0-100 integer score)
-                3. List of missing or failed eligibility criteria (missingCriteria: string array)
-                4. Required documents for this service (requiredDocuments: string array)
-                5. Missing documents that the citizen has NOT yet provided (missingDocuments: string array)
-                6. Detailed AI reasoning explaining the evaluation result (reasoning: string)
-
-                CRITICAL RULE: Respond ONLY in valid raw JSON with NO markdown wrappers (do NOT use ```json or ```).
-
-                Expected JSON schema:
-                {
-                  "isEligible": true,
-                  "matchPercentage": 85,
-                  "missingCriteria": ["Age requirement must be 18+"],
-                  "requiredDocuments": ["National ID Card", "Proof of Residence", "Income Certificate"],
-                  "missingDocuments": ["Proof of Residence"],
-                  "reasoning": "The citizen satisfies age and citizenship criteria, but is missing proof of residence."
-                }
-
-                [OFFICIAL GOVERNMENT SERVICE RULES & DOCUMENT REQUIREMENTS CONTEXT]
-                {{retrievedContext}}
-
-                [TARGET SERVICE NAME]
-                {{request.ServiceName}}
-
-                [CITIZEN PROFILE & PROVIDED DOCUMENTS]
-                Age: {{profile.Age}}
-                Citizenship Status: {{profile.CitizenshipStatus}}
-                Annual Income: LKR {{profile.AnnualIncome}}
-                Employment Status: {{profile.EmploymentStatus}}
-                Provided Documents: {{providedDocsStr}}
-                Plan / Additional Details: {{request.PlanSummary ?? "None"}}
-                """;
-
-            // 5. Generate structured response from Gemini
-            var rawResponse = await _aiService.GenerateTextAsync(systemPrompt);
-
-            // Clean any markdown formatting tags
-            var cleanedJson = rawResponse
-                .Replace("```json", "", StringComparison.OrdinalIgnoreCase)
-                .Replace("```", "")
-                .Trim();
-
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var parsed = JsonSerializer.Deserialize<AgentStructuredOutput>(cleanedJson, options);
-
-            return new EligibilityPlanResponse(
-                IsEligible: parsed?.IsEligible ?? true,
-                MatchPercentage: parsed?.MatchPercentage ?? 100,
-                MissingCriteria: parsed?.MissingCriteria ?? new List<string>(),
-                RequiredDocuments: parsed?.RequiredDocuments ?? new List<string>(),
-                MissingDocuments: parsed?.MissingDocuments ?? new List<string>(),
-                Reasoning: parsed?.Reasoning ?? cleanedJson,
-                RetrievedContextSnippets: topContexts
-            );
+            serviceChunk = FindServiceChunk(topContexts, request.ServiceName);
         }
         catch
         {
-            // Deterministic Fallback using allow-listed tools if AI service / API key fails
-            int serviceId = request.ServiceId ?? 1;
-            var ruleResult = _rulesTool.EvaluateRules(serviceId, profile.Age, profile.CitizenshipStatus);
-            var requiredDocs = _docsTool.GetRequiredDocumentsForService(serviceId);
-
-            var providedSet = new HashSet<string>(profile.ProvidedDocuments.Select(d => d.ToLower().Trim()));
-            var missingDocs = requiredDocs
-                .Where(req => !providedSet.Any(prov => prov.Contains(req.ToLower()) || req.ToLower().Contains(prov)))
-                .ToList();
-
-            var fallbackReasoning = $"Evaluated using rules engine. Applicant meets basic age ({profile.Age}) and citizenship ({profile.CitizenshipStatus}) criteria for {request.ServiceName}.";
-
-            return new EligibilityPlanResponse(
-                IsEligible: ruleResult.IsEligible && missingDocs.Count == 0,
-                MatchPercentage: Math.Max(50, ruleResult.ScorePercentage - (missingDocs.Count * 15)),
-                MissingCriteria: ruleResult.MissingCriteria,
-                RequiredDocuments: requiredDocs,
-                MissingDocuments: missingDocs,
-                Reasoning: fallbackReasoning,
-                RetrievedContextSnippets: new List<string> { "Rule evaluation fallback applied." }
-            );
+            // Vector DB unavailable — the document requirements tool below reads the catalog directly
+            topContexts = new List<string> { "Vector DB unavailable; document requirements tool fallback applied." };
         }
+
+        // 2. Rules tool: age / citizenship criteria
+        var ruleResult = _rulesTool.EvaluateRules(serviceId, profile.Age, profile.CitizenshipStatus);
+
+        // 3. Required documents: vector DB catalog chunk first; if the service isn't vectorized (not seeded yet),
+        //    read the catalog directly with the get_document_requirements tool
+        var fromVectorDb = serviceChunk != null;
+        var requiredDocs = fromVectorDb
+            ? serviceChunk!.RequiredDocuments
+            : await _docsTool.GetRequiredDocumentsForServiceAsync(serviceId, cancellationToken);
+
+        var missingDocs = requiredDocs.Where(req => !providedDocs.Any(prov => DocumentMatches(req, prov))).ToList();
+
+        // Eligibility is decided by the criteria only. Uploaded files are named freely by citizens, so documents
+        // that cannot be matched by name are flagged for the Verifying Officer instead of blocking the draft.
+        var isEligible = ruleResult.IsEligible;
+        var reasoning = BuildReasoning(request.ServiceName, profile, ruleResult, requiredDocs, missingDocs, fromVectorDb, isEligible);
+
+        return new EligibilityPlanResponse(
+            IsEligible: isEligible,
+            MatchPercentage: Math.Clamp(ruleResult.ScorePercentage - (missingDocs.Count * 15), 0, 100),
+            MissingCriteria: ruleResult.MissingCriteria,
+            RequiredDocuments: requiredDocs,
+            MissingDocuments: missingDocs,
+            Reasoning: reasoning,
+            RetrievedContextSnippets: topContexts
+        );
     }
 
-    private class AgentStructuredOutput
+    // Words that appear in upload labels / file names or in many document names and so prove nothing
+    private static readonly HashSet<string> GenericDocumentWords = new(StringComparer.Ordinal)
     {
-        public bool IsEligible { get; set; } = true;
-        public int MatchPercentage { get; set; } = 100;
-        public List<string>? MissingCriteria { get; set; }
-        public List<string>? RequiredDocuments { get; set; }
-        public List<string>? MissingDocuments { get; set; }
-        public string? Reasoning { get; set; }
+        "required", "upload", "uploaded", "attachment", "file", "copy", "scan", "pdf", "jpg", "jpeg", "png", "doc", "docx",
+        "certificate", "card", "proof", "form", "completed", "official", "original", "letter"
+    };
+
+    /// <summary>
+    /// A provided document satisfies a requirement when they share a distinctive keyword (e.g. "passport", "birth"),
+    /// or the upload uses the requirement's initials (e.g. "nic" for National Identity Card).
+    /// </summary>
+    private static bool DocumentMatches(string required, string provided)
+    {
+        if (string.IsNullOrWhiteSpace(provided)) return false;
+
+        var allRequiredTokens = TextTokenizer.Tokenize(required);
+        var requiredTokens = allRequiredTokens.Where(t => !GenericDocumentWords.Contains(t)).ToList();
+        var providedTokens = TextTokenizer.Tokenize(provided).Where(t => !GenericDocumentWords.Contains(t)).ToList();
+
+        var initials = string.Concat(allRequiredTokens.Select(t => t[0]));
+        if (initials.Length >= 2 && providedTokens.Contains(initials)) return true;
+
+        return TextTokenizer.SharesKeyword(requiredTokens, providedTokens);
+    }
+
+    private static ServiceCatalogChunk? FindServiceChunk(List<string> contexts, string serviceName)
+    {
+        var chunks = contexts.Select(ServiceCatalogChunk.TryParse).Where(c => c != null).Select(c => c!).ToList();
+
+        return chunks.FirstOrDefault(c => c.ServiceName.Equals(serviceName?.Trim(), StringComparison.OrdinalIgnoreCase))
+            ?? chunks.FirstOrDefault(c => TextTokenizer.SharesKeyword(TextTokenizer.Tokenize(serviceName), c.KeywordTokens()));
+    }
+
+    private static string BuildReasoning(
+        string serviceName,
+        CitizenProfile profile,
+        EligibilityRuleResult ruleResult,
+        List<string> requiredDocs,
+        List<string> missingDocs,
+        bool fromVectorDb,
+        bool isEligible)
+    {
+        var criteria = ruleResult.MissingCriteria.Count == 0
+            ? $"The applicant meets the age ({profile.Age}) and citizenship ({profile.CitizenshipStatus}) criteria"
+            : $"Criteria not met: {string.Join(" ", ruleResult.MissingCriteria)}";
+
+        var source = fromVectorDb ? "the service catalog (vector DB)" : "the service catalog";
+        var documents = requiredDocs.Count == 0
+            ? $"{source} lists no required documents"
+            : missingDocs.Count == 0
+                ? $"all {requiredDocs.Count} documents required by {source} match an uploaded file"
+                : $"not matched to an upload, officer to confirm (per {source}): {string.Join(", ", missingDocs)}";
+
+        return $"{(isEligible ? "Eligible" : "Not yet eligible")} for {serviceName}. {criteria}; {documents}.";
     }
 }

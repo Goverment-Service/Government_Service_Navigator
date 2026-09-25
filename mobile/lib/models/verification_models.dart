@@ -140,6 +140,42 @@ class VerificationTaskModel {
   }
 }
 
+/// Installment plan paying for an application (from my-applications), used to open its schedule.
+class InstallmentSummary {
+  final String planId;
+  final String status; // 'Active', 'Completed', 'Cancelled'
+  final int numberOfInstallments;
+  final int paidCount;
+  final double? nextAmount;
+  final DateTime? nextDueDate;
+  final String? nextStatus;
+
+  const InstallmentSummary({
+    required this.planId,
+    required this.status,
+    required this.numberOfInstallments,
+    required this.paidCount,
+    this.nextAmount,
+    this.nextDueDate,
+    this.nextStatus,
+  });
+
+  bool get isActive => status.toLowerCase() == 'active';
+
+  static InstallmentSummary? fromJson(dynamic json) {
+    if (json is! Map<String, dynamic>) return null;
+    return InstallmentSummary(
+      planId: json['planId']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      numberOfInstallments: (json['numberOfInstallments'] as num?)?.toInt() ?? 0,
+      paidCount: (json['paidCount'] as num?)?.toInt() ?? 0,
+      nextAmount: (json['nextAmount'] as num?)?.toDouble(),
+      nextDueDate: DateTime.tryParse(json['nextDueDate']?.toString() ?? '')?.toLocal(),
+      nextStatus: json['nextStatus']?.toString(),
+    );
+  }
+}
+
 class ApplicationItemModel {
   final int applicationId;
   final String referenceNumber;
@@ -150,6 +186,7 @@ class ApplicationItemModel {
   final String? applicantName;
   final VerificationTaskModel? verificationTask;
   final List<AuditLogModel> auditLogs;
+  final InstallmentSummary? installmentPlan;
 
   ApplicationItemModel({
     required this.applicationId,
@@ -161,6 +198,7 @@ class ApplicationItemModel {
     this.applicantName,
     this.verificationTask,
     this.auditLogs = const [],
+    this.installmentPlan,
   });
 
   ApplicationItemModel copyWith({
@@ -178,6 +216,7 @@ class ApplicationItemModel {
       applicantName: applicantName,
       verificationTask: verificationTask ?? this.verificationTask,
       auditLogs: auditLogs ?? this.auditLogs,
+      installmentPlan: installmentPlan,
     );
   }
 }

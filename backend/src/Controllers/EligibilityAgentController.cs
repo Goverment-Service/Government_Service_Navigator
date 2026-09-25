@@ -24,7 +24,7 @@ public class EligibilityAgentController : ControllerBase
     }
 
     /// <summary>
-    /// Evaluates citizen eligibility and missing document checklist using Gemini RAG and Vector DB
+    /// Evaluates citizen eligibility and missing document checklist using the rules tool and the Vector DB service catalog
     /// </summary>
     [HttpPost("evaluate")]
     public async Task<IActionResult> EvaluateEligibility([FromBody] EligibilityAgentQueryDto query)

@@ -42,3 +42,7 @@ body {
     display: none;
   }
 }
+/* Officer workspace: Carbon reserves 25% right padding in accordion panels, which squeezes the agent reasoning trail */
+.agent-trail .cds--accordion__content {
+  padding-inline-end: 1rem;
+}

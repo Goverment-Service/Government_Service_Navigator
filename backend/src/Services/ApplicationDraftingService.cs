@@ -73,17 +73,25 @@ public class ApplicationDraftingService : IApplicationDraftingService
             .Where(kv => !DepartmentFooterKeys.Contains(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
             .ToDictionary(kv => kv.Key, kv => kv.Value.Trim());
 
-        // Documents = answers to the template's "Required Document Upload" fields
-        var fileLabels = submission.TemplateId.HasValue
-            ? await _context.FormFields
+        // Documents = uploaded files, labelled with the requirement / file field they were uploaded for
+        var providedDocuments = await _context.SubmissionDocuments
+            .Where(d => d.ApplicationId == submission.Id)
+            .OrderBy(d => d.UploadedAt)
+            .Select(d => d.FieldLabel + ": " + d.FileName)
+            .ToListAsync(cancellationToken);
+
+        // Applications submitted before uploads existed: answers to the template's "file" fields
+        if (providedDocuments.Count == 0 && submission.TemplateId.HasValue)
+        {
+            var fileLabels = await _context.FormFields
                 .Where(f => f.TemplateId == submission.TemplateId.Value && f.Type == "file")
                 .Select(f => f.Label)
-                .ToListAsync(cancellationToken)
-            : new List<string>();
-        var providedDocuments = fileLabels
-            .Where(citizenAnswers.ContainsKey)
-            .Select(l => $"{l}: {citizenAnswers[l]}")
-            .ToList();
+                .ToListAsync(cancellationToken);
+            providedDocuments = fileLabels
+                .Where(citizenAnswers.ContainsKey)
+                .Select(l => $"{l}: {citizenAnswers[l]}")
+                .ToList();
+        }
 
         var fullName = await _context.Users
             .Where(u => u.NicNumber == submission.CitizenNic)

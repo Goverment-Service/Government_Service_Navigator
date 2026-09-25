@@ -13,18 +13,18 @@ namespace Government_Service_Navigator.Backend.Controllers;
 public class RagSetupController : ControllerBase
 {
     private readonly VectorDbContext _vectorDb;
-    private readonly IGenerativeAiService _aiService;
+    private readonly IEmbeddingService _embeddingService;
     private readonly IServiceCatalogService _catalogService;
     private readonly AppDbContext _appDb;
 
     public RagSetupController(
         VectorDbContext vectorDb, 
-        IGenerativeAiService aiService, 
+        IEmbeddingService embeddingService, 
         IServiceCatalogService catalogService,
         AppDbContext appDb)
     {
         _vectorDb = vectorDb;
-        _aiService = aiService;
+        _embeddingService = embeddingService;
         _catalogService = catalogService;
         _appDb = appDb;
     }
@@ -59,7 +59,7 @@ public class RagSetupController : ControllerBase
             var docChunk = $"{fullService.Name} ({fullService.Category}): To apply for this service, citizens must provide the following documents: {docText}. The applicable fees are: {feeText}.";
 
             // 4. Create the vector embedding and save to Neon
-            var vector = await _aiService.GetEmbeddingAsync(docChunk);
+            var vector = await _embeddingService.GetEmbeddingAsync(docChunk);
             
             _vectorDb.KnowledgeChunks.Add(new KnowledgeChunk
             {
@@ -130,7 +130,7 @@ public class RagSetupController : ControllerBase
         // 5. Embed and store in the vector DB
         foreach (var (category, content) in chunks)
         {
-            var vector = await _aiService.GetEmbeddingAsync(content);
+            var vector = await _embeddingService.GetEmbeddingAsync(content);
             _vectorDb.KnowledgeChunks.Add(new KnowledgeChunk
             {
                 Content = content,

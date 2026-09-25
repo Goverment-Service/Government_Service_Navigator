@@ -12,12 +12,16 @@ class PaymentScreen extends StatefulWidget {
   final String? applicationId;
   final double? amount;
 
+  /// Close the screen with `true` as soon as the payment is confirmed (used by the pay-before-submit flow).
+  final bool popOnPaid;
+
   const PaymentScreen({
     super.key,
     this.token,
     this.userEmail,
     this.applicationId,
     this.amount,
+    this.popOnPaid = false,
   });
 
   @override
@@ -201,6 +205,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           _resultMessage = 'Payment status: $statusStr';
         }
       });
+      if (isPaid && widget.popOnPaid) Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
       final errorStr = e.toString().replaceAll('Exception: ', '');

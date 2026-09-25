@@ -23,7 +23,7 @@ public class IntakeAgentController : ControllerBase
         // 1. Create the request for the agent
         var request = new IntakePlanRequest(query.Text);
 
-        // 2. The agent will embed the text, search Neon, and call Gemini
+        // 2. The agent will embed the text locally and match it against the Neon vector DB
         var response = await _agent.GeneratePlanAsync(request);
 
         // 3. Return the AI-generated plan and the context it used

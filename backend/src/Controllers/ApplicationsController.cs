@@ -1,3 +1,4 @@
+using Government_Service_Navigator.AgenticAi.Tools.CalculateFee;
 using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
@@ -6,11 +7,12 @@ using Microsoft.EntityFrameworkCore;
 using Government_Service_Navigator.Backend.Data.Context;
 using Government_Service_Navigator.Backend.DTOs.Requests;
 using Government_Service_Navigator.Backend.Models.Entities;
+using Government_Service_Navigator.Backend.Services;
 using Government_Service_Navigator.Backend.Services.Interfaces;
 
 namespace Government_Service_Navigator.Backend.Controllers
 {
-    // Citizen-facing application intake: fetch a service's form, then submit it.
+    // Citizen-facing application intake: fetch a service's form, submit it, and (for paid services) finalize after payment.
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
@@ -33,11 +35,13 @@ namespace Government_Service_Navigator.Backend.Controllers
 
         private readonly AppDbContext _context;
         private readonly IVerificationService _verificationService;
+        private readonly ICalculateFeeTool _feeTool;
 
-        public ApplicationsController(AppDbContext context, IVerificationService verificationService)
+        public ApplicationsController(AppDbContext context, IVerificationService verificationService, ICalculateFeeTool feeTool)
         {
             _context = context;
             _verificationService = verificationService;
+            _feeTool = feeTool;
         }
 
         // Active application template linked to the service, or 404 if the admin hasn't built one.
@@ -73,6 +77,45 @@ namespace Government_Service_Navigator.Backend.Controllers
             return (name, email ?? string.Empty);
         }
 
+        private const long MaxDocumentBytes = UploadedFileTypes.MaxBytes;
+
+        // Uploads one supporting document (PDF / JPEG / PNG, max 10 MB) for a "file" field. The returned id is
+        // sent in SubmitApplicationRequest.Documents; unattached uploads are never shown to officers.
+        [HttpPost("documents")]
+        [RequestSizeLimit(MaxDocumentBytes + 64 * 1024)]
+        public async Task<IActionResult> UploadDocument([FromForm] UploadDocumentRequest request)
+        {
+            var file = request.File;
+            var nic = User.FindFirstValue("nicNumber");
+            if (string.IsNullOrWhiteSpace(nic)) return Forbid();
+
+            if (file == null || file.Length == 0) return BadRequest(new { message = "Choose a file to upload." });
+            if (file.Length > MaxDocumentBytes) return BadRequest(new { message = "Files must be 10 MB or smaller." });
+
+            using var buffer = new MemoryStream();
+            await file.CopyToAsync(buffer);
+            var content = buffer.ToArray();
+
+            // Decide the type from the file's bytes, not the client-supplied header
+            var contentType = UploadedFileTypes.Detect(content);
+            if (contentType == null) return BadRequest(new { message = "Only PDF, JPEG and PNG files are accepted." });
+
+            var document = new SubmissionDocument
+            {
+                FieldLabel = request.FieldLabel?.Trim() ?? string.Empty,
+                FileName = Path.GetFileName(file.FileName),
+                ContentType = contentType,
+                SizeBytes = content.LongLength,
+                Content = content,
+                UploaderNic = nic,
+                UploadedAt = DateTime.UtcNow
+            };
+            _context.SubmissionDocuments.Add(document);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { id = document.Id, fileName = document.FileName, contentType, sizeBytes = document.SizeBytes });
+        }
+
         [HttpPost("submit")]
         public async Task<IActionResult> Submit([FromBody] SubmitApplicationRequest request)
         {
@@ -81,6 +124,18 @@ namespace Government_Service_Navigator.Backend.Controllers
 
             var service = await _context.ServiceProcedures.FindAsync(request.ServiceProcedureId);
             if (service == null || service.Status == "Retired") return NotFound("Service not found.");
+
+            // Uploaded documents: must belong to the caller and not already be attached to another application
+            var documentIds = request.Documents.Values.Distinct().ToList();
+            var documents = await _context.SubmissionDocuments
+                .Where(d => documentIds.Contains(d.Id) && d.UploaderNic == nic && d.ApplicationId == null)
+                .ToDictionaryAsync(d => d.Id);
+            if (documents.Count != documentIds.Count)
+                return BadRequest(new { message = "One or more uploaded documents are invalid. Please upload them again." });
+
+            // The stored answer for a file field is the uploaded file's name
+            foreach (var (label, id) in request.Documents)
+                request.Answers[label] = documents[id].FileName;
 
             if (request.TemplateId.HasValue)
             {
@@ -116,19 +171,95 @@ namespace Government_Service_Navigator.Backend.Controllers
             _context.ApplicationSubmissions.Add(submission);
             await _context.SaveChangesAsync();
 
+            foreach (var (label, id) in request.Documents)
+            {
+                documents[id].ApplicationId = submission.Id;
+                documents[id].FieldLabel = label;
+            }
+            if (documents.Count > 0) await _context.SaveChangesAsync();
+
+            // Services with a fee: the application stays out of the officer queue until it is paid (see Finalize)
+            var fee = await _feeTool.CalculateAsync(service.Id);
+            if (fee.TotalAmount > 0)
+                return Ok(PaymentRequiredResponse(submission, service.Name, fee));
+
+            return Ok(await SendToVerificationAsync(submission, service.Name, nic));
+        }
+
+        // Called after paying: once Paid payments (or an installment plan with its first installment paid) cover
+        // the fee, the application is sent to the officer queue.
+        // Idempotent — returns the existing task if the application was already finalized.
+        [HttpPost("{applicationId:int}/finalize")]
+        public async Task<IActionResult> Finalize(int applicationId)
+        {
+            var nic = User.FindFirstValue("nicNumber");
+            if (string.IsNullOrWhiteSpace(nic)) return Forbid();
+
+            var submission = await _context.ApplicationSubmissions
+                .Include(s => s.ServiceProcedure)
+                .FirstOrDefaultAsync(s => s.Id == applicationId && s.CitizenNic == nic);
+            if (submission?.ServiceProcedure == null) return NotFound("Application not found.");
+            var serviceName = submission.ServiceProcedure.Name;
+
+            var existingTask = await _context.VerificationTasks.FirstOrDefaultAsync(t => t.ApplicationId == applicationId);
+            if (existingTask != null)
+                return Ok(SubmittedResponse(submission, serviceName, existingTask.Id));
+
+            var fee = await _feeTool.CalculateAsync(submission.ServiceProcedureId);
+            var paid = await _context.Payments
+                .Where(p => p.ApplicationId == applicationId && p.Status == "Paid")
+                .SumAsync(p => (decimal?)p.Amount) ?? 0m;
+
+            // An installment plan covering the fee counts once its first installment is paid
+            var paymentIds = await _context.Payments
+                .Where(p => p.ApplicationId == applicationId)
+                .Select(p => p.Id)
+                .ToListAsync();
+            var onInstallmentPlan = await _context.InstallmentPlans
+                .AnyAsync(ip => paymentIds.Contains(ip.PaymentId)
+                                && (ip.Status == "Active" || ip.Status == "Completed")
+                                && ip.TotalAmount >= fee.TotalAmount
+                                && ip.Installments!.Any(i => i.Status == "Paid"));
+
+            if (paid < fee.TotalAmount && !onInstallmentPlan)
+                return StatusCode(StatusCodes.Status402PaymentRequired, PaymentRequiredResponse(submission, serviceName, fee, paid));
+
+            return Ok(await SendToVerificationAsync(submission, serviceName, nic));
+        }
+
+        private async Task<object> SendToVerificationAsync(ApplicationSubmission submission, string serviceName, string nic)
+        {
             var task = await _verificationService.CreateTaskAsync(new CreateTaskRequest
             {
                 ApplicationId = submission.Id,
                 CitizenNic = nic
             }, User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Citizen");
 
-            return Ok(new
-            {
-                applicationId = submission.Id,
-                taskId = task.Id,
-                referenceNumber = $"APP-{submission.Id}",
-                serviceName = service.Name
-            });
+            return SubmittedResponse(submission, serviceName, task.Id);
         }
+
+        private static object SubmittedResponse(ApplicationSubmission submission, string serviceName, int taskId) => new
+        {
+            applicationId = submission.Id,
+            taskId,
+            referenceNumber = $"APP-{submission.Id}",
+            serviceName,
+            paymentRequired = false
+        };
+
+        private static object PaymentRequiredResponse(ApplicationSubmission submission, string serviceName, FeeCalculationResult fee, decimal paid = 0m) => new
+        {
+            applicationId = submission.Id,
+            referenceNumber = $"APP-{submission.Id}",
+            serviceName,
+            paymentRequired = true,
+            message = "Pay the service fee to submit your application.",
+            amount = fee.TotalAmount - paid,
+            totalFee = fee.TotalAmount,
+            amountPaid = paid,
+            currency = fee.Currency,
+            feeItems = fee.LineItems.Select(i => new { i.FeeType, i.Amount }),
+            userEmail = submission.UserEmail
+        };
     }
 }

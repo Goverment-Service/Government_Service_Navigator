@@ -5,6 +5,8 @@ import '../../services/installment_service.dart';
 import '../../services/payment_service.dart';
 import '../../models/installment_plan.dart';
 import '../../widgets/status_badge.dart';
+import 'bank_transfer_screen.dart';
+import 'checkout_webview_screen.dart';
 
 class InstallmentPlanView extends StatefulWidget {
   final String? token;
@@ -141,39 +143,91 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
 
   String? _payingInstallmentId;
 
-  Future<void> _payInstallment(String installmentId) async {
+  /// Pay Now: let the citizen choose online payment (Stripe) or bank transfer (receipt upload).
+  Future<void> _payInstallment(Installment item) async {
     if (_payingInstallmentId != null) return;
-    setState(() {
-      _payingInstallmentId = installmentId;
-    });
 
-    try {
-      final service = InstallmentService(_effectiveToken);
-      await service.payInstallment(installmentId);
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Installment paid successfully!'),
-          backgroundColor: AppColors.success,
+    final method = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.cardBg,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Pay installment #${item.installmentNumber}',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text('LKR ${item.amount.toStringAsFixed(2)}',
+                  style: const TextStyle(color: AppColors.secondaryLabel)),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(CupertinoIcons.creditcard, color: AppColors.primary),
+                title: const Text('Online payment'),
+                subtitle: const Text('Pay by card through the secure payment gateway'),
+                onTap: () => Navigator.of(sheetContext).pop('online'),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(CupertinoIcons.building_2_fill, color: AppColors.primary),
+                title: const Text('Bank transfer'),
+                subtitle: const Text('Transfer to the department account and upload the receipt'),
+                onTap: () => Navigator.of(sheetContext).pop('bank'),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+    if (!mounted || method == null) return;
+
+    if (method == 'online') {
+      await _payOnline(item);
+    } else {
+      final submitted = await Navigator.of(context).push<bool>(
+        CupertinoPageRoute(builder: (_) => BankTransferScreen(token: _effectiveToken, installment: item)),
       );
+      if (!mounted || submitted != true) return;
+      _showSnack('Receipt submitted. The installment will be marked paid once it is verified.', AppColors.success);
+      await _fetchPlan();
+    }
+  }
+
+  /// Opens the Stripe checkout for exactly this installment's amount, then confirms it with the backend.
+  Future<void> _payOnline(Installment item) async {
+    setState(() => _payingInstallmentId = item.id);
+    final service = InstallmentService(_effectiveToken);
+    try {
+      final checkoutUrl = await service.startOnlinePayment(item.id);
+      if (!mounted) return;
+
+      final completed = await Navigator.of(context).push<bool>(
+        CupertinoPageRoute(builder: (_) => CheckoutWebViewScreen(checkoutUrl: checkoutUrl)),
+      );
+      if (!mounted) return;
+      if (completed != true) {
+        _showSnack('Online payment was not completed.', AppColors.warning);
+        return;
+      }
+
+      await service.confirmOnlinePayment(item.id);
+      if (!mounted) return;
+      _showSnack('Installment paid successfully!', AppColors.success);
       await _fetchPlan();
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to pay installment: ${e.toString().replaceAll('Exception: ', '')}'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      _showSnack('Payment failed: ${e.toString().replaceAll('Exception: ', '')}', AppColors.danger);
     } finally {
-      if (mounted) {
-        setState(() {
-          _payingInstallmentId = null;
-        });
-      }
+      if (mounted) setState(() => _payingInstallmentId = null);
     }
+  }
+
+  void _showSnack(String message, Color color) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
   }
 
   String _formatDate(String? rawDate) {
@@ -436,7 +490,7 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
   bool _checkIsOverdue(Installment item) {
     final statusStr = item.status?.toLowerCase() ?? '';
     if (statusStr == 'overdue') return true;
-    if (statusStr == 'paid' || statusStr == 'completed') return false;
+    if (statusStr == 'paid' || statusStr == 'completed' || statusStr == 'pendingverification') return false;
     if (item.dueDate != null && item.dueDate!.isNotEmpty) {
       try {
         final due = DateTime.parse(item.dueDate!);
@@ -452,6 +506,7 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
   Widget _buildInstallmentTile(Installment item, {required bool isNextUpcoming}) {
     final statusStr = item.status?.toLowerCase() ?? 'pending';
     final isPaid = statusStr == 'paid' || statusStr == 'completed';
+    final isUnderReview = statusStr == 'pendingverification';
     final isOverdue = _checkIsOverdue(item);
 
     // Dynamic styles based on state
@@ -604,10 +659,14 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
             mainAxisSize: MainAxisSize.min,
             children: [
               StatusBadge(
-                status: isOverdue ? 'Overdue' : (item.status ?? 'Pending'),
+                status: isOverdue ? 'Overdue' : (isUnderReview ? 'Under Review' : (item.status ?? 'Pending')),
                 showDot: isOverdue || isNextUpcoming,
               ),
-              if (!isPaid) ...[
+              if (isUnderReview) ...[
+                const SizedBox(height: 8),
+                const Text('Receipt submitted',
+                    style: TextStyle(fontSize: 12, color: AppColors.secondaryLabel)),
+              ] else if (!isPaid) ...[
                 const SizedBox(height: 8),
                 SizedBox(
                   height: 32,
@@ -617,7 +676,7 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
                     borderRadius: BorderRadius.circular(8),
                     onPressed: _payingInstallmentId == item.id.toString()
                         ? null
-                        : () => _payInstallment(item.id.toString()),
+                        : () => _payInstallment(item),
                     child: _payingInstallmentId == item.id.toString()
                         ? const CupertinoActivityIndicator(color: AppColors.cardBg, radius: 7)
                         : const Text(

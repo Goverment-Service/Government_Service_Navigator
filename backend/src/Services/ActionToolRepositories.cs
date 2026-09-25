@@ -1,3 +1,4 @@
+using Government_Service_Navigator.AgenticAi.Tools.GetDocumentRequirements;
 using Government_Service_Navigator.AgenticAi.Tools.CalculateFee;
 using Government_Service_Navigator.AgenticAi.Tools.PrefillApplication;
 using Government_Service_Navigator.Backend.Data.Context;
@@ -46,5 +47,24 @@ public class ApplicationTemplateRepository : IApplicationTemplateRepository
             .OrderBy(f => f.OrderIndex)
             .Select(f => new FormFieldDefinition(f.Label, f.Type, f.IsRequired, f.OrderIndex))
             .ToList();
+    }
+}
+
+public class DocumentRequirementRepository : IDocumentRequirementRepository
+{
+    private readonly AppDbContext _db;
+
+    public DocumentRequirementRepository(AppDbContext db)
+    {
+        _db = db;
+    }
+
+    public async Task<List<string>> GetDocumentNamesAsync(int serviceProcedureId, CancellationToken cancellationToken = default)
+    {
+        return await _db.DocumentRequirements
+            .Where(d => d.ServiceProcedureId == serviceProcedureId)
+            .OrderBy(d => d.Id)
+            .Select(d => d.DocumentName)
+            .ToListAsync(cancellationToken);
     }
 }

@@ -56,18 +56,69 @@ class InstallmentService {
     throw Exception('Failed to load installment plan (${response.statusCode})');
   }
 
-  /// POST /api/installment-plans/installments/{installmentId}/pay
-  Future<Installment> payInstallment(String installmentId) async {
-    final cleanInstallmentId = _cleanIntId(installmentId);
+  /// POST /api/installment-plans/installments/{installmentId}/checkout — Stripe Checkout URL for this installment.
+  Future<String> startOnlinePayment(String installmentId) async {
     final response = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/installment-plans/installments/$cleanInstallmentId/pay'),
+      Uri.parse('${AppConfig.baseUrl}/installment-plans/installments/${_cleanIntId(installmentId)}/checkout'),
       headers: _headers,
     );
     if (response.statusCode == 200) {
-      return Installment.fromJson(
-          jsonDecode(response.body) as Map<String, dynamic>);
+      return (jsonDecode(response.body) as Map<String, dynamic>)['checkoutUrl']?.toString() ?? '';
     }
-    throw Exception('Failed to pay installment (${response.statusCode})');
+    throw Exception(_errorMessage(response, 'Could not start the online payment'));
+  }
+
+  /// POST /api/installment-plans/installments/{installmentId}/confirm — verifies the Stripe payment.
+  Future<Installment> confirmOnlinePayment(String installmentId) async {
+    final response = await http.post(
+      Uri.parse('${AppConfig.baseUrl}/installment-plans/installments/${_cleanIntId(installmentId)}/confirm'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return Installment.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    }
+    throw Exception(_errorMessage(response, 'Could not confirm the payment'));
+  }
+
+  /// GET /api/installment-plans/bank-details — the account citizens transfer into.
+  Future<Map<String, String>> getBankDetails() async {
+    final response = await http.get(
+      Uri.parse('${AppConfig.baseUrl}/installment-plans/bank-details'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      return body.map((k, v) => MapEntry(k, v?.toString() ?? ''));
+    }
+    throw Exception(_errorMessage(response, 'Could not load the bank details'));
+  }
+
+  /// POST /api/installment-plans/installments/{installmentId}/bank-transfer — uploads the transfer receipt.
+  Future<Installment> submitBankTransfer(
+    String installmentId, {
+    required String fileName,
+    required List<int> bytes,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('${AppConfig.baseUrl}/installment-plans/installments/${_cleanIntId(installmentId)}/bank-transfer'),
+    )
+      ..headers['Authorization'] = 'Bearer $_token'
+      ..files.add(http.MultipartFile.fromBytes('receipt', bytes, filename: fileName));
+
+    final response = await http.Response.fromStream(await request.send());
+    if (response.statusCode == 200) {
+      return Installment.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    }
+    throw Exception(_errorMessage(response, 'Could not submit the receipt'));
+  }
+
+  String _errorMessage(http.Response response, String fallback) {
+    try {
+      final body = jsonDecode(response.body);
+      if (body is Map && body['message'] != null) return body['message'].toString();
+    } catch (_) {}
+    return '$fallback (${response.statusCode})';
   }
 
   /// POST /api/installment-plans/{id}/cancel

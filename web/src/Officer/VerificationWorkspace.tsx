@@ -1,5 +1,5 @@
 import '@carbon/styles/css/styles.css';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Header,
@@ -19,7 +19,9 @@ import {
 } from "@carbon/react";
 import { Checkmark, Close, Document, ChevronLeft, ArrowRight, Warning } from "@carbon/icons-react";
 import AgentDraftPanel from "./AgentDraftPanel";
+import DocumentPreview from "./DocumentPreview";
 import { getAgentDraft, generateAgentDraft, type AgentDraftView } from "./agentDraftApi";
+import { ApiError } from "../utils/api";
 
 interface TaskDetail {
   task: {
@@ -34,6 +36,24 @@ interface TaskDetail {
   submittedAt?: string | null;
   userEmail?: string | null;
   answers: Record<string, string>;
+  documents?: UploadedDocument[];
+}
+
+interface UploadedDocument {
+  id: string;
+  fieldLabel: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+}
+
+interface GalleryDocument {
+  key: string;
+  name: string;
+  fieldLabel?: string;
+  file?: UploadedDocument;
+  aiTag: string;
 }
 
 export default function VerificationWorkspace() {
@@ -51,19 +71,36 @@ export default function VerificationWorkspace() {
   const [agentLoading, setAgentLoading] = useState(true);
   const [agentError, setAgentError] = useState("");
 
-  // Document Gallery State: documents the citizen attached, plus those the agents flagged as missing
+  // Document Gallery State: files the citizen uploaded, plus documents the agents flagged as missing
   const [currentDocIndex, setCurrentDocIndex] = useState(0);
-  const [documents, setDocuments] = useState<{ id: number; name: string; isVerified: boolean; aiTag: string }[]>([]);
+  const [verifiedDocKeys, setVerifiedDocKeys] = useState<Set<string>>(new Set());
+
+  const documents = useMemo<GalleryDocument[]>(() => {
+    const uploaded = detail?.documents ?? [];
+    // Older applications have no stored files, only the names the agent saw
+    const attached: GalleryDocument[] = uploaded.length > 0
+      ? uploaded.map(d => ({ key: d.id, name: d.fileName, fieldLabel: d.fieldLabel, file: d, aiTag: "Submitted by citizen" }))
+      : (agentDraft?.action.draft?.attachedDocumentNames ?? []).map(name => ({ key: `name:${name}`, name, aiTag: "Submitted by citizen" }));
+    const missing = (agentDraft?.eligibility.missingDocuments ?? [])
+      .map(name => ({ key: `missing:${name}`, name, aiTag: "Missing (flagged by agent)" }));
+    return [...attached, ...missing];
+  }, [detail, agentDraft]);
 
   const applyAgentDraft = (view: AgentDraftView) => {
-    const attached = view.action.draft?.attachedDocumentNames ?? [];
-    const missing = view.eligibility.missingDocuments;
     setAgentDraft(view);
-    setDocuments([
-      ...attached.map((name, i) => ({ id: i + 1, name, isVerified: false, aiTag: "Submitted by citizen" })),
-      ...missing.map((name, i) => ({ id: attached.length + i + 1, name, isVerified: false, aiTag: "Missing (flagged by agent)" }))
-    ]);
     setCurrentDocIndex(0);
+  };
+
+  // Backend returns { message, details } on agent failures; show the details so the officer knows what went wrong
+  const describeAgentError = (e: unknown) => {
+    const fallback = "The AI agents could not prepare a draft for this application.";
+    if (!(e instanceof ApiError)) return fallback;
+    try {
+      const body = JSON.parse(e.message);
+      return body.details ? `${fallback} ${body.details}` : fallback;
+    } catch {
+      return e.status === 404 ? e.message : fallback;
+    }
   };
 
   // Agent 2 + Agent 3 output: load the stored draft, or run the agents the first time the task is opened
@@ -75,7 +112,7 @@ export default function VerificationWorkspace() {
         applyAgentDraft(stored ?? await generateAgentDraft(taskId));
       } catch (e) {
         console.error("Failed to load agent draft", e);
-        setAgentError("The AI agents could not prepare a draft for this application.");
+        setAgentError(describeAgentError(e));
       } finally {
         setAgentLoading(false);
       }
@@ -91,7 +128,7 @@ export default function VerificationWorkspace() {
       applyAgentDraft(await generateAgentDraft(taskId));
     } catch (e) {
       console.error("Failed to re-run agents", e);
-      setAgentError("The AI agents could not prepare a draft for this application.");
+      setAgentError(describeAgentError(e));
     } finally {
       setAgentLoading(false);
     }
@@ -141,9 +178,15 @@ export default function VerificationWorkspace() {
 
 
   const currentDoc = documents[currentDocIndex];
+  const currentDocVerified = currentDoc ? verifiedDocKeys.has(currentDoc.key) : false;
 
   const handleDocumentVerificationToggle = (checked: boolean) => {
-    setDocuments(docs => docs.map((d, i) => i === currentDocIndex ? { ...d, isVerified: checked } : d));
+    if (!currentDoc) return;
+    setVerifiedDocKeys(keys => {
+      const next = new Set(keys);
+      if (checked) next.add(currentDoc.key); else next.delete(currentDoc.key);
+      return next;
+    });
   };
 
   const handleDecision = async (status: string) => {
@@ -216,13 +259,13 @@ export default function VerificationWorkspace() {
                     <p style={{ fontSize: '0.875rem', color: '#525252' }}>Manually review and verify each uploaded proof.</p>
                   </div>
                   {currentDoc && (
-                  <div style={{ backgroundColor: currentDoc.isVerified ? '#defbe6' : '#fff', padding: '0.5rem 1rem', border: '1px solid #e0e0e0', borderRadius: '4px' }}>
+                  <div style={{ backgroundColor: currentDocVerified ? '#defbe6' : '#fff', padding: '0.5rem 1rem', border: '1px solid #e0e0e0', borderRadius: '4px' }}>
                      <Toggle
                         id="doc-verify-toggle"
                         size="sm"
                         labelA="Unverified"
                         labelB="Verified"
-                        toggled={currentDoc.isVerified}
+                        toggled={currentDocVerified}
                         onToggle={handleDocumentVerificationToggle}
                      />
                   </div>
@@ -236,13 +279,18 @@ export default function VerificationWorkspace() {
                      <p>{agentLoading ? "Loading documents…" : "No documents were attached or flagged for this application."}</p>
                   </div>
                   ) : (
-                  <div style={{ textAlign: 'center', color: '#525252' }}>
-                     <Document size={48} style={{ margin: '0 auto 1rem' }} />
-                     <p style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>{currentDoc.name}</p>
+                  <div style={{ textAlign: 'center', color: '#525252', width: '100%', padding: '1rem' }}>
+                     {currentDoc.file ? (
+                        <DocumentPreview key={currentDoc.file.id} documentId={currentDoc.file.id} fileName={currentDoc.file.fileName} contentType={currentDoc.file.contentType} />
+                     ) : (
+                        <Document size={48} style={{ margin: '0 auto 1rem' }} />
+                     )}
+                     <p style={{ fontSize: '1.25rem', margin: '0.75rem 0 0.25rem' }}>{currentDoc.name}</p>
+                     {currentDoc.fieldLabel && <p style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>{currentDoc.fieldLabel}</p>}
                      <Tag type={currentDoc.aiTag.includes("Missing") ? "red" : "blue"}>
                         {currentDoc.aiTag}
                      </Tag>
-                     {currentDoc.isVerified && (
+                     {currentDocVerified && (
                         <div style={{ marginTop: '1rem', color: '#198038', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                            <Checkmark size={20} />
                            <span style={{ fontWeight: 600 }}>Marked as Verified manually</span>

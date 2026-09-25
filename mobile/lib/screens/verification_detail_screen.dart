@@ -1096,11 +1096,21 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
                       : () async {
                           final messenger = ScaffoldMessenger.of(context);
                           setModalState(() => isSubmitting = true);
-                          await VerificationApiService.submitRevision(
+                          final submitted = await VerificationApiService.submitRevision(
                             applicationId: _app.applicationId,
                             notes: noteController.text,
                             documentAttachmentName: attachedDoc,
                           );
+                          if (!submitted) {
+                            setModalState(() => isSubmitting = false);
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('Could not submit the correction. Please try again later.'),
+                                backgroundColor: AppColors.danger,
+                              ),
+                            );
+                            return;
+                          }
                           if (ctx.mounted) {
                             Navigator.pop(ctx);
                           }

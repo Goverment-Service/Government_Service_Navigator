@@ -55,9 +55,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
     final routeArgs = ModalRoute.of(context)?.settings.arguments;
     if (routeArgs is Map<String, dynamic> && routeArgs.containsKey('userEmail')) {
-      return routeArgs['userEmail']?.toString() ?? 'citizen@example.com';
+      return routeArgs['userEmail']?.toString() ?? '';
     }
-    return 'citizen@example.com';
+    return '';
   }
 
   String get _effectiveAppId {
@@ -66,9 +66,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
     final routeArgs = ModalRoute.of(context)?.settings.arguments;
     if (routeArgs is Map<String, dynamic> && routeArgs.containsKey('applicationId')) {
-      return routeArgs['applicationId']?.toString() ?? 'APP-2026-8841';
+      return routeArgs['applicationId']?.toString() ?? '';
     }
-    return 'APP-2026-8841';
+    return '';
   }
 
   double get _effectiveAmount {
@@ -79,13 +79,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (routeArgs is Map<String, dynamic> && routeArgs.containsKey('amount')) {
       final val = routeArgs['amount'];
       if (val is num) return val.toDouble();
-      if (val is String) return double.tryParse(val) ?? 2500.0;
+      if (val is String) return double.tryParse(val) ?? 0.0;
     }
-    return 2500.00;
+    return 0.0;
   }
 
   Future<void> _onPayNowPressed() async {
     if (!mounted) return;
+    if (_effectiveAppId.isEmpty || _effectiveAmount <= 0) {
+      setState(() {
+        _isSuccess = false;
+        _resultMessage = 'Missing application or payment amount. Please start the payment from your application.';
+      });
+      return;
+    }
     setState(() {
       _isLoading = true;
       _resultMessage = null;
@@ -162,6 +169,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Future<void> _confirmPayment(String paymentId) async {
     if (!mounted) return;
+    if (_effectiveAppId.isEmpty || _effectiveAmount <= 0) {
+      setState(() {
+        _isSuccess = false;
+        _resultMessage = 'Missing application or payment amount. Please start the payment from your application.';
+      });
+      return;
+    }
     setState(() {
       _isLoading = true;
       _resultMessage = null;
@@ -207,6 +221,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Future<void> _onSetupInstallmentPlanPressed() async {
     if (!mounted) return;
+    if (_effectiveAppId.isEmpty || _effectiveAmount <= 0) {
+      setState(() {
+        _isSuccess = false;
+        _resultMessage = 'Missing application or payment amount. Please start the payment from your application.';
+      });
+      return;
+    }
     setState(() {
       _isLoading = true;
       _resultMessage = null;

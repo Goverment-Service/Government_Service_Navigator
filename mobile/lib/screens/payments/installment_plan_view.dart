@@ -58,7 +58,7 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
         return routeArgs['paymentId'].toString();
       }
     }
-    return 'PLAN-1001';
+    return '';
   }
 
   @override

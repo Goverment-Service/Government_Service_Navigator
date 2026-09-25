@@ -47,15 +47,6 @@ class ProfileTab extends StatelessWidget {
                         color: AppColors.dark,
                       ),
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      'National ID Verified',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.success,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
                   ],
                 ),
               ],

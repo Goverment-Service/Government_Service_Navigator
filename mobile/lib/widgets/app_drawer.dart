@@ -180,14 +180,6 @@ class AppDrawer extends StatelessWidget {
                 .titleLarge
                 ?.copyWith(color: Colors.white),
           ),
-          Text(
-            'citizen@example.com',
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.8)),
-          ),
         ],
       ),
     );

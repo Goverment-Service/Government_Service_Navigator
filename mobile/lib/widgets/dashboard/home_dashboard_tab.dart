@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
 import '../../services/service_api_client.dart';
+import '../../services/verification_api_service.dart';
+import '../../models/verification_models.dart';
 import '../../screens/procedure_detail_screen.dart';
 import '../../screens/describe_need_screen.dart';
 import '../../screens/service_discovery_screen.dart';
@@ -19,12 +21,28 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
   final TextEditingController _searchController = TextEditingController();
   List<dynamic> popularServices = [];
   bool isLoading = true;
+  List<ApplicationItemModel> applications = [];
+  bool isLoadingApplications = true;
 
   @override
   void initState() {
     super.initState();
     _fetchPopularServices();
+    _fetchApplications();
   }
+
+  Future<void> _fetchApplications() async {
+    final apps = await VerificationApiService.fetchApplications();
+    if (mounted) {
+      setState(() {
+        applications = apps;
+        isLoadingApplications = false;
+      });
+    }
+  }
+
+  int _countWhere(bool Function(String status) test) =>
+      applications.where((a) => test(a.status.toLowerCase())).length;
 
   Future<void> _fetchPopularServices() async {
     try {
@@ -389,7 +407,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
       children: [
         Expanded(
           child: _buildSummaryCard(
-            count: '1',
+            count: '${_countWhere((s) => s == 'pending')}',
             label: 'In Review',
             color: AppColors.warning,
             icon: CupertinoIcons.time,
@@ -398,7 +416,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
         const SizedBox(width: 12),
         Expanded(
           child: _buildSummaryCard(
-            count: '0',
+            count: '${_countWhere((s) => s == 'revised' || s == 'revision requested' || s == 'rejected')}',
             label: 'Action Needed',
             color: AppColors.danger,
             icon: CupertinoIcons.exclamationmark_circle,
@@ -407,7 +425,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
         const SizedBox(width: 12),
         Expanded(
           child: _buildSummaryCard(
-            count: '2',
+            count: '${_countWhere((s) => s == 'approved')}',
             label: 'Approved',
             color: AppColors.success,
             icon: CupertinoIcons.check_mark_circled,
@@ -530,6 +548,30 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
   }
 
   Widget _buildActiveApplicationCard() {
+    if (isLoadingApplications) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    final active = applications.where((a) => a.status.toLowerCase() == 'pending').toList();
+    if (active.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(12.0),
+        child: Text('No active applications.'),
+      );
+    }
+    final app = active.first;
+    final checks = app.verificationTask?.complianceChecks ?? [];
+    final passed = checks.where((c) => c.isPassed).length;
+    final progress = checks.isEmpty ? 0.0 : passed / checks.length;
+    final d = app.submittedDate;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final submitted = 'Submitted on ${months[d.month - 1]} ${d.day}, ${d.year}';
+    final subtitle = checks.isEmpty ? submitted : '$submitted • $passed of ${checks.length} checks verified';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -543,8 +585,8 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'APP-2026-8841',
+              Text(
+                app.referenceNumber,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -572,8 +614,8 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
             ],
           ),
           const SizedBox(height: 10),
-          const Text(
-            'Small Business Registration',
+          Text(
+            app.serviceName,
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w600,
@@ -581,15 +623,15 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Submitted on Aug 2, 2026 • 3 of 4 checks verified',
+          Text(
+            subtitle,
             style: TextStyle(fontSize: 13, color: AppColors.secondaryLabel),
           ),
           const SizedBox(height: 14),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
-            child: const LinearProgressIndicator(
-              value: 0.75,
+            child: LinearProgressIndicator(
+              value: progress,
               minHeight: 6,
               backgroundColor: AppColors.background,
               valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),

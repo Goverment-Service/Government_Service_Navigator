@@ -1,0 +1,181 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using AgenticAi.Agents.IntakePlanningAgent;
+using Government_Service_Navigator.AgenticAi.Agents.ActionToolAgent;
+using Government_Service_Navigator.AgenticAi.Agents.ActionToolAgent.DTOs;
+using Government_Service_Navigator.AgenticAi.Agents.ActionToolAgent.Retrieval;
+using Government_Service_Navigator.AgenticAi.Agents.EligibilityDocumentAgent.DTOs;
+using Government_Service_Navigator.AgenticAi.Tools.CalculateFee;
+using Government_Service_Navigator.AgenticAi.Tools.FindAppointmentSlot;
+using Government_Service_Navigator.AgenticAi.Tools.PrefillApplication;
+using Pgvector;
+using Xunit;
+
+namespace Government_Service_Navigator.AgenticAi.Tests
+{
+    public class ActionToolAgentTests
+    {
+        private class StubFeeRepository : IFeeScheduleRepository
+        {
+            public List<FeeScheduleEntry> Fees { get; } = new();
+            public Task<List<FeeScheduleEntry>> GetFeeSchedulesAsync(int serviceProcedureId, CancellationToken cancellationToken = default)
+                => Task.FromResult(Fees);
+        }
+
+        private class StubTemplateRepository : IApplicationTemplateRepository
+        {
+            public List<FormFieldDefinition> Fields { get; } = new();
+            public Task<List<FormFieldDefinition>> GetFormFieldsAsync(int serviceProcedureId, CancellationToken cancellationToken = default)
+                => Task.FromResult(Fields);
+        }
+
+        private class StubRetriever : IActionVectorRetriever
+        {
+            public Task<List<string>> GetRelevantActionContextAsync(Vector queryEmbedding, int limit = 5, CancellationToken cancellationToken = default)
+                => Task.FromResult(new List<string> { "Fee schedule for Passport Renewal: Standard Processing: LKR 10,000.00." });
+        }
+
+        private class StubAiService : IGenerativeAiService
+        {
+            public string? Response { get; set; }
+            public Task<Vector> GetEmbeddingAsync(string text) => Task.FromResult(new Vector(new float[768]));
+            public Task<string> GenerateTextAsync(string prompt)
+                => Response == null ? throw new InvalidOperationException("AI unavailable") : Task.FromResult(Response);
+        }
+
+        private readonly StubFeeRepository _fees = new();
+        private readonly StubTemplateRepository _templates = new();
+        private readonly StubAiService _ai = new();
+        private readonly ActionToolAgent _agent;
+
+        public ActionToolAgentTests()
+        {
+            FindAppointmentSlotTool.ClearProposedSlots();
+            _agent = new ActionToolAgent(
+                new StubRetriever(),
+                _ai,
+                new CalculateFeeTool(_fees),
+                new FindAppointmentSlotTool(),
+                new PrefillApplicationTool(_templates));
+        }
+
+        private static ActionDraftRequest BuildRequest(bool eligible = true, Dictionary<string, string>? extra = null) => new(
+            ApplicationId: 5001,
+            ServiceProcedureId: 1,
+            ServiceName: "Passport Renewal & Application",
+            Applicant: new ApplicantDetails
+            {
+                CitizenNic = "199512345678",
+                FullName = "Nimal Silva",
+                Email = "nimal@example.com",
+                Age = 30,
+                CitizenshipStatus = "Sri Lankan",
+                AnnualIncome = 900000m,
+                EmploymentStatus = "Employed",
+                AdditionalAttributes = extra ?? new Dictionary<string, string>()
+            },
+            Eligibility: new EligibilityPlanResponse(
+                IsEligible: eligible,
+                MatchPercentage: eligible ? 100 : 40,
+                MissingCriteria: eligible ? new List<string>() : new List<string> { "Applicant must be at least 18 years old." },
+                RequiredDocuments: new List<string> { "NIC" },
+                MissingDocuments: new List<string>(),
+                Reasoning: "",
+                RetrievedContextSnippets: new List<string>()),
+            ProvidedDocuments: new List<string> { "NIC Copy.pdf" });
+
+        [Fact]
+        public async Task GoldenCase_EligibleCitizen_ProducesCompleteDraft_WithFeeAndSlot()
+        {
+            _fees.Fees.Add(new FeeScheduleEntry("Standard Processing", 10000m, DateTime.UtcNow.AddYears(-1)));
+            _fees.Fees.Add(new FeeScheduleEntry("Express One Day Service", 20000m, DateTime.UtcNow.AddYears(-1)));
+
+            var result = await _agent.PrepareDraftAsync(BuildRequest());
+
+            Assert.True(result.IsReadyForValidation);
+            Assert.NotNull(result.Draft);
+            Assert.Equal(10000m, result.Draft!.CalculatedFee); // express fee not applied
+            Assert.NotNull(result.Draft.ProposedAppointmentDate);
+            Assert.Equal("199512345678", result.Draft.FormFields["NIC Number"]);
+            Assert.Equal("Nimal Silva", result.Draft.FormFields["Full Name"]);
+            Assert.Equal(new[] { "prefill_application", "calculate_fee", "find_appointment_slot" }, result.ToolCalls.Select(t => t.ToolName));
+        }
+
+        [Fact]
+        public async Task SafeFailure_IneligibleCitizen_NoDraftAndClearReason()
+        {
+            var result = await _agent.PrepareDraftAsync(BuildRequest(eligible: false));
+
+            Assert.False(result.IsReadyForValidation);
+            Assert.Null(result.Draft);
+            Assert.Contains("Applicant must be at least 18 years old.", result.Blockers);
+            Assert.Empty(result.ToolCalls);
+        }
+
+        [Fact]
+        public async Task MissingRequiredTemplateField_BlocksValidation()
+        {
+            _templates.Fields.Add(new FormFieldDefinition("Full Name", "text", true, 0));
+            _templates.Fields.Add(new FormFieldDefinition("Business Name", "text", true, 1));
+
+            var result = await _agent.PrepareDraftAsync(BuildRequest());
+
+            Assert.False(result.IsReadyForValidation);
+            Assert.Contains("Business Name", result.UnfilledRequiredFields);
+            Assert.NotNull(result.Draft);
+        }
+
+        [Fact]
+        public async Task Guardrail_ModelValueNotInCitizenData_IsDiscarded()
+        {
+            _templates.Fields.Add(new FormFieldDefinition("Business Name", "text", true, 0));
+            _ai.Response = """{ "additionalFieldValues": { "Business Name": "Invented Holdings" }, "notesForOfficer": [], "reasoning": "ok" }""";
+
+            var result = await _agent.PrepareDraftAsync(BuildRequest());
+
+            Assert.DoesNotContain("Business Name", result.Draft!.FormFields.Keys);
+            Assert.False(result.IsReadyForValidation);
+        }
+
+        [Fact]
+        public async Task PrefillUsesAdditionalAttributes_ByLabel()
+        {
+            _templates.Fields.Add(new FormFieldDefinition("Business Name", "text", true, 0));
+
+            var result = await _agent.PrepareDraftAsync(BuildRequest(extra: new() { { "business name", "Silva Traders" } }));
+
+            Assert.Equal("Silva Traders", result.Draft!.FormFields["Business Name"]);
+            Assert.True(result.IsReadyForValidation);
+        }
+
+        [Fact]
+        public async Task CalculateFee_UsesLatestRevisionInForce_IgnoresFutureRates()
+        {
+            _fees.Fees.Add(new FeeScheduleEntry("Renewal Fee", 3000m, new DateTime(2024, 1, 1)));
+            _fees.Fees.Add(new FeeScheduleEntry("Renewal Fee", 3500m, new DateTime(2025, 1, 1)));
+            _fees.Fees.Add(new FeeScheduleEntry("Renewal Fee", 9999m, new DateTime(2099, 1, 1)));
+
+            var fee = await new CalculateFeeTool(_fees).CalculateAsync(3, asOf: new DateTime(2026, 6, 1));
+
+            Assert.Equal(3500m, fee.TotalAmount);
+        }
+
+        [Fact]
+        public async Task FindSlot_SkipsWeekends_RespectsLeadTime_AndOfficeHours()
+        {
+            // Friday 2026-09-25 10:00 Sri Lanka time → earliest is Tuesday 2026-09-29
+            var nowUtc = new DateTime(2026, 9, 25, 4, 30, 0, DateTimeKind.Utc);
+            var tool = new FindAppointmentSlotTool();
+
+            var first = await tool.FindSlotAsync(99, nowUtc: nowUtc);
+            var second = await tool.FindSlotAsync(99, nowUtc: nowUtc);
+
+            Assert.True(first.IsSlotFound);
+            Assert.Equal(new DateTime(2026, 9, 29, 3, 30, 0, DateTimeKind.Utc), first.SlotStartUtc); // 09:00 +05:30
+            Assert.Equal(first.SlotStartUtc!.Value.AddMinutes(30), second.SlotStartUtc);            // not double-booked
+        }
+    }
+}

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Backend.Data;
+using Government_Service_Navigator.AgenticAi.Agents.ActionToolAgent.Retrieval;
 using Government_Service_Navigator.AgenticAi.Agents.EligibilityDocumentAgent.Retrieval;
 using Microsoft.EntityFrameworkCore;
 using Pgvector;
@@ -26,7 +27,8 @@ public class EligibilityVectorRetrieverService : IEligibilityVectorRetriever
         int limit = 5, 
         CancellationToken cancellationToken = default)
     {
-        IQueryable<KnowledgeChunk> query = _vectorDb.KnowledgeChunks;
+        IQueryable<KnowledgeChunk> query = _vectorDb.KnowledgeChunks
+            .Where(c => !c.SourceCategory.StartsWith(ActionKnowledgeCategories.Prefix));
 
         if (!string.IsNullOrWhiteSpace(categoryFilter))
         {

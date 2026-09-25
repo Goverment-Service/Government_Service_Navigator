@@ -2,4 +2,7 @@
 
 Used by: Action/Tool Agent.
 
-Not implemented yet.
+`PrefillApplicationTool` — maps the active form template's fields for the
+service (`IApplicationTemplateRepository`, backend: `ApplicationTemplateRepository`)
+to citizen data by label. Never invents values; unmatched required fields are
+reported as `UnfilledRequiredFields`.

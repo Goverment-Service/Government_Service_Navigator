@@ -6,6 +6,7 @@ using System.Text.Json;
 using Government_Service_Navigator.Backend.Data.Context;
 using Government_Service_Navigator.Backend.DTOs.Requests;
 using Government_Service_Navigator.Backend.Models.Entities;
+using Government_Service_Navigator.Backend.Services;
 using Government_Service_Navigator.Backend.Services.Interfaces;
 
 namespace Government_Service_Navigator.Backend.Controllers
@@ -21,11 +22,16 @@ namespace Government_Service_Navigator.Backend.Controllers
 
         private readonly IVerificationService _verificationService;
         private readonly AppDbContext _context;
+        private readonly IApplicationDraftingService _draftingService;
 
-        public VerificationController(IVerificationService verificationService, AppDbContext context)
+        public VerificationController(
+            IVerificationService verificationService,
+            AppDbContext context,
+            IApplicationDraftingService draftingService)
         {
             _verificationService = verificationService;
             _context = context;
+            _draftingService = draftingService;
         }
 
         // Officer queue rows: each task joined to its submitted application, service and citizen.
@@ -141,6 +147,40 @@ namespace Government_Service_Navigator.Backend.Controllers
                 userEmail = submission?.UserEmail,
                 answers
             });
+        }
+
+        // Agent 3 (Action/Tool Agent) draft for the task's application: pre-filled fields, fee,
+        // proposed appointment, plus Agent 2's eligibility result. 404 until it has been generated.
+        [Authorize(Roles = OfficerRoles)]
+        [HttpGet("tasks/{id:int}/agent-draft")]
+        public async Task<IActionResult> GetAgentDraft(int id)
+        {
+            var task = await _context.VerificationTasks.FindAsync(id);
+            if (task == null) return NotFound("Task not found.");
+
+            var draft = await _draftingService.GetStoredDraftAsync(task.ApplicationId);
+            return draft == null ? NotFound("No agent draft yet.") : Ok(draft);
+        }
+
+        // Runs Agent 2 then Agent 3 on the submitted application and stores the result.
+        [Authorize(Roles = OfficerRoles)]
+        [HttpPost("tasks/{id:int}/agent-draft")]
+        public async Task<IActionResult> GenerateAgentDraft(int id)
+        {
+            var task = await _context.VerificationTasks.FindAsync(id);
+            if (task == null) return NotFound("Task not found.");
+
+            try
+            {
+                var draft = await _draftingService.GenerateDraftAsync(task.ApplicationId);
+                return draft == null
+                    ? NotFound("No submitted application is linked to this task.")
+                    : Ok(draft);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Agent draft generation failed", details = ex.Message });
+            }
         }
 
         [Authorize(Roles = OfficerRoles)]

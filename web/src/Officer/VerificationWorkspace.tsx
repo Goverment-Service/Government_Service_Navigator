@@ -13,13 +13,13 @@ import {
   Select,
   SelectItem,
   InlineNotification,
-  Accordion,
-  AccordionItem,
   Tag,
   Pagination,
   Toggle
 } from "@carbon/react";
 import { Checkmark, Close, Document, ChevronLeft, ArrowRight, Warning } from "@carbon/icons-react";
+import AgentDraftPanel from "./AgentDraftPanel";
+import { getAgentDraft, generateAgentDraft, type AgentDraftView } from "./agentDraftApi";
 
 interface TaskDetail {
   task: {
@@ -47,6 +47,55 @@ export default function VerificationWorkspace() {
   const [rejectionReasons, setRejectionReasons] = useState<{id: number, code: string, description: string}[]>([]);
   const [detail, setDetail] = useState<TaskDetail | null>(null);
   const [detailError, setDetailError] = useState("");
+  const [agentDraft, setAgentDraft] = useState<AgentDraftView | null>(null);
+  const [agentLoading, setAgentLoading] = useState(true);
+  const [agentError, setAgentError] = useState("");
+
+  // Document Gallery State: documents the citizen attached, plus those the agents flagged as missing
+  const [currentDocIndex, setCurrentDocIndex] = useState(0);
+  const [documents, setDocuments] = useState<{ id: number; name: string; isVerified: boolean; aiTag: string }[]>([]);
+
+  const applyAgentDraft = (view: AgentDraftView) => {
+    const attached = view.action.draft?.attachedDocumentNames ?? [];
+    const missing = view.eligibility.missingDocuments;
+    setAgentDraft(view);
+    setDocuments([
+      ...attached.map((name, i) => ({ id: i + 1, name, isVerified: false, aiTag: "Submitted by citizen" })),
+      ...missing.map((name, i) => ({ id: attached.length + i + 1, name, isVerified: false, aiTag: "Missing (flagged by agent)" }))
+    ]);
+    setCurrentDocIndex(0);
+  };
+
+  // Agent 2 + Agent 3 output: load the stored draft, or run the agents the first time the task is opened
+  useEffect(() => {
+    if (!taskId) return;
+    const loadAgentDraft = async () => {
+      try {
+        const stored = await getAgentDraft(taskId);
+        applyAgentDraft(stored ?? await generateAgentDraft(taskId));
+      } catch (e) {
+        console.error("Failed to load agent draft", e);
+        setAgentError("The AI agents could not prepare a draft for this application.");
+      } finally {
+        setAgentLoading(false);
+      }
+    };
+    loadAgentDraft();
+  }, [taskId]);
+
+  const regenerateAgentDraft = async () => {
+    if (!taskId) return;
+    setAgentLoading(true);
+    setAgentError("");
+    try {
+      applyAgentDraft(await generateAgentDraft(taskId));
+    } catch (e) {
+      console.error("Failed to re-run agents", e);
+      setAgentError("The AI agents could not prepare a draft for this application.");
+    } finally {
+      setAgentLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!taskId) return;
@@ -90,20 +139,11 @@ export default function VerificationWorkspace() {
     fetchReasons();
   }, []);
 
-  // Document Gallery State
-  const [currentDocIndex, setCurrentDocIndex] = useState(0);
-  const [documents, setDocuments] = useState([
-    { id: 1, name: "National Identity Card", type: "nic", isVerified: true, aiTag: "Verified by AI" },
-    { id: 2, name: "Proof of Address", type: "address", isVerified: false, aiTag: "Expired (Over 6 Months)" },
-    { id: 3, name: "Birth Certificate", type: "birth_cert", isVerified: false, aiTag: "Not Processed by AI" },
-    { id: 4, name: "Vehicle Registration", type: "vehicle_reg", isVerified: false, aiTag: "Verified by AI" },
-    { id: 5, name: "Medical Certificate", type: "medical", isVerified: false, aiTag: "Not Processed by AI" }
-  ]);
+
+  const currentDoc = documents[currentDocIndex];
 
   const handleDocumentVerificationToggle = (checked: boolean) => {
-    const updatedDocs = [...documents];
-    updatedDocs[currentDocIndex].isVerified = checked;
-    setDocuments(updatedDocs);
+    setDocuments(docs => docs.map((d, i) => i === currentDocIndex ? { ...d, isVerified: checked } : d));
   };
 
   const handleDecision = async (status: string) => {
@@ -175,35 +215,41 @@ export default function VerificationWorkspace() {
                     <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Submitted Documents</h2>
                     <p style={{ fontSize: '0.875rem', color: '#525252' }}>Manually review and verify each uploaded proof.</p>
                   </div>
-                  <div style={{ backgroundColor: documents[currentDocIndex].isVerified ? '#defbe6' : '#fff', padding: '0.5rem 1rem', border: '1px solid #e0e0e0', borderRadius: '4px' }}>
-                     <Toggle 
+                  {currentDoc && (
+                  <div style={{ backgroundColor: currentDoc.isVerified ? '#defbe6' : '#fff', padding: '0.5rem 1rem', border: '1px solid #e0e0e0', borderRadius: '4px' }}>
+                     <Toggle
                         id="doc-verify-toggle"
                         size="sm"
                         labelA="Unverified"
                         labelB="Verified"
-                        toggled={documents[currentDocIndex].isVerified}
+                        toggled={currentDoc.isVerified}
                         onToggle={handleDocumentVerificationToggle}
                      />
                   </div>
+                  )}
                 </div>
                 
                 <div style={{ backgroundColor: '#f4f4f4', minHeight: '550px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #c6c6c6' }}>
+                  {!currentDoc ? (
                   <div style={{ textAlign: 'center', color: '#525252' }}>
                      <Document size={48} style={{ margin: '0 auto 1rem' }} />
-                     <p style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>{documents[currentDocIndex].name}</p>
-                     <Tag type={
-                        documents[currentDocIndex].aiTag.includes("Verified") ? "blue" : 
-                        documents[currentDocIndex].aiTag.includes("Expired") ? "red" : "gray"
-                     }>
-                        {documents[currentDocIndex].aiTag}
+                     <p>{agentLoading ? "Loading documents…" : "No documents were attached or flagged for this application."}</p>
+                  </div>
+                  ) : (
+                  <div style={{ textAlign: 'center', color: '#525252' }}>
+                     <Document size={48} style={{ margin: '0 auto 1rem' }} />
+                     <p style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>{currentDoc.name}</p>
+                     <Tag type={currentDoc.aiTag.includes("Missing") ? "red" : "blue"}>
+                        {currentDoc.aiTag}
                      </Tag>
-                     {documents[currentDocIndex].isVerified && (
+                     {currentDoc.isVerified && (
                         <div style={{ marginTop: '1rem', color: '#198038', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                            <Checkmark size={20} />
                            <span style={{ fontWeight: 600 }}>Marked as Verified manually</span>
                         </div>
                      )}
                   </div>
+                  )}
                 </div>
 
                 <div style={{ marginTop: '1rem' }}>
@@ -214,7 +260,7 @@ export default function VerificationWorkspace() {
                       page={currentDocIndex + 1}
                       pageSize={1}
                       pageSizes={[1]}
-                      totalItems={documents.length}
+                      totalItems={Math.max(documents.length, 1)}
                       onChange={({ page }) => setCurrentDocIndex(page - 1)}
                    />
                 </div>
@@ -256,37 +302,14 @@ export default function VerificationWorkspace() {
                   )}
                 </div>
 
-                {/* Agent Reasoning Trail Viewer */}
-                <div style={{ backgroundColor: '#fff', padding: '1rem', borderLeft: '4px solid #0f62fe', marginBottom: '2rem' }}>
-                   <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-                      <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Agent Reasoning Trail</h3>
-                      <Tag type="blue" style={{ marginLeft: 'auto' }}>AI Assisted</Tag>
-                   </div>
-                   
-                   <Accordion align="start">
-                      <AccordionItem title="Phase 1: Eligibility Check">
-                         <p style={{ fontSize: '0.875rem', color: '#525252' }}>
-                           ✓ Citizen meets age requirement (Age &gt; 18).<br />
-                           ✓ Citizen resides in specified district.
-                         </p>
-                      </AccordionItem>
-                      <AccordionItem title="Phase 2: Document Extraction">
-                         <p style={{ fontSize: '0.875rem', color: '#525252' }}>
-                           ✓ <strong>NIC:</strong> Validated format (991234567V). Extracted Name: "Amila Kumara".<br />
-                           ⚠ <strong>Proof of Address:</strong> Name matches, but date of issue is over 6 months old.
-                         </p>
-                      </AccordionItem>
-                      <AccordionItem title="Phase 3: Final Validation" open>
-                         <InlineNotification 
-                           kind="warning" 
-                           title="Manual Review Recommended"
-                           subtitle="The Proof of Address document is older than the standard 6-month threshold. Please verify manually."
-                           lowContrast
-                           hideCloseButton
-                         />
-                      </AccordionItem>
-                   </Accordion>
-                </div>
+                {/* Agent Reasoning Trail: Agent 2 eligibility + Agent 3 draft (fee, appointment, pre-filled fields) */}
+                <AgentDraftPanel
+                  draft={agentDraft}
+                  loading={agentLoading}
+                  error={agentError}
+                  answers={detail?.answers ?? {}}
+                  onRegenerate={regenerateAgentDraft}
+                />
 
                 {/* Decision Panel */}
                 <div style={{ backgroundColor: '#fff', padding: '1.5rem', border: '1px solid #e0e0e0' }}>

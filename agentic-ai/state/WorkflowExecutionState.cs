@@ -32,6 +32,16 @@ namespace Government_Service_Navigator.AgenticAi.State
         /// </summary>
         public Government_Service_Navigator.AgenticAi.Agents.EligibilityDocumentAgent.DTOs.EligibilityPlanResponse? EligibilityResult { get; set; }
 
+        /// <summary>
+        /// Output produced by Agent 3 (Action/Tool Agent), including its tool call log.
+        /// </summary>
+        public Government_Service_Navigator.AgenticAi.Agents.ActionToolAgent.DTOs.ActionDraftResponse? ActionResult { get; set; }
+
+        /// <summary>
+        /// Draft application handed from Agent 3 to Agent 4.
+        /// </summary>
+        public DraftApplication? DraftApplication { get; set; }
+
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

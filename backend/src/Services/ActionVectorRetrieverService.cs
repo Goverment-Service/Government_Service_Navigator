@@ -1,4 +1,3 @@
-using AgenticAi.Agents.IntakePlanningAgent;
 using Backend.Data;
 using Government_Service_Navigator.AgenticAi.Agents.ActionToolAgent.Retrieval;
 using Microsoft.EntityFrameworkCore;
@@ -7,21 +6,22 @@ using Pgvector.EntityFrameworkCore;
 
 namespace Government_Service_Navigator.Backend.Services;
 
-public class VectorRetrieverService : IVectorRetriever
+public class ActionVectorRetrieverService : IActionVectorRetriever
 {
     private readonly VectorDbContext _vectorDb;
 
-    public VectorRetrieverService(VectorDbContext vectorDb)
+    public ActionVectorRetrieverService(VectorDbContext vectorDb)
     {
         _vectorDb = vectorDb;
     }
 
-    public async Task<List<string>> GetRelevantContextAsync(Vector queryEmbedding, int limit, CancellationToken cancellationToken = default)
+    public async Task<List<string>> GetRelevantActionContextAsync(
+        Vector queryEmbedding,
+        int limit = 5,
+        CancellationToken cancellationToken = default)
     {
-        // EF Core handles the actual DB interaction here
-        // Agent 3's fee/form/appointment chunks are excluded; they are not service catalog entries
         return await _vectorDb.KnowledgeChunks
-            .Where(c => !c.SourceCategory.StartsWith(ActionKnowledgeCategories.Prefix))
+            .Where(c => c.SourceCategory.StartsWith(ActionKnowledgeCategories.Prefix))
             .OrderBy(c => c.Embedding.CosineDistance(queryEmbedding))
             .Take(limit)
             .Select(c => c.Content)

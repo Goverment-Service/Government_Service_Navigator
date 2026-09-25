@@ -48,8 +48,15 @@ public class EligibilityAgentController : ControllerBase
             PlanSummary: query.PlanSummary
         );
 
-        var response = await _eligibilityAgent.EvaluateEligibilityAsync(request);
-        return Ok(response);
+        try
+        {
+            var response = await _eligibilityAgent.EvaluateEligibilityAsync(request);
+            return Ok(response);
+        }
+        catch (System.Exception ex)
+        {
+            return StatusCode(500, new { message = "Eligibility evaluation failed", details = ex.Message });
+        }
     }
 
     /// <summary>

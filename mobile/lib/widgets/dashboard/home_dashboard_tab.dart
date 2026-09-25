@@ -5,6 +5,8 @@ import '../../services/service_api_client.dart';
 import '../../screens/procedure_detail_screen.dart';
 import '../../screens/describe_need_screen.dart';
 import '../../screens/service_discovery_screen.dart';
+import '../../screens/eligibility_self_check_screen.dart';
+
 
 class HomeDashboardTab extends StatefulWidget {
   const HomeDashboardTab({super.key});
@@ -284,29 +286,61 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
             ),
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: AppColors.primary,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppColors.primary,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const DescribeNeedScreen()),
+                      );
+                    },
+                    child: const Text(
+                      'Ask Navigator',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
                 ),
               ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const DescribeNeedScreen()),
-                );
-              },
-              child: const Text(
-                'Ask Navigator Now',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white, width: 1.5),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const EligibilitySelfCheckScreen(serviceId: 1),
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      'Eligibility Check',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),

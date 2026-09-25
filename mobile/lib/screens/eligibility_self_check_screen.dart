@@ -17,6 +17,7 @@ class EligibilitySelfCheckScreen extends StatefulWidget {
 }
 
 class _EligibilitySelfCheckScreenState extends State<EligibilitySelfCheckScreen> {
+  late TextEditingController _serviceNameController;
   final _ageController = TextEditingController(text: '25');
   final _citizenshipController = TextEditingController(text: 'Sri Lankan');
   final _incomeController = TextEditingController(text: '500000');
@@ -25,6 +26,23 @@ class _EligibilitySelfCheckScreenState extends State<EligibilitySelfCheckScreen>
 
   EligibilityAgentResponse? agentResult;
   bool isEvaluating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _serviceNameController = TextEditingController(text: widget.serviceName);
+  }
+
+  @override
+  void dispose() {
+    _serviceNameController.dispose();
+    _ageController.dispose();
+    _citizenshipController.dispose();
+    _incomeController.dispose();
+    _employmentController.dispose();
+    _providedDocsController.dispose();
+    super.dispose();
+  }
 
   void evaluate() async {
     setState(() => isEvaluating = true);
@@ -36,7 +54,9 @@ class _EligibilitySelfCheckScreenState extends State<EligibilitySelfCheckScreen>
           .toList();
 
       final res = await EligibilityAgentService.evaluateEligibility(
-        serviceName: widget.serviceName,
+        serviceName: _serviceNameController.text.trim().isNotEmpty
+            ? _serviceNameController.text.trim()
+            : widget.serviceName,
         serviceId: widget.serviceId,
         age: int.tryParse(_ageController.text) ?? 25,
         citizenshipStatus: _citizenshipController.text,
@@ -67,9 +87,14 @@ class _EligibilitySelfCheckScreenState extends State<EligibilitySelfCheckScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Service: ${widget.serviceName}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            TextField(
+              controller: _serviceNameController,
+              decoration: const InputDecoration(
+                labelText: 'Target Service Name',
+                hintText: 'e.g. Passport Renewal, Small Business Registration',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.stars),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -122,12 +147,14 @@ class _EligibilitySelfCheckScreenState extends State<EligibilitySelfCheckScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            agentResult!.isEligible ? 'Eligible for Service' : 'Requirements Not Met',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: agentResult!.isEligible ? Colors.green[800] : Colors.red[800],
+                          Expanded(
+                            child: Text(
+                              agentResult!.isEligible ? 'Eligible for Service' : 'Requirements Not Met',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: agentResult!.isEligible ? Colors.green[800] : Colors.red[800],
+                              ),
                             ),
                           ),
                           Chip(

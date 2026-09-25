@@ -73,7 +73,10 @@ class _ProcedureDetailScreenState extends State<ProcedureDetailScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => EligibilitySelfCheckScreen(serviceId: widget.serviceId),
+                  builder: (context) => EligibilitySelfCheckScreen(
+                    serviceId: widget.serviceId,
+                    serviceName: serviceDetails!['name'] ?? 'Government Service',
+                  ),
                 ),
               );
             },

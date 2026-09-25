@@ -1,5 +1,9 @@
+using System;
+using System.Linq;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Threading.Tasks;
 using AgenticAi.Agents.IntakePlanningAgent;
 using Pgvector;
 
@@ -24,16 +28,13 @@ public class GeminiAiService : IGenerativeAiService
 
     public async Task<Vector> GetEmbeddingAsync(string text)
     {
-        // Upgraded to Google's current stable embedding model
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent?key={_apiKey}";
+        // text-embedding-004 returns 768 dimensions directly to match Postgres schema
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={_apiKey}";
         
-        // gemini-embedding-2 defaults to 3,072 dimensions. 
-        // outputDimensionality instructs Google to truncate the vector to 768 to match our Postgres schema.
         var payload = new 
         { 
-            model = "models/gemini-embedding-2", 
-            content = new { parts = new[] { new { text } } },
-            outputDimensionality = 768
+            model = "models/text-embedding-004", 
+            content = new { parts = new[] { new { text } } }
         };
         
         var response = await _http.PostAsJsonAsync(url, payload);
@@ -41,7 +42,7 @@ public class GeminiAiService : IGenerativeAiService
         if (!response.IsSuccessStatusCode)
         {
             var errorDetails = await response.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"Gemini API Error ({response.StatusCode}): {errorDetails}");
+            throw new HttpRequestException($"Gemini Embedding API Error ({response.StatusCode}): {errorDetails}");
         }
         
         var json = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -51,16 +52,14 @@ public class GeminiAiService : IGenerativeAiService
         return new Vector(values);
     }
 
-          public async Task<string> GenerateTextAsync(string prompt)
+    public async Task<string> GenerateTextAsync(string prompt)
     {
-        // Upgraded to the current Gemini 3.5 Flash model
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={_apiKey}";
+        var modelNames = new[] { "gemini-1.5-flash-latest", "gemini-2.0-flash-exp", "gemini-2.0-flash", "gemini-1.5-pro" };
         var payload = new { contents = new[] { new { parts = new[] { new { text = prompt } } } } };
 
-        int maxRetries = 3;
-        
-        for (int i = 0; i < maxRetries; i++)
+        foreach (var modelName in modelNames)
         {
+            var url = $"https://generativelanguage.googleapis.com/v1beta/models/{modelName}:generateContent?key={_apiKey}";
             var response = await _http.PostAsJsonAsync(url, payload);
 
             if (response.IsSuccessStatusCode)
@@ -69,25 +68,8 @@ public class GeminiAiService : IGenerativeAiService
                 return json.GetProperty("candidates")[0].GetProperty("content")
                            .GetProperty("parts")[0].GetProperty("text").GetString() ?? string.Empty;
             }
-
-            // If Google is overloaded (503) or rate-limiting (429), wait and try again
-            if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable || 
-                response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-            {
-                if (i == maxRetries - 1) break; 
-                
-                // Exponential backoff: Wait 2s, then 4s, then try again
-                await Task.Delay(2000 * (i + 1));
-                continue;
-            }
-
-            // For all other errors (like 400 Bad Request or 401 Unauthorized), fail immediately
-            var errorDetails = await response.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"Gemini API Error ({response.StatusCode}): {errorDetails}");
         }
 
-        throw new HttpRequestException("Gemini API Error: Service Unavailable after multiple retries. The model is currently overloaded.");
+        throw new HttpRequestException("Gemini API Error: No compatible Gemini generation model endpoint found for key.");
     }
-
-
 }

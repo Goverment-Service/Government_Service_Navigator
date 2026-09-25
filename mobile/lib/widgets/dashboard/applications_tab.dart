@@ -4,13 +4,13 @@ import '../../models/verification_models.dart';
 import '../../screens/verification_detail_screen.dart';
 import '../../services/verification_api_service.dart';
 import '../../theme/app_colors.dart';
-import '../../screens/payments/payment_screen.dart';
 import '../../screens/payments/installment_plan_view.dart';
 import '../../screens/payments/transaction_history_screen.dart';
 import '../../screens/refunds/refund_request_screen.dart';
-import '../../screens/payments/my_payments_screen.dart';
 import '../../screens/refunds/my_refunds_screen.dart';
 import '../../screens/analytics/approval_likelihood_screen.dart';
+import '../../screens/notifications_screen.dart';
+import '../../services/notification_api_service.dart';
 
 class ApplicationsTab extends StatefulWidget {
   final String? token;
@@ -54,6 +54,37 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
         _isLoading = false;
       });
     }
+    await _loadUnreadCount();
+  }
+
+  int _unreadNotifications = 0;
+
+  Future<void> _loadUnreadCount() async {
+    final token = widget.token;
+    if (token == null || token.isEmpty) return;
+    try {
+      final items = await NotificationApiService(token).fetchMine();
+      if (mounted) setState(() => _unreadNotifications = items.where((n) => !n.isRead).length);
+    } catch (_) {
+      // The badge is optional; the list still works without it
+    }
+  }
+
+  Future<void> _openNotifications() async {
+    final token = widget.token;
+    if (token == null || token.isEmpty) return;
+    await Navigator.of(context).push(CupertinoPageRoute(builder: (_) => NotificationsScreen(token: token)));
+    if (mounted) await _loadApplications();
+  }
+
+  Future<void> _openInstallments(ApplicationItemModel app) async {
+    final token = widget.token;
+    final plan = app.installmentPlan;
+    if (token == null || plan == null) return;
+    await Navigator.of(context).push(CupertinoPageRoute(
+      builder: (_) => InstallmentPlanView(token: token, planId: plan.planId),
+    ));
+    if (mounted) await _loadApplications();
   }
 
   List<ApplicationItemModel> get _filteredApplications {
@@ -89,6 +120,8 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
       case 'revised':
       case 'revision requested':
         return AppColors.warning;
+      case 'cancelled':
+        return AppColors.secondaryLabel;
       case 'rejected':
         return AppColors.danger;
       default:
@@ -105,6 +138,8 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
         return 'Action Required';
       case 'rejected':
         return 'Rejected';
+      case 'cancelled':
+        return 'Cancelled';
       default:
         return 'In Review';
     }
@@ -119,6 +154,8 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
         return CupertinoIcons.exclamationmark_triangle_fill;
       case 'rejected':
         return CupertinoIcons.xmark_circle_fill;
+      case 'cancelled':
+        return CupertinoIcons.nosign;
       default:
         return CupertinoIcons.clock_fill;
     }
@@ -143,6 +180,15 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
         backgroundColor: AppColors.cardBg,
         elevation: 0,
         actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: _openNotifications,
+            icon: Badge(
+              isLabelVisible: _unreadNotifications > 0,
+              label: Text('$_unreadNotifications'),
+              child: const Icon(CupertinoIcons.bell, color: AppColors.primary),
+            ),
+          ),
           IconButton(
             icon: const Icon(CupertinoIcons.arrow_clockwise, color: AppColors.primary),
             onPressed: _loadApplications,
@@ -229,41 +275,6 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
                   const SizedBox(height: 10),
                   _buildActionTile(
                     context: context,
-                    icon: CupertinoIcons.creditcard,
-                    iconColor: AppColors.primary,
-                    title: 'Payment Details',
-                    subtitle: 'Pay service fees for your application',
-                    onTap: () {
-                      Navigator.of(context).push(
-                        CupertinoPageRoute(
-                          builder: (_) => PaymentScreen(
-                            token: effectiveToken,
-                            userEmail: effectiveUserEmail,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  _buildActionTile(
-                    context: context,
-                    icon: CupertinoIcons.calendar,
-                    iconColor: AppColors.warning,
-                    title: 'Installment Schedule',
-                    subtitle: 'View installment breakdown & due dates',
-                    onTap: () {
-                      Navigator.of(context).push(
-                        CupertinoPageRoute(
-                          builder: (_) => InstallmentPlanView(
-                            token: effectiveToken,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  _buildActionTile(
-                    context: context,
                     icon: CupertinoIcons.doc_text,
                     iconColor: AppColors.success,
                     title: 'Transaction History',
@@ -272,24 +283,6 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
                       Navigator.of(context).push(
                         CupertinoPageRoute(
                           builder: (_) => TransactionHistoryScreen(
-                            token: effectiveToken,
-                            userEmail: effectiveUserEmail,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  _buildActionTile(
-                    context: context,
-                    icon: CupertinoIcons.money_dollar_circle,
-                    iconColor: AppColors.primary,
-                    title: 'My Payments',
-                    subtitle: 'View all your payment transactions',
-                    onTap: () {
-                      Navigator.of(context).push(
-                        CupertinoPageRoute(
-                          builder: (_) => MyPaymentsScreen(
                             token: effectiveToken,
                             userEmail: effectiveUserEmail,
                           ),
@@ -478,6 +471,53 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
     );
   }
 
+  /// Installment progress for an application paid in installments, with a button to its payment schedule.
+  Widget _buildInstallmentStrip(ApplicationItemModel app) {
+    final plan = app.installmentPlan!;
+    final due = plan.nextDueDate;
+    final String detail;
+    final Color color;
+
+    if (plan.status.toLowerCase() == 'cancelled') {
+      detail = 'Installment plan cancelled — an installment was not paid by its due date';
+      color = AppColors.danger;
+    } else if (plan.status.toLowerCase() == 'completed' || due == null) {
+      detail = 'All ${plan.numberOfInstallments} installments paid';
+      color = AppColors.success;
+    } else if (plan.nextStatus?.toLowerCase() == 'pendingverification') {
+      detail = 'Receipt under review · ${plan.paidCount}/${plan.numberOfInstallments} paid';
+      color = AppColors.warning;
+    } else {
+      final dueText = '${due.year}-${due.month.toString().padLeft(2, '0')}-${due.day.toString().padLeft(2, '0')}';
+      final daysLeft = DateTime(due.year, due.month, due.day)
+          .difference(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day))
+          .inDays;
+      detail = 'Next LKR ${plan.nextAmount?.toStringAsFixed(2) ?? '—'} due $dueText · '
+          '${plan.paidCount}/${plan.numberOfInstallments} paid';
+      color = daysLeft <= 3 ? AppColors.danger : AppColors.primary;
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(CupertinoIcons.calendar, size: 18, color: color),
+          const SizedBox(width: 8),
+          Expanded(child: Text(detail, style: TextStyle(fontSize: 12.5, color: color, fontWeight: FontWeight.w600))),
+          if (plan.isActive)
+            TextButton(
+              onPressed: () => _openInstallments(app),
+              child: const Text('Pay Installments'),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTrackingCard(ApplicationItemModel app) {
     final statusColor = _getStatusColor(app.status);
     final reviews = app.verificationTask?.reviews ?? [];
@@ -597,6 +637,10 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
                   ],
                 ),
               ),
+            ],
+            if (app.installmentPlan != null) ...[
+              const SizedBox(height: 12),
+              _buildInstallmentStrip(app),
             ],
             const SizedBox(height: 12),
             const Divider(height: 1, color: AppColors.divider),

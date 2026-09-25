@@ -26,5 +26,8 @@ namespace Government_Service_Navigator.Backend.Models.Entities
 
         // Bank transfer receipt (PaymentReceipt.Id); the file itself is stored separately
         public Guid? ReceiptId { get; set; }
+
+        // When the due-date reminder was sent (InstallmentMonitorService), so it is only sent once
+        public DateTime? ReminderSentAt { get; set; }
     }
 }

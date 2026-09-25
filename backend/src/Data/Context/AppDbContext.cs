@@ -35,6 +35,7 @@ namespace Government_Service_Navigator.Backend.Data.Context
         public DbSet<AgentDraft> AgentDrafts { get; set; }
         public DbSet<SubmissionDocument> SubmissionDocuments { get; set; }
         public DbSet<PaymentReceipt> PaymentReceipts { get; set; }
+        public DbSet<CitizenNotification> CitizenNotifications { get; set; }
     
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

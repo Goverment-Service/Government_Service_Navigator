@@ -14,6 +14,13 @@ using Npgsql;
 using Stripe;
 using Government_Service_Navigator.AgenticAi.Tools.CheckDuplicateApplication;
 using Government_Service_Navigator.AgenticAi.Agents.ValidationSafety;
+using Government_Service_Navigator.AgenticAi.Agents.EligibilityDocumentAgent;
+using Government_Service_Navigator.AgenticAi.Agents.EligibilityDocumentAgent.Chunking;
+using Government_Service_Navigator.AgenticAi.Agents.EligibilityDocumentAgent.Retrieval;
+using Government_Service_Navigator.AgenticAi.Orchestration;
+using Government_Service_Navigator.AgenticAi.Tools.CheckEligibilityRules;
+using Government_Service_Navigator.AgenticAi.Tools.GetDocumentRequirements;
+
 
 
 
@@ -95,8 +102,15 @@ builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IAnomalyDetectionService, AnomalyDetectionService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IVectorRetriever, VectorRetrieverService>();
+builder.Services.AddScoped<IEligibilityVectorRetriever, EligibilityVectorRetrieverService>();
+builder.Services.AddScoped<IDocumentChunker, DocumentChunker>();
+builder.Services.AddScoped<IEligibilityDocumentAgent, EligibilityDocumentAgent>();
+builder.Services.AddScoped<IAgent2WorkflowOrchestrator, Agent2WorkflowOrchestrator>();
+builder.Services.AddScoped<ICheckEligibilityRulesTool, CheckEligibilityRulesTool>();
+builder.Services.AddScoped<IGetDocumentRequirementsTool, GetDocumentRequirementsTool>();
 builder.Services.AddScoped<IIntakePlanningAgent, IntakePlanningAgent>();
 builder.Services.AddHttpClient<IGenerativeAiService, GeminiAiService>();
+
 
 
 

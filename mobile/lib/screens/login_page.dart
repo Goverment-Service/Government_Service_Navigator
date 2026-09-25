@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:mobile/screens/dashboard_screen.dart';
 import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
+import '../services/onboarding_prefs.dart';
 import 'signup_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -42,6 +43,8 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = false);
 
     if (result.success) {
+      await OnboardingPrefs.markCompleted();
+      if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         CupertinoPageRoute(
           builder: (_) => DashboardScreen(
@@ -68,24 +71,27 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Back chevron
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(CupertinoIcons.chevron_left,
-                          color: AppColors.primary, size: 20),
-                      SizedBox(width: 4),
-                      Text('Back',
-                          style: TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w400)),
-                    ],
-                  ),
-                ),
+                // Back chevron — hidden when login is the first screen (returning user, or after logout)
+                if (Navigator.of(context).canPop())
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(CupertinoIcons.chevron_left,
+                            color: AppColors.primary, size: 20),
+                        SizedBox(width: 4),
+                        Text('Back',
+                            style: TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w400)),
+                      ],
+                    ),
+                  )
+                else
+                  const SizedBox(height: 44),
                 const SizedBox(height: 32),
                 // App icon
                 Container(

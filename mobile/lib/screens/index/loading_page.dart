@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'landing_page.dart';
+import '../login_page.dart';
+import '../../services/onboarding_prefs.dart';
 import '../../theme/app_colors.dart';
 
 class LoadingPage extends StatefulWidget {
@@ -33,11 +35,18 @@ class _LoadingPageState extends State<LoadingPage>
     _navigateNext();
   }
 
+  /// First launch: slides → terms → sign up. After the user has signed up or logged in once: login page.
   Future<void> _navigateNext() async {
-    await Future.delayed(const Duration(seconds: 2));
+    final results = await Future.wait([
+      OnboardingPrefs.isCompleted(),
+      Future.delayed(const Duration(seconds: 2)),
+    ]);
     if (!mounted) return;
+    final onboardingCompleted = results[0] as bool;
     Navigator.of(context).pushReplacement(
-      CupertinoPageRoute(builder: (_) => const LandingPage()),
+      CupertinoPageRoute(
+        builder: (_) => onboardingCompleted ? const LoginPage() : const LandingPage(),
+      ),
     );
   }
 

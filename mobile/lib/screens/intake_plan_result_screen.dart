@@ -1,3 +1,4 @@
+import '../theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import '../models/intake_plan_model.dart';
 
@@ -41,7 +42,7 @@ class IntakePlanResultScreen extends StatelessWidget {
             ...intakePlan.requiredDocuments.map(
               (doc) => ListTile(
                 dense: true,
-                leading: const Icon(Icons.check_circle_outline, color: Colors.green),
+                leading: const Icon(Icons.check_circle_outline, color: AppColors.success),
                 title: Text(doc),
               ),
             ),

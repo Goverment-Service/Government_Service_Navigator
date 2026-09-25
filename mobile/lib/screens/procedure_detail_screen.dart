@@ -1,3 +1,4 @@
+import '../theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import '../services/service_api_client.dart';
 import 'eligibility_self_check_screen.dart';
@@ -60,7 +61,7 @@ class _ProcedureDetailScreenState extends State<ProcedureDetailScreen> {
         children: [
           Text(
             'Service ID: ${serviceDetails!['serviceId']}',
-            style: const TextStyle(color: Colors.grey),
+            style: const TextStyle(color: AppColors.secondaryLabel),
           ),
           const SizedBox(height: 10),
           const Text(
@@ -72,7 +73,7 @@ class _ProcedureDetailScreenState extends State<ProcedureDetailScreen> {
               padding: EdgeInsets.only(top: 4, bottom: 4),
               child: Text(
                 'You will upload these in the application form after tapping Apply Now.',
-                style: TextStyle(color: Colors.grey, fontSize: 13),
+                style: TextStyle(color: AppColors.secondaryLabel, fontSize: 13),
               ),
             ),
           ...docs.map<Widget>(
@@ -85,7 +86,7 @@ class _ProcedureDetailScreenState extends State<ProcedureDetailScreen> {
                 doc['isMandatory'] == true ? 'Required' : 'Optional',
                 style: TextStyle(
                   fontSize: 12,
-                  color: doc['isMandatory'] == true ? Colors.red.shade700 : Colors.grey,
+                  color: doc['isMandatory'] == true ? AppColors.danger : AppColors.secondaryLabel,
                 ),
               ),
             ),

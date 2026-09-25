@@ -567,7 +567,7 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
                         color: isNextUpcoming
-                            ? AppColors.cardBg
+                            ? Colors.white
                             : isOverdue
                                 ? AppColors.danger
                                 : AppColors.primary,
@@ -678,13 +678,13 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
                         ? null
                         : () => _payInstallment(item),
                     child: _payingInstallmentId == item.id.toString()
-                        ? const CupertinoActivityIndicator(color: AppColors.cardBg, radius: 7)
+                        ? const CupertinoActivityIndicator(color: Colors.white, radius: 7)
                         : const Text(
                             'Pay Now',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.cardBg,
+                              color: Colors.white,
                             ),
                           ),
                   ),

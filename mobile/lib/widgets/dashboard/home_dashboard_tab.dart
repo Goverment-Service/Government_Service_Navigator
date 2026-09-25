@@ -79,7 +79,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
         slivers: [
           // iOS-Style Header
           SliverAppBar(
-            backgroundColor: AppColors.background,
+            backgroundColor: AppColors.background.withValues(alpha: 0.85),
             floating: true,
             elevation: 0,
             automaticallyImplyLeading: false,

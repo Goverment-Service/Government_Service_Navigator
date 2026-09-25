@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../services/notification_api_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/glass_theme.dart';
 import 'payments/installment_plan_view.dart';
 
 /// The citizen's notifications. Opening the screen marks them all as read;
@@ -43,10 +44,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Notifications'), backgroundColor: AppColors.cardBg, elevation: 0),
+    return AuroraBackdrop(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(title: const Text('Notifications'), backgroundColor: Colors.transparent, elevation: 0),
       body: RefreshIndicator(onRefresh: _load, child: _buildBody()),
+    ),
     );
   }
 

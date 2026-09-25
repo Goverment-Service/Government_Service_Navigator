@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../theme/app_colors.dart';
+import '../theme/glass_theme.dart';
 
 import '../widgets/dashboard/home_dashboard_tab.dart';
 import '../widgets/dashboard/services_tab.dart';
@@ -33,15 +34,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
+    return AuroraBackdrop(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       body: IndexedStack(
         index: _currentIndex,
         children: _tabs,
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: AppColors.cardBg,
+          color: AppColors.cardBg.withValues(alpha: 0.92),
           border: const Border(
             top: BorderSide(color: AppColors.divider, width: 0.5),
           ),
@@ -49,7 +51,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: SafeArea(
           child: CupertinoTabBar(
             currentIndex: _currentIndex,
-            backgroundColor: AppColors.cardBg,
+            backgroundColor: Colors.transparent,
             activeColor: AppColors.primary,
             inactiveColor: AppColors.secondaryLabel,
             border: null,
@@ -80,6 +82,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }

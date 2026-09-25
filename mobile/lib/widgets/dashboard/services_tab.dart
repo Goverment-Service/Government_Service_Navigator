@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import '../../theme/app_colors.dart';
 import '../../services/service_api_client.dart';
 import '../../screens/department_services_screen.dart';
 import '../category_card.dart';
@@ -58,10 +57,10 @@ class _ServicesTabState extends State<ServicesTab> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Departments'),
-        backgroundColor: AppColors.cardBg,
+        backgroundColor: Colors.transparent,
         elevation: 0,
       ),
       body: isLoading

@@ -8,10 +8,10 @@ class ProfileTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Profile & Settings'),
-        backgroundColor: AppColors.cardBg,
+        backgroundColor: Colors.transparent,
         elevation: 0,
       ),
       body: ListView(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../theme/app_colors.dart';
+import '../theme/glass_theme.dart';
 import '../services/auth_service.dart';
 import '../services/onboarding_prefs.dart';
 import 'dashboard_screen.dart';
@@ -74,10 +75,11 @@ class _SignUpPageState extends State<SignUpPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
+    return AuroraBackdrop(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.dark),
       ),
@@ -198,6 +200,7 @@ class _SignUpPageState extends State<SignUpPage> {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -215,9 +218,9 @@ class _SignUpPageState extends State<SignUpPage> {
   InputDecoration _baseDecoration(String hint, IconData icon) {
     return InputDecoration(
       hintText: hint,
-      prefixIcon: Icon(icon, color: Colors.grey, size: 20),
+      prefixIcon: Icon(icon, color: AppColors.secondaryLabel, size: 20),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: AppColors.cardBg,
       contentPadding: const EdgeInsets.symmetric(vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -233,7 +236,7 @@ class _SignUpPageState extends State<SignUpPage> {
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.redAccent),
+        borderSide: const BorderSide(color: AppColors.danger),
       ),
     );
   }
@@ -266,7 +269,7 @@ class _SignUpPageState extends State<SignUpPage> {
         suffixIcon: IconButton(
           icon: Icon(
             obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-            color: Colors.grey,
+            color: AppColors.secondaryLabel,
             size: 20,
           ),
           onPressed: onToggle,
@@ -281,17 +284,17 @@ class _SignUpPageState extends State<SignUpPage> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.08),
+        color: AppColors.danger.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+          const Icon(Icons.error_outline, color: AppColors.danger, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+              style: const TextStyle(color: AppColors.danger, fontSize: 13),
             ),
           ),
         ],

@@ -107,9 +107,9 @@ class AppDrawer extends StatelessWidget {
             ),
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.logout, color: Colors.redAccent),
+              leading: const Icon(Icons.logout, color: AppColors.danger),
               title: const Text('Log Out',
-                  style: TextStyle(color: Colors.redAccent)),
+                  style: TextStyle(color: AppColors.danger)),
               onTap: () {
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(

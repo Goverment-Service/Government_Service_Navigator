@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../theme/app_colors.dart';
 import '../models/refund.dart';
@@ -254,7 +255,7 @@ class RefundTrackerWidget extends StatelessWidget {
         ),
         child: const Icon(
           CupertinoIcons.xmark,
-          color: AppColors.cardBg,
+          color: Colors.white,
           size: 18,
         ),
       );
@@ -270,7 +271,7 @@ class RefundTrackerWidget extends StatelessWidget {
         ),
         child: const Icon(
           CupertinoIcons.checkmark,
-          color: AppColors.cardBg,
+          color: Colors.white,
           size: 18,
         ),
       );

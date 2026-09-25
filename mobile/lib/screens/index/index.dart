@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/glass_theme.dart';
 import '../login_page.dart';
 import 'terms_and_conditions_page.dart';
 
@@ -9,8 +10,9 @@ class IndexPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
+    return AuroraBackdrop(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Column(
           children: [
@@ -184,6 +186,7 @@ class IndexPage extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 

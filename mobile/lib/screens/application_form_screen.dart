@@ -307,18 +307,23 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
                 BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, 4)),
               ],
             ),
-            child: DefaultTextStyle(
-              style: const TextStyle(color: _ink, fontSize: 14, height: 1.4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 28),
-                  ..._fields.map(_buildField),
-                  if (_requiredDocs.isNotEmpty) ..._buildRequiredDocuments(),
-                  const SizedBox(height: 28),
-                  _buildFooter(),
-                ],
+            // The sheet stays a light "printed form" inside the dark app, so its fields, pickers and
+            // chips use a light theme (dark ink on white paper).
+            child: Theme(
+              data: _paperTheme(context),
+              child: DefaultTextStyle(
+                style: const TextStyle(color: _ink, fontSize: 14, height: 1.4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildHeader(),
+                    const SizedBox(height: 28),
+                    ..._fields.map(_buildField),
+                    if (_requiredDocs.isNotEmpty) ..._buildRequiredDocuments(),
+                    const SizedBox(height: 28),
+                    _buildFooter(),
+                  ],
+                ),
               ),
             ),
           ),
@@ -876,6 +881,18 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  ThemeData _paperTheme(BuildContext context) {
+    final light = ThemeData(
+      brightness: Brightness.light,
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary, brightness: Brightness.light),
+    );
+    return light.copyWith(
+      textTheme: light.textTheme.apply(bodyColor: _ink, displayColor: _ink),
+      inputDecorationTheme: const InputDecorationTheme(filled: false),
     );
   }
 

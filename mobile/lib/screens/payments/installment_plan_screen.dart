@@ -142,7 +142,7 @@ class _InstallmentPlanScreenState extends State<InstallmentPlanScreen> {
                   children: [
                     Text('Total Amount',
                         style: TextStyle(
-                            color: AppColors.cardBg.withValues(alpha: 0.7),
+                            color: Colors.white.withValues(alpha: 0.7),
                             fontSize: 13,
                             fontWeight: FontWeight.w500)),
                     if (plan.status != null)
@@ -150,13 +150,13 @@ class _InstallmentPlanScreenState extends State<InstallmentPlanScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.cardBg.withValues(alpha: 0.18),
+                          color: Colors.white.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           plan.status!,
                           style: const TextStyle(
-                              color: AppColors.cardBg,
+                              color: Colors.white,
                               fontSize: 12,
                               fontWeight: FontWeight.w600),
                         ),
@@ -167,7 +167,7 @@ class _InstallmentPlanScreenState extends State<InstallmentPlanScreen> {
                 Text(
                   'LKR ${plan.totalAmount.toStringAsFixed(2)}',
                   style: const TextStyle(
-                      color: AppColors.cardBg,
+                      color: Colors.white,
                       fontSize: 28,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.5),
@@ -175,7 +175,7 @@ class _InstallmentPlanScreenState extends State<InstallmentPlanScreen> {
                 const SizedBox(height: 14),
                 Text(
                   '$paidCount of ${plan.numberOfInstallments} instalments paid',
-                  style: TextStyle(color: AppColors.cardBg.withValues(alpha: 0.7), fontSize: 13),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
                 ),
                 const SizedBox(height: 8),
                 ClipRRect(
@@ -183,7 +183,7 @@ class _InstallmentPlanScreenState extends State<InstallmentPlanScreen> {
                   child: LinearProgressIndicator(
                     value: progress,
                     minHeight: 6,
-                    backgroundColor: AppColors.cardBg.withValues(alpha: 0.25),
+                    backgroundColor: Colors.white.withValues(alpha: 0.25),
                     valueColor:
                         const AlwaysStoppedAnimation<Color>(AppColors.cardBg),
                   ),

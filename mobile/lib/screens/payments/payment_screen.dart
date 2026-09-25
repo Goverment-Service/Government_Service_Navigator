@@ -347,13 +347,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppColors.cardBg.withValues(alpha: 0.18),
+                            color: Colors.white.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Text(
                             'LKR Currency',
                             style: TextStyle(
-                              color: AppColors.cardBg,
+                              color: Colors.white,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
@@ -365,7 +365,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     Text(
                       'LKR ${feeAmount.toStringAsFixed(2)}',
                       style: const TextStyle(
-                        color: AppColors.cardBg,
+                        color: Colors.white,
                         fontSize: 32,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
@@ -375,7 +375,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     Text(
                       'Application ID: $appId',
                       style: TextStyle(
-                        color: AppColors.cardBg.withValues(alpha: 0.7),
+                        color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -452,7 +452,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: _paymentMethodIndex == 0 ? AppColors.cardBg : AppColors.secondaryLabel,
+                                color: _paymentMethodIndex == 0 ? Colors.white : AppColors.secondaryLabel,
                               ),
                             ),
                           ),
@@ -474,7 +474,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: _paymentMethodIndex == 1 ? AppColors.cardBg : AppColors.secondaryLabel,
+                                color: _paymentMethodIndex == 1 ? Colors.white : AppColors.secondaryLabel,
                               ),
                             ),
                           ),
@@ -587,7 +587,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         ? null
                         : (_paymentMethodIndex == 0 ? _onPayNowPressed : _onSetupInstallmentPlanPressed),
                     child: _isLoading
-                        ? const CupertinoActivityIndicator(color: AppColors.cardBg, radius: 11)
+                        ? const CupertinoActivityIndicator(color: Colors.white, radius: 11)
                         : Text(
                             _paymentMethodIndex == 0 ? 'Pay Now' : 'Set Up Installment Plan',
                             style: const TextStyle(
@@ -710,14 +710,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(CupertinoIcons.wifi_exclamationmark, color: AppColors.cardBg, size: 18),
+                                Icon(CupertinoIcons.wifi_exclamationmark, color: Colors.white, size: 18),
                                 SizedBox(width: 8),
                                 Text(
                                   'Retry Connection',
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.cardBg,
+                                    color: Colors.white,
                                   ),
                                 ),
                               ],
@@ -766,14 +766,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               child: const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(CupertinoIcons.refresh, color: AppColors.cardBg, size: 18),
+                                  Icon(CupertinoIcons.refresh, color: Colors.white, size: 18),
                                   SizedBox(width: 8),
                                   Text(
                                     'Check Again',
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.cardBg,
+                                      color: Colors.white,
                                     ),
                                   ),
                                 ],

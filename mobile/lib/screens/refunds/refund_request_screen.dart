@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
-import '../../services/refund_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/refund_providers.dart';
+import '../../providers/service_providers.dart';
 import 'refund_detail_screen.dart';
 
-class RefundRequestScreen extends StatefulWidget {
-  final String? token;
+class RefundRequestScreen extends ConsumerStatefulWidget {
   final String? paymentId;
   final double? amount;
 
   const RefundRequestScreen({
     super.key,
-    this.token,
     this.paymentId,
     this.amount,
   });
 
   @override
-  State<RefundRequestScreen> createState() => _RefundRequestScreenState();
+  ConsumerState<RefundRequestScreen> createState() => _RefundRequestScreenState();
 }
 
-class _RefundRequestScreenState extends State<RefundRequestScreen> {
+class _RefundRequestScreenState extends ConsumerState<RefundRequestScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _paymentIdController;
   late final TextEditingController _amountController;
@@ -28,17 +28,6 @@ class _RefundRequestScreenState extends State<RefundRequestScreen> {
 
   bool _isLoading = false;
   String? _errorMessage;
-
-  String get _effectiveToken {
-    if (widget.token != null && widget.token!.isNotEmpty) {
-      return widget.token!;
-    }
-    final routeArgs = ModalRoute.of(context)?.settings.arguments;
-    if (routeArgs is Map<String, dynamic> && routeArgs.containsKey('token')) {
-      return routeArgs['token']?.toString() ?? '';
-    }
-    return '';
-  }
 
   String get _effectivePaymentId {
     if (widget.paymentId != null && widget.paymentId!.isNotEmpty) {
@@ -107,7 +96,7 @@ class _RefundRequestScreenState extends State<RefundRequestScreen> {
     });
 
     try {
-      final service = RefundService(_effectiveToken);
+      final service = ref.read(refundServiceProvider);
       final pId = _paymentIdController.text.trim();
       final amt = double.parse(_amountController.text.trim());
       final rsn = _reasonController.text.trim();
@@ -119,12 +108,12 @@ class _RefundRequestScreenState extends State<RefundRequestScreen> {
       );
 
       if (!mounted) return;
+      ref.invalidate(myRefundsProvider);
       setState(() => _isLoading = false);
 
       Navigator.of(context).pushReplacement(
         CupertinoPageRoute(
           builder: (_) => RefundDetailScreen(
-            token: _effectiveToken,
             refundId: refundReq.id,
           ),
         ),

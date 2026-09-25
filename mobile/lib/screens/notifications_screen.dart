@@ -1,5 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/application_providers.dart';
 import '../services/notification_api_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/glass_theme.dart';
@@ -7,38 +9,32 @@ import 'payments/installment_plan_view.dart';
 
 /// The citizen's notifications. Opening the screen marks them all as read;
 /// tapping an installment notification opens that plan's schedule.
-class NotificationsScreen extends StatefulWidget {
-  final String token;
-
-  const NotificationsScreen({super.key, required this.token});
+class NotificationsScreen extends ConsumerStatefulWidget {
+  const NotificationsScreen({super.key});
 
   @override
-  State<NotificationsScreen> createState() => _NotificationsScreenState();
+  ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
-  List<CitizenNotification>? _notifications;
-  String? _error;
-
-  NotificationApiService get _service => NotificationApiService(widget.token);
-
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    // The badge may have cached an older list; always fetch fresh on open
+    Future.microtask(_load);
   }
 
+  /// Fetches fresh notifications, then clears the unread flags server-side. The loaded
+  /// items keep their highlight until the next refresh.
   Future<void> _load() async {
+    if (!mounted) return;
     try {
-      final items = await _service.fetchMine();
-      if (!mounted) return;
-      setState(() {
-        _notifications = items;
-        _error = null;
-      });
-      if (items.any((n) => !n.isRead)) await _service.markAllRead();
-    } catch (e) {
-      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      final items = await ref.refresh(notificationsProvider.future);
+      if (mounted && items.any((n) => !n.isRead)) {
+        await ref.read(notificationsProvider.notifier).markAllRead();
+      }
+    } catch (_) {
+      // The error is shown from the provider state
     }
   }
 
@@ -48,21 +44,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       child: Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('Notifications'), backgroundColor: Colors.transparent, elevation: 0),
-      body: RefreshIndicator(onRefresh: _load, child: _buildBody()),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: _buildBody(ref.watch(notificationsProvider)),
+      ),
     ),
     );
   }
 
-  Widget _buildBody() {
-    if (_error != null) {
+  Widget _buildBody(AsyncValue<List<CitizenNotification>> notifications) {
+    if (notifications.hasError) {
       return ListView(children: [
         Padding(
           padding: const EdgeInsets.all(32),
-          child: Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.danger)),
+          child: Text(
+            notifications.error.toString().replaceFirst('Exception: ', ''),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.danger),
+          ),
         ),
       ]);
     }
-    final items = _notifications;
+    final items = notifications.value;
     if (items == null) return const Center(child: CupertinoActivityIndicator());
     if (items.isEmpty) {
       return ListView(children: const [
@@ -92,7 +95,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       onTap: n.installmentPlanId == null || isCancellation
           ? null
           : () => Navigator.of(context).push(CupertinoPageRoute(
-                builder: (_) => InstallmentPlanView(token: widget.token, planId: n.installmentPlanId.toString()),
+                builder: (_) => InstallmentPlanView(planId: n.installmentPlanId.toString()),
               )),
       child: Container(
         padding: const EdgeInsets.all(14),

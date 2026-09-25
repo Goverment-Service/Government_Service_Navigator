@@ -1,70 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
-import '../../services/payment_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/payment_providers.dart';
 import '../../models/payment.dart';
 import '../../widgets/status_badge.dart';
 import 'payment_ledger_screen.dart';
 
-class TransactionHistoryScreen extends StatefulWidget {
-  final String? token;
-  final String? userEmail;
-
-  const TransactionHistoryScreen({
-    super.key,
-    this.token,
-    this.userEmail,
-  });
+class TransactionHistoryScreen extends ConsumerStatefulWidget {
+  const TransactionHistoryScreen({super.key});
 
   @override
-  State<TransactionHistoryScreen> createState() => _TransactionHistoryScreenState();
+  ConsumerState<TransactionHistoryScreen> createState() => _TransactionHistoryScreenState();
 }
 
-class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
-  List<Payment> _payments = [];
-  bool _isLoading = true;
-  String? _errorMessage;
-
-  String get _effectiveToken {
-    if (widget.token != null && widget.token!.isNotEmpty) {
-      return widget.token!;
-    }
-    final routeArgs = ModalRoute.of(context)?.settings.arguments;
-    if (routeArgs is Map<String, dynamic> && routeArgs.containsKey('token')) {
-      return routeArgs['token']?.toString() ?? '';
-    }
-    return '';
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadPayments();
-    });
-  }
+class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScreen> {
+  AsyncValue<List<Payment>> get _paymentsState => ref.watch(myPaymentsProvider);
+  bool get _isLoading => _paymentsState.isLoading;
+  String? get _errorMessage =>
+      _paymentsState.hasError ? _paymentsState.error.toString().replaceAll('Exception: ', '') : null;
+  List<Payment> get _payments => _paymentsState.value ?? const [];
 
   Future<void> _loadPayments() async {
-    if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
     try {
-      final service = PaymentService(_effectiveToken);
-      final list = await service.myPayments();
-      if (!mounted) return;
-      setState(() {
-        _payments = list;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
-      });
+      ref.invalidate(myPaymentsProvider);
+      await ref.read(myPaymentsProvider.future);
+    } catch (_) {
+      // Shown from the provider's error state
     }
   }
 
@@ -260,7 +222,6 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             Navigator.of(context).push(
               CupertinoPageRoute(
                 builder: (_) => PaymentLedgerScreen(
-                  token: _effectiveToken,
                   paymentId: p.id,
                 ),
               ),

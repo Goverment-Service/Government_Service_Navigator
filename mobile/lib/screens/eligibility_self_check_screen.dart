@@ -1,9 +1,9 @@
 import '../theme/app_colors.dart';
 import 'package:flutter/material.dart';
-import '../models/eligibility_agent_model.dart';
-import '../services/eligibility_agent_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/agent_providers.dart';
 
-class EligibilitySelfCheckScreen extends StatefulWidget {
+class EligibilitySelfCheckScreen extends ConsumerStatefulWidget {
   final int serviceId;
   final String serviceName;
 
@@ -14,19 +14,16 @@ class EligibilitySelfCheckScreen extends StatefulWidget {
   });
 
   @override
-  State<EligibilitySelfCheckScreen> createState() => _EligibilitySelfCheckScreenState();
+  ConsumerState<EligibilitySelfCheckScreen> createState() => _EligibilitySelfCheckScreenState();
 }
 
-class _EligibilitySelfCheckScreenState extends State<EligibilitySelfCheckScreen> {
+class _EligibilitySelfCheckScreenState extends ConsumerState<EligibilitySelfCheckScreen> {
   late TextEditingController _serviceNameController;
   final _ageController = TextEditingController(text: '25');
   final _citizenshipController = TextEditingController(text: 'Sri Lankan');
   final _incomeController = TextEditingController(text: '500000');
   final _employmentController = TextEditingController(text: 'Employed');
   final _providedDocsController = TextEditingController(text: 'National Identity Card (NIC)');
-
-  EligibilityAgentResponse? agentResult;
-  bool isEvaluating = false;
 
   @override
   void initState() {
@@ -45,42 +42,39 @@ class _EligibilitySelfCheckScreenState extends State<EligibilitySelfCheckScreen>
     super.dispose();
   }
 
-  void evaluate() async {
-    setState(() => isEvaluating = true);
-    try {
-      final providedList = _providedDocsController.text
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
+  void evaluate() {
+    final providedList = _providedDocsController.text
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
 
-      final res = await EligibilityAgentService.evaluateEligibility(
-        serviceName: _serviceNameController.text.trim().isNotEmpty
-            ? _serviceNameController.text.trim()
-            : widget.serviceName,
-        serviceId: widget.serviceId,
-        age: int.tryParse(_ageController.text) ?? 25,
-        citizenshipStatus: _citizenshipController.text,
-        annualIncome: double.tryParse(_incomeController.text) ?? 0,
-        employmentStatus: _employmentController.text,
-        providedDocuments: providedList,
-      );
-
-      setState(() {
-        agentResult = res;
-        isEvaluating = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => isEvaluating = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Agent evaluation failed: ${e.toString()}')),
-      );
-    }
+    ref.read(eligibilityCheckControllerProvider.notifier).evaluate(
+          serviceName: _serviceNameController.text.trim().isNotEmpty
+              ? _serviceNameController.text.trim()
+              : widget.serviceName,
+          serviceId: widget.serviceId,
+          age: int.tryParse(_ageController.text) ?? 25,
+          citizenshipStatus: _citizenshipController.text,
+          annualIncome: double.tryParse(_incomeController.text) ?? 0,
+          employmentStatus: _employmentController.text,
+          providedDocuments: providedList,
+        );
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(eligibilityCheckControllerProvider, (_, next) {
+      if (next.hasError && !next.isLoading) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Agent evaluation failed: ${next.error}')),
+        );
+      }
+    });
+    final evaluation = ref.watch(eligibilityCheckControllerProvider);
+    final isEvaluating = evaluation.isLoading;
+    final agentResult = evaluation.hasError ? null : evaluation.value;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Agent 2: Eligibility & Document Check')),
       body: SingleChildScrollView(
@@ -138,7 +132,7 @@ class _EligibilitySelfCheckScreenState extends State<EligibilitySelfCheckScreen>
             if (agentResult != null) ...[
               Card(
                 elevation: 4,
-                color: (agentResult!.isEligible ? AppColors.success : AppColors.danger).withValues(alpha: 0.12),
+                color: (agentResult.isEligible ? AppColors.success : AppColors.danger).withValues(alpha: 0.12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -150,40 +144,40 @@ class _EligibilitySelfCheckScreenState extends State<EligibilitySelfCheckScreen>
                         children: [
                           Expanded(
                             child: Text(
-                              agentResult!.isEligible ? 'Eligible for Service' : 'Requirements Not Met',
+                              agentResult.isEligible ? 'Eligible for Service' : 'Requirements Not Met',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: agentResult!.isEligible ? AppColors.success : AppColors.danger,
+                                color: agentResult.isEligible ? AppColors.success : AppColors.danger,
                               ),
                             ),
                           ),
                           Chip(
                             label: Text(
-                              'Match: ${agentResult!.matchPercentage}%',
+                              'Match: ${agentResult.matchPercentage}%',
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                             ),
-                            backgroundColor: agentResult!.matchPercentage >= 70 ? AppColors.success : AppColors.warning,
+                            backgroundColor: agentResult.matchPercentage >= 70 ? AppColors.success : AppColors.warning,
                           ),
                         ],
                       ),
                       const Divider(height: 20),
-                      if (agentResult!.reasoning.isNotEmpty) ...[
+                      if (agentResult.reasoning.isNotEmpty) ...[
                         const Text('AI Reasoning:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                         const SizedBox(height: 4),
-                        Text(agentResult!.reasoning, style: const TextStyle(fontSize: 14)),
+                        Text(agentResult.reasoning, style: const TextStyle(fontSize: 14)),
                         const SizedBox(height: 12),
                       ],
-                      if (agentResult!.missingCriteria.isNotEmpty) ...[
+                      if (agentResult.missingCriteria.isNotEmpty) ...[
                         const Text('Missing / Failed Criteria:', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.danger)),
                         const SizedBox(height: 4),
-                        ...agentResult!.missingCriteria.map((c) => Text('• $c', style: const TextStyle(color: AppColors.danger))),
+                        ...agentResult.missingCriteria.map((c) => Text('• $c', style: const TextStyle(color: AppColors.danger))),
                         const SizedBox(height: 12),
                       ],
-                      if (agentResult!.missingDocuments.isNotEmpty) ...[
+                      if (agentResult.missingDocuments.isNotEmpty) ...[
                         const Text('Missing Required Documents:', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.warning)),
                         const SizedBox(height: 4),
-                        ...agentResult!.missingDocuments.map((d) => Text('• $d', style: const TextStyle(color: Colors.deepOrange))),
+                        ...agentResult.missingDocuments.map((d) => Text('• $d', style: const TextStyle(color: Colors.deepOrange))),
                       ] else ...[
                         const Row(
                           children: [

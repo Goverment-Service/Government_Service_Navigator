@@ -1,46 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
-import '../../services/installment_service.dart';
-import '../../services/payment_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/payment_providers.dart';
+import '../../providers/service_providers.dart';
 import '../../models/installment_plan.dart';
 import '../../widgets/status_badge.dart';
 import 'bank_transfer_screen.dart';
 import 'checkout_webview_screen.dart';
 
-class InstallmentPlanView extends StatefulWidget {
-  final String? token;
+class InstallmentPlanView extends ConsumerStatefulWidget {
   final String? planId;
   final String? paymentId;
 
   const InstallmentPlanView({
     super.key,
-    this.token,
     this.planId,
     this.paymentId,
   });
 
   @override
-  State<InstallmentPlanView> createState() => _InstallmentPlanViewState();
+  ConsumerState<InstallmentPlanView> createState() => _InstallmentPlanViewState();
 }
 
-class _InstallmentPlanViewState extends State<InstallmentPlanView> {
-  bool _isLoading = true;
-  String? _errorMessage;
-  bool _isNotFound = false;
-  InstallmentPlan? _plan;
-
-  String get _effectiveToken {
-    if (widget.token != null && widget.token!.isNotEmpty) {
-      return widget.token!;
-    }
-    final routeArgs = ModalRoute.of(context)?.settings.arguments;
-    if (routeArgs is Map<String, dynamic> && routeArgs.containsKey('token')) {
-      return routeArgs['token']?.toString() ?? '';
-    }
-    return '';
-  }
-
+class _InstallmentPlanViewState extends ConsumerState<InstallmentPlanView> {
   String get _effectivePlanId {
     if (widget.planId != null && widget.planId!.isNotEmpty) {
       return widget.planId!;
@@ -63,81 +46,20 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
     return '';
   }
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchPlan();
-    });
-  }
-
-  bool get _hasExplicitPlanId {
-    if (widget.planId != null && widget.planId!.isNotEmpty) return true;
-    if (widget.paymentId != null && widget.paymentId!.isNotEmpty) return true;
-    final routeArgs = ModalRoute.of(context)?.settings.arguments;
-    if (routeArgs is Map<String, dynamic>) {
-      if (routeArgs.containsKey('planId') && routeArgs['planId'] != null && routeArgs['planId'].toString().isNotEmpty) return true;
-      if (routeArgs.containsKey('installmentPlanId') && routeArgs['installmentPlanId'] != null && routeArgs['installmentPlanId'].toString().isNotEmpty) return true;
-      if (routeArgs.containsKey('paymentId') && routeArgs['paymentId'] != null && routeArgs['paymentId'].toString().isNotEmpty) return true;
-    }
-    return false;
-  }
+  /// Empty when opened from the menu: the provider then finds the citizen's plan.
+  AsyncValue<InstallmentPlan> get _planState => ref.watch(installmentPlanProvider(_effectivePlanId));
+  bool get _isLoading => _planState.isLoading;
+  bool get _isNotFound => _planState.error is InstallmentPlanNotFound;
+  String? get _errorMessage =>
+      _planState.hasError ? _planState.error.toString().replaceAll('Exception: ', '') : null;
+  InstallmentPlan? get _plan => _planState.value;
 
   Future<void> _fetchPlan() async {
-    if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-      _isNotFound = false;
-    });
-
     try {
-      final installmentService = InstallmentService(_effectiveToken);
-
-      if (_hasExplicitPlanId) {
-        final plan = await installmentService.getInstallmentPlan(_effectivePlanId);
-        if (!mounted) return;
-        setState(() {
-          _plan = plan;
-          _isLoading = false;
-        });
-        return;
-      }
-
-      // If opened from dashboard without planId/paymentId, auto-search user payments for an active plan
-      final paymentService = PaymentService(_effectiveToken);
-      final myPayments = await paymentService.myPayments();
-
-      for (final payment in myPayments) {
-        try {
-          final plan = await installmentService.getInstallmentPlan(payment.id);
-          if (mounted) {
-            setState(() {
-              _plan = plan;
-              _isLoading = false;
-            });
-            return;
-          }
-        } catch (_) {
-          // Continue searching remaining payments
-        }
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _isNotFound = true;
-        _errorMessage = 'No active installment plans found for your account.';
-      });
-    } catch (e) {
-      if (!mounted) return;
-      final msg = e.toString().replaceAll('Exception: ', '');
-      final is404 = msg.contains('404') || msg.toLowerCase().contains('not found');
-      setState(() {
-        _isLoading = false;
-        _isNotFound = is404;
-        _errorMessage = is404 ? 'No active installment plans found for your account.' : msg;
-      });
+      ref.invalidate(installmentPlanProvider(_effectivePlanId));
+      await ref.read(installmentPlanProvider(_effectivePlanId).future);
+    } catch (_) {
+      // Shown from the provider's error state
     }
   }
 
@@ -189,7 +111,7 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
       await _payOnline(item);
     } else {
       final submitted = await Navigator.of(context).push<bool>(
-        CupertinoPageRoute(builder: (_) => BankTransferScreen(token: _effectiveToken, installment: item)),
+        CupertinoPageRoute(builder: (_) => BankTransferScreen(installment: item)),
       );
       if (!mounted || submitted != true) return;
       _showSnack('Receipt submitted. The installment will be marked paid once it is verified.', AppColors.success);
@@ -200,7 +122,7 @@ class _InstallmentPlanViewState extends State<InstallmentPlanView> {
   /// Opens the Stripe checkout for exactly this installment's amount, then confirms it with the backend.
   Future<void> _payOnline(Installment item) async {
     setState(() => _payingInstallmentId = item.id);
-    final service = InstallmentService(_effectiveToken);
+    final service = ref.read(installmentServiceProvider);
     try {
       final checkoutUrl = await service.startOnlinePayment(item.id);
       if (!mounted) return;

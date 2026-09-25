@@ -1,42 +1,24 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
-import '../../services/refund_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/refund_providers.dart';
 import '../../models/refund.dart';
 import '../../widgets/refund_tracker_widget.dart';
 
-class RefundDetailScreen extends StatefulWidget {
-  final String? token;
+class RefundDetailScreen extends ConsumerStatefulWidget {
   final String? refundId;
 
   const RefundDetailScreen({
     super.key,
-    this.token,
     this.refundId,
   });
 
   @override
-  State<RefundDetailScreen> createState() => _RefundDetailScreenState();
+  ConsumerState<RefundDetailScreen> createState() => _RefundDetailScreenState();
 }
 
-class _RefundDetailScreenState extends State<RefundDetailScreen> {
-  Refund? _refund;
-  bool _isLoading = true;
-  String? _errorMessage;
-  Timer? _refreshTimer;
-
-  String get _effectiveToken {
-    if (widget.token != null && widget.token!.isNotEmpty) {
-      return widget.token!;
-    }
-    final routeArgs = ModalRoute.of(context)?.settings.arguments;
-    if (routeArgs is Map<String, dynamic> && routeArgs.containsKey('token')) {
-      return routeArgs['token']?.toString() ?? '';
-    }
-    return '';
-  }
-
+class _RefundDetailScreenState extends ConsumerState<RefundDetailScreen> {
   String get _effectiveRefundId {
     if (widget.refundId != null && widget.refundId!.isNotEmpty) {
       return widget.refundId!;
@@ -53,92 +35,19 @@ class _RefundDetailScreenState extends State<RefundDetailScreen> {
     return '';
   }
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadRefund();
-      _startAutoRefresh();
-    });
-  }
-
-  @override
-  void dispose() {
-    _refreshTimer?.cancel();
-    super.dispose();
-  }
-
-  void _startAutoRefresh() {
-    _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      _silentRefresh();
-    });
-  }
-
-  Future<void> _silentRefresh() async {
-    if (!mounted) return;
-    final rId = _effectiveRefundId;
-    if (rId.isEmpty) return;
-
-    try {
-      final service = RefundService(_effectiveToken);
-      final refund = await service.getRefund(rId);
-      if (!mounted) return;
-      setState(() => _refund = refund);
-    } catch (_) {}
-  }
+  /// Polls every 15 seconds while this screen is open (see [RefundDetail]).
+  AsyncValue<Refund> get _refundState => ref.watch(refundDetailProvider(_effectiveRefundId));
+  bool get _isLoading => _refundState.isLoading;
+  String? get _errorMessage =>
+      _refundState.hasError ? _refundState.error.toString().replaceAll('Exception: ', '') : null;
+  Refund? get _refund => _refundState.value;
 
   Future<void> _loadRefund() async {
-    if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    final rId = _effectiveRefundId;
-    if (rId.isEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'No refund ID specified.';
-      });
-      return;
-    }
-
     try {
-      final service = RefundService(_effectiveToken);
-      final refund = await service.getRefund(rId);
-
-      // Also try fetching status endpoint GET /api/refunds/{id}/status to ensure latest status
-      try {
-        final freshStatus = await service.getRefundStatus(rId);
-        if (mounted) {
-          // If fresh status differs, update
-          final updated = RefundRequest(
-            id: refund.id,
-            paymentId: refund.paymentId,
-            refundAmount: refund.refundAmount,
-            reason: refund.reason,
-            status: freshStatus,
-            refundTransactionRef: refund.refundTransactionRef,
-            requestedByEmail: refund.requestedByEmail,
-            decidedByEmail: refund.decidedByEmail,
-            decisionNote: refund.decisionNote,
-            requestedDate: refund.requestedDate,
-            decidedDate: refund.decidedDate,
-            completedDate: refund.completedDate,
-          );
-          if (mounted) setState(() => _refund = updated);
-        } else if (mounted) {
-          setState(() => _refund = refund);
-        }
-      } catch (_) {
-        if (mounted) setState(() => _refund = refund);
-      }
-    } catch (e) {
-      if (mounted) setState(() => _errorMessage = e.toString().replaceAll('Exception: ', ''));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      ref.invalidate(refundDetailProvider(_effectiveRefundId));
+      await ref.read(refundDetailProvider(_effectiveRefundId).future);
+    } catch (_) {
+      // Shown from the provider's error state
     }
   }
 

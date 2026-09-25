@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/screens/index/loading_page.dart';
 import 'package:mobile/screens/payments/payment_screen.dart';
 import 'package:mobile/screens/payments/installment_plan_view.dart';
@@ -16,7 +17,14 @@ void main() {
     statusBarIconBrightness: Brightness.dark,
     statusBarColor: Colors.transparent,
   ));
-  runApp(const MyApp());
+  runApp(
+    ProviderScope(
+      // Surface failures right away (screens show their own retry UI) instead of
+      // Riverpod's default automatic retry with backoff.
+      retry: (retryCount, error) => null,
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -68,4 +76,4 @@ class _IOSScrollBehavior extends ScrollBehavior {
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) =>
       const BouncingScrollPhysics();
-}
+}

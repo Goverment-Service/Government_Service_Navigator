@@ -6,13 +6,11 @@ import 'procedure_detail_screen.dart';
 class DepartmentServicesScreen extends StatelessWidget {
   final String department;
   final List<Map<String, dynamic>> services;
-  final String token;
 
   const DepartmentServicesScreen({
     super.key,
     required this.department,
     required this.services,
-    required this.token,
   });
 
   @override
@@ -42,7 +40,6 @@ class DepartmentServicesScreen extends StatelessWidget {
                   CupertinoPageRoute(
                     builder: (context) => ProcedureDetailScreen(
                       serviceId: service['id'],
-                      token: token,
                     ),
                   ),
                 );

@@ -8,15 +8,9 @@ import '../widgets/dashboard/services_tab.dart';
 import '../widgets/dashboard/applications_tab.dart';
 import '../widgets/dashboard/profile_tab.dart';
 
+/// Signed-in home. The tabs read the session (token, email) from Riverpod.
 class DashboardScreen extends StatefulWidget {
-  final String token;
-  final String userEmail;
-
-  const DashboardScreen({
-    super.key,
-    required this.token,
-    required this.userEmail,
-  });
+  const DashboardScreen({super.key});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -25,11 +19,11 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
 
-  List<Widget> get _tabs => [
-    HomeDashboardTab(token: widget.token),
-    ServicesTab(token: widget.token),
-    ApplicationsTab(token: widget.token, userEmail: widget.userEmail),
-    const ProfileTab(),
+  static const List<Widget> _tabs = [
+    HomeDashboardTab(),
+    ServicesTab(),
+    ApplicationsTab(),
+    ProfileTab(),
   ];
 
   @override

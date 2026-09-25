@@ -1,39 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
-import '../../services/payment_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/payment_providers.dart';
 import '../../models/ledger.dart';
 import '../../widgets/status_badge.dart';
 
-class PaymentLedgerScreen extends StatefulWidget {
-  final String? token;
+class PaymentLedgerScreen extends ConsumerStatefulWidget {
   final String? paymentId;
 
   const PaymentLedgerScreen({
     super.key,
-    this.token,
     this.paymentId,
   });
 
   @override
-  State<PaymentLedgerScreen> createState() => _PaymentLedgerScreenState();
+  ConsumerState<PaymentLedgerScreen> createState() => _PaymentLedgerScreenState();
 }
 
-class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
-  PaymentLedger? _ledger;
-  bool _isLoading = true;
-  String? _errorMessage;
-
-  String get _effectiveToken {
-    if (widget.token != null && widget.token!.isNotEmpty) {
-      return widget.token!;
-    }
-    final routeArgs = ModalRoute.of(context)?.settings.arguments;
-    if (routeArgs is Map<String, dynamic> && routeArgs.containsKey('token')) {
-      return routeArgs['token']?.toString() ?? '';
-    }
-    return '';
-  }
+class _PaymentLedgerScreenState extends ConsumerState<PaymentLedgerScreen> {
+  AsyncValue<PaymentLedger> get _ledgerState => ref.watch(paymentLedgerProvider(_effectivePaymentId));
+  bool get _isLoading => _ledgerState.isLoading;
+  String? get _errorMessage =>
+      _ledgerState.hasError ? _ledgerState.error.toString().replaceAll('Exception: ', '') : null;
+  PaymentLedger? get _ledger => _ledgerState.value;
 
   String get _effectivePaymentId {
     if (widget.paymentId != null && widget.paymentId!.isNotEmpty) {
@@ -51,45 +41,12 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
     return '';
   }
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadLedger();
-    });
-  }
-
   Future<void> _loadLedger() async {
-    if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    final targetId = _effectivePaymentId;
-    if (targetId.isEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'No payment ID specified.';
-      });
-      return;
-    }
-
     try {
-      final service = PaymentService(_effectiveToken);
-      final ledger = await service.getLedger(targetId);
-      if (!mounted) return;
-      setState(() {
-        _ledger = ledger;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
-      });
+      ref.invalidate(paymentLedgerProvider(_effectivePaymentId));
+      await ref.read(paymentLedgerProvider(_effectivePaymentId).future);
+    } catch (_) {
+      // Shown from the provider's error state
     }
   }
 

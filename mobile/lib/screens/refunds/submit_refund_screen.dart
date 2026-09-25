@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
-import '../../services/refund_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/refund_providers.dart';
+import '../../providers/service_providers.dart';
 import 'my_refunds_screen.dart';
 
-class SubmitRefundScreen extends StatefulWidget {
-  final String token;
+class SubmitRefundScreen extends ConsumerStatefulWidget {
   final String? prefillPaymentId;
 
   const SubmitRefundScreen({
     super.key,
-    required this.token,
     this.prefillPaymentId,
   });
 
   @override
-  State<SubmitRefundScreen> createState() => _SubmitRefundScreenState();
+  ConsumerState<SubmitRefundScreen> createState() => _SubmitRefundScreenState();
 }
 
-class _SubmitRefundScreenState extends State<SubmitRefundScreen> {
+class _SubmitRefundScreenState extends ConsumerState<SubmitRefundScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _paymentIdController;
   final TextEditingController _amountController = TextEditingController();
@@ -51,13 +51,14 @@ class _SubmitRefundScreenState extends State<SubmitRefundScreen> {
     });
 
     try {
-      final service = RefundService(widget.token);
-      await service.submitRefund(
+      await ref.read(refundServiceProvider).submitRefund(
         paymentId: _paymentIdController.text.trim(),
         refundAmount: double.parse(_amountController.text.trim()),
         reason: _reasonController.text.trim(),
       );
-      if (mounted) setState(() => _submitted = true);
+      if (!mounted) return;
+      ref.invalidate(myRefundsProvider);
+      setState(() => _submitted = true);
     } catch (e) {
       if (mounted) setState(() => _errorMessage = e.toString());
     } finally {
@@ -127,8 +128,7 @@ class _SubmitRefundScreenState extends State<SubmitRefundScreen> {
                 onPressed: () {
                   Navigator.of(context).pushReplacement(
                     CupertinoPageRoute(
-                      builder: (_) =>
-                          MyRefundsScreen(token: widget.token),
+                      builder: (_) => const MyRefundsScreen(),
                     ),
                   );
                 },

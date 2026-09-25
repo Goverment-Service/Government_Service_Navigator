@@ -1,0 +1,57 @@
+import 'dart:async';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../models/refund.dart';
+import 'service_providers.dart';
+
+part 'refund_providers.g.dart';
+
+@riverpod
+Future<List<RefundRequest>> myRefunds(Ref ref) => ref.watch(refundServiceProvider).myRefunds();
+
+/// One refund request, polled every 15 seconds while a screen is watching it so the
+/// tracker moves on its own as staff approve and process the refund.
+@riverpod
+class RefundDetail extends _$RefundDetail {
+  static const _pollInterval = Duration(seconds: 15);
+
+  @override
+  Future<RefundRequest> build(String refundId) async {
+    if (refundId.isEmpty) throw Exception('No refund ID specified.');
+
+    final timer = Timer.periodic(_pollInterval, (_) => _silentRefresh());
+    ref.onDispose(timer.cancel);
+
+    final service = ref.watch(refundServiceProvider);
+    final refund = await service.getRefund(refundId);
+    // The status endpoint can be fresher than the record itself
+    try {
+      final freshStatus = await service.getRefundStatus(refundId);
+      return _withStatus(refund, freshStatus);
+    } catch (_) {
+      return refund;
+    }
+  }
+
+  /// Background poll: only replaces the data on success, never flips the screen to loading/error.
+  Future<void> _silentRefresh() async {
+    try {
+      final refund = await ref.read(refundServiceProvider).getRefund(refundId);
+      if (ref.mounted) state = AsyncData(refund);
+    } catch (_) {}
+  }
+
+  RefundRequest _withStatus(RefundRequest r, RefundStatus status) => RefundRequest(
+        id: r.id,
+        paymentId: r.paymentId,
+        refundAmount: r.refundAmount,
+        reason: r.reason,
+        status: status,
+        refundTransactionRef: r.refundTransactionRef,
+        requestedByEmail: r.requestedByEmail,
+        decidedByEmail: r.decidedByEmail,
+        decisionNote: r.decisionNote,
+        requestedDate: r.requestedDate,
+        decidedDate: r.decidedDate,
+        completedDate: r.completedDate,
+      );
+}

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../models/verification_models.dart';
 import '../../screens/verification_detail_screen.dart';
-import '../../services/verification_api_service.dart';
 import '../../theme/app_colors.dart';
 import '../../screens/payments/installment_plan_view.dart';
 import '../../screens/payments/transaction_history_screen.dart';
@@ -10,34 +9,21 @@ import '../../screens/refunds/refund_request_screen.dart';
 import '../../screens/refunds/my_refunds_screen.dart';
 import '../../screens/analytics/approval_likelihood_screen.dart';
 import '../../screens/notifications_screen.dart';
-import '../../services/notification_api_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/application_providers.dart';
+import '../../providers/session_provider.dart';
 
-class ApplicationsTab extends StatefulWidget {
-  final String? token;
-  final String? userEmail;
-
-  const ApplicationsTab({
-    super.key,
-    this.token,
-    this.userEmail,
-  });
+class ApplicationsTab extends ConsumerStatefulWidget {
+  const ApplicationsTab({super.key});
 
   @override
-  State<ApplicationsTab> createState() => _ApplicationsTabState();
+  ConsumerState<ApplicationsTab> createState() => _ApplicationsTabState();
 }
 
-class _ApplicationsTabState extends State<ApplicationsTab> {
-  List<ApplicationItemModel> _applications = [];
-  bool _isLoading = true;
+class _ApplicationsTabState extends ConsumerState<ApplicationsTab> {
   String _selectedFilter = 'All'; // 'All', 'In Review', 'Approved', 'Needs Action'
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadApplications();
-  }
 
   @override
   void dispose() {
@@ -45,44 +31,26 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
     super.dispose();
   }
 
+  List<ApplicationItemModel> get _applications => ref.watch(myApplicationsProvider).value ?? const [];
+
+  /// Reloads the applications and the notification badge.
   Future<void> _loadApplications() async {
-    setState(() => _isLoading = true);
-    final apps = await VerificationApiService.fetchApplications(token: widget.token);
-    if (mounted) {
-      setState(() {
-        _applications = apps;
-        _isLoading = false;
-      });
-    }
-    await _loadUnreadCount();
-  }
-
-  int _unreadNotifications = 0;
-
-  Future<void> _loadUnreadCount() async {
-    final token = widget.token;
-    if (token == null || token.isEmpty) return;
-    try {
-      final items = await NotificationApiService(token).fetchMine();
-      if (mounted) setState(() => _unreadNotifications = items.where((n) => !n.isRead).length);
-    } catch (_) {
-      // The badge is optional; the list still works without it
-    }
+    ref.invalidate(notificationsProvider);
+    ref.invalidate(myApplicationsProvider);
+    await ref.read(myApplicationsProvider.future);
   }
 
   Future<void> _openNotifications() async {
-    final token = widget.token;
-    if (token == null || token.isEmpty) return;
-    await Navigator.of(context).push(CupertinoPageRoute(builder: (_) => NotificationsScreen(token: token)));
+    if (!ref.read(sessionProvider).isSignedIn) return;
+    await Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const NotificationsScreen()));
     if (mounted) await _loadApplications();
   }
 
   Future<void> _openInstallments(ApplicationItemModel app) async {
-    final token = widget.token;
     final plan = app.installmentPlan;
-    if (token == null || plan == null) return;
+    if (plan == null) return;
     await Navigator.of(context).push(CupertinoPageRoute(
-      builder: (_) => InstallmentPlanView(token: token, planId: plan.planId),
+      builder: (_) => InstallmentPlanView(planId: plan.planId),
     ));
     if (mounted) await _loadApplications();
   }
@@ -163,8 +131,8 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveToken = widget.token ?? '';
-    final effectiveUserEmail = widget.userEmail ?? '';
+    final isLoading = ref.watch(myApplicationsProvider).isLoading;
+    final unreadNotifications = ref.watch(unreadNotificationCountProvider);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -184,8 +152,8 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
             tooltip: 'Notifications',
             onPressed: _openNotifications,
             icon: Badge(
-              isLabelVisible: _unreadNotifications > 0,
-              label: Text('$_unreadNotifications'),
+              isLabelVisible: unreadNotifications > 0,
+              label: Text('$unreadNotifications'),
               child: const Icon(CupertinoIcons.bell, color: AppColors.primary),
             ),
           ),
@@ -247,7 +215,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
             // 2. Application List
             Padding(
               padding: const EdgeInsets.all(16.0),
-              child: _isLoading
+              child: isLoading
                   ? const Center(child: CupertinoActivityIndicator(radius: 14))
                   : _filteredApplications.isEmpty
                       ? _buildEmptyState()
@@ -282,10 +250,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
                     onTap: () {
                       Navigator.of(context).push(
                         CupertinoPageRoute(
-                          builder: (_) => TransactionHistoryScreen(
-                            token: effectiveToken,
-                            userEmail: effectiveUserEmail,
-                          ),
+                          builder: (_) => const TransactionHistoryScreen(),
                         ),
                       );
                     },
@@ -304,9 +269,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
                     onTap: () {
                       Navigator.of(context).push(
                         CupertinoPageRoute(
-                          builder: (_) => RefundRequestScreen(
-                            token: effectiveToken,
-                          ),
+                          builder: (_) => const RefundRequestScreen(),
                         ),
                       );
                     },
@@ -321,7 +284,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
                     onTap: () {
                       Navigator.of(context).push(
                         CupertinoPageRoute(
-                          builder: (_) => MyRefundsScreen(token: effectiveToken),
+                          builder: (_) => const MyRefundsScreen(),
                         ),
                       );
                     },
@@ -340,7 +303,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
                     onTap: () {
                       Navigator.of(context).push(
                         CupertinoPageRoute(
-                          builder: (_) => ApprovalLikelihoodScreen(token: effectiveToken),
+                          builder: (_) => const ApprovalLikelihoodScreen(),
                         ),
                       );
                     },
@@ -528,7 +491,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
         final result = await Navigator.push<ApplicationItemModel>(
           context,
           CupertinoPageRoute(
-            builder: (context) => VerificationDetailScreen(application: app, token: widget.token),
+            builder: (context) => VerificationDetailScreen(application: app),
           ),
         );
         if (result != null) {

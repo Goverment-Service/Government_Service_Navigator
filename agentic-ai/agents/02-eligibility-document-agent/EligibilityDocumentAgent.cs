@@ -72,12 +72,11 @@ public class EligibilityDocumentAgent : IEligibilityDocumentAgent
         var fromCatalog = serviceChunk != null;
         var requiredDocs = fromCatalog ? serviceChunk!.RequiredDocuments : _docsTool.GetRequiredDocumentsForService(serviceId);
 
-        var providedSet = providedDocs.Where(d => !string.IsNullOrWhiteSpace(d)).Select(d => d.ToLower().Trim()).ToList();
-        var missingDocs = requiredDocs
-            .Where(req => !providedSet.Any(prov => prov.Contains(req.ToLower()) || req.ToLower().Contains(prov)))
-            .ToList();
+        var missingDocs = requiredDocs.Where(req => !providedDocs.Any(prov => DocumentMatches(req, prov))).ToList();
 
-        var isEligible = ruleResult.IsEligible && missingDocs.Count == 0;
+        // Eligibility is decided by the criteria only. Uploaded files are named freely by citizens, so documents
+        // that cannot be matched by name are flagged for the Verifying Officer instead of blocking the draft.
+        var isEligible = ruleResult.IsEligible;
         var reasoning = BuildReasoning(request.ServiceName, profile, ruleResult, requiredDocs, missingDocs, fromCatalog, isEligible);
 
         return new EligibilityPlanResponse(
@@ -89,6 +88,31 @@ public class EligibilityDocumentAgent : IEligibilityDocumentAgent
             Reasoning: reasoning,
             RetrievedContextSnippets: topContexts
         );
+    }
+
+    // Words that appear in upload labels / file names or in many document names and so prove nothing
+    private static readonly HashSet<string> GenericDocumentWords = new(StringComparer.Ordinal)
+    {
+        "required", "upload", "uploaded", "attachment", "file", "copy", "scan", "pdf", "jpg", "jpeg", "png", "doc", "docx",
+        "certificate", "card", "proof", "form", "completed", "official", "original", "letter"
+    };
+
+    /// <summary>
+    /// A provided document satisfies a requirement when they share a distinctive keyword (e.g. "passport", "birth"),
+    /// or the upload uses the requirement's initials (e.g. "nic" for National Identity Card).
+    /// </summary>
+    private static bool DocumentMatches(string required, string provided)
+    {
+        if (string.IsNullOrWhiteSpace(provided)) return false;
+
+        var allRequiredTokens = TextTokenizer.Tokenize(required);
+        var requiredTokens = allRequiredTokens.Where(t => !GenericDocumentWords.Contains(t)).ToList();
+        var providedTokens = TextTokenizer.Tokenize(provided).Where(t => !GenericDocumentWords.Contains(t)).ToList();
+
+        var initials = string.Concat(allRequiredTokens.Select(t => t[0]));
+        if (initials.Length >= 2 && providedTokens.Contains(initials)) return true;
+
+        return TextTokenizer.SharesKeyword(requiredTokens, providedTokens);
     }
 
     private static ServiceCatalogChunk? FindServiceChunk(List<string> contexts, string serviceName)
@@ -116,8 +140,8 @@ public class EligibilityDocumentAgent : IEligibilityDocumentAgent
         var documents = requiredDocs.Count == 0
             ? $"{source} lists no required documents"
             : missingDocs.Count == 0
-                ? $"all {requiredDocs.Count} documents required by {source} were provided"
-                : $"missing documents per {source}: {string.Join(", ", missingDocs)}";
+                ? $"all {requiredDocs.Count} documents required by {source} match an uploaded file"
+                : $"not matched to an upload, officer to confirm (per {source}): {string.Join(", ", missingDocs)}";
 
         return $"{(isEligible ? "Eligible" : "Not yet eligible")} for {serviceName}. {criteria}; {documents}.";
     }

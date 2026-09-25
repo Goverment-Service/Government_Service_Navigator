@@ -20,6 +20,7 @@ interface Props {
 
 const muted = { fontSize: "0.875rem", color: "#525252" } as const;
 const sectionTitle = { fontSize: "0.875rem", fontWeight: 600, margin: "1rem 0 0.5rem" } as const;
+const fullWidth = { maxWidth: "100%", width: "100%" } as const;
 
 function formatMoney(amount: number, currency = "LKR") {
   return `${currency} ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -51,14 +52,21 @@ export default function AgentDraftPanel({ draft, loading, error, answers, onRege
 
       {loading && <InlineLoading description="Running Eligibility and Action/Tool agents…" />}
       {error && !loading && (
-        <InlineNotification kind="error" title="Agent draft unavailable" subtitle={error} hideCloseButton lowContrast />
+        <InlineNotification
+          kind={draft ? "warning" : "error"}
+          title={draft ? "Re-run failed — showing the last saved draft" : "Agent draft unavailable"}
+          subtitle={error}
+          hideCloseButton
+          lowContrast
+          style={fullWidth}
+        />
       )}
 
       {eligibility && action && !loading && (
-        <Accordion align="start">
+        <Accordion align="start" className="agent-trail">
           {/* Agent 2 */}
-          <AccordionItem title="Phase 1: Eligibility Check">
-            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem" }}>
+          <AccordionItem title="Phase 1: Eligibility Check" open>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.5rem" }}>
               <Tag type={eligibility.isEligible ? "green" : "red"}>{eligibility.isEligible ? "Eligible" : "Not eligible"}</Tag>
               <Tag type="gray">{eligibility.matchPercentage}% match</Tag>
               {draft?.derivedAgeFromNic != null && <Tag type="cool-gray">Age {draft.derivedAgeFromNic} (from NIC)</Tag>}
@@ -68,7 +76,25 @@ export default function AgentDraftPanel({ draft, loading, error, answers, onRege
                 {eligibility.missingCriteria.map((c) => <li key={c}>⚠ {c}</li>)}
               </ul>
             )}
-            <p style={{ ...muted, marginTop: "0.5rem" }}>{eligibility.reasoning}</p>
+            {eligibility.requiredDocuments.length > 0 && (
+              <>
+                <h4 style={sectionTitle}>Required Documents</h4>
+                <ul style={{ fontSize: "0.875rem", display: "grid", gap: "0.375rem" }}>
+                  {eligibility.requiredDocuments.map((d) => {
+                    const unmatched = eligibility.missingDocuments.includes(d);
+                    return (
+                      <li key={d} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "0.5rem" }}>
+                        <span>{d}</span>
+                        <Tag type={unmatched ? "red" : "green"} size="sm" style={{ flexShrink: 0, margin: 0 }}>
+                          {unmatched ? "Not matched" : "Uploaded"}
+                        </Tag>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+            <p style={{ ...muted, marginTop: "0.75rem" }}>{eligibility.reasoning}</p>
           </AccordionItem>
 
           {/* Agent 3 */}
@@ -145,15 +171,22 @@ export default function AgentDraftPanel({ draft, loading, error, answers, onRege
           {/* What the officer needs to act on */}
           <AccordionItem title="Phase 3: Officer Attention" open>
             {action.isReadyForValidation ? (
-              <InlineNotification kind="success" title="Draft complete" subtitle="All required fields pre-filled; ready for validation." lowContrast hideCloseButton />
+              <InlineNotification kind="success" title="Draft complete" subtitle="All required fields pre-filled; ready for validation." lowContrast hideCloseButton style={fullWidth} />
             ) : (
               <InlineNotification
                 kind="warning"
                 title="Manual Review Recommended"
-                subtitle={action.blockers.join(" ") || "The agent could not complete the draft."}
+                subtitle={action.blockers.length > 0 ? undefined : "The agent could not complete the draft."}
                 lowContrast
                 hideCloseButton
-              />
+                style={fullWidth}
+              >
+                {action.blockers.length > 0 && (
+                  <ul style={{ listStyle: "disc", paddingLeft: "1.25rem", marginTop: "0.25rem" }}>
+                    {action.blockers.map((b) => <li key={b}>{b}</li>)}
+                  </ul>
+                )}
+              </InlineNotification>
             )}
             {action.notesForOfficer.length > 0 && (
               <ul style={{ ...muted, listStyle: "disc", paddingLeft: "1.25rem", marginTop: "0.5rem" }}>

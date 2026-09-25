@@ -20,6 +20,7 @@ import {
 import { Checkmark, Close, Document, ChevronLeft, ArrowRight, Warning } from "@carbon/icons-react";
 import AgentDraftPanel from "./AgentDraftPanel";
 import { getAgentDraft, generateAgentDraft, type AgentDraftView } from "./agentDraftApi";
+import { ApiError } from "../utils/api";
 
 interface TaskDetail {
   task: {
@@ -66,6 +67,18 @@ export default function VerificationWorkspace() {
     setCurrentDocIndex(0);
   };
 
+  // Backend returns { message, details } on agent failures; show the details so the officer knows what went wrong
+  const describeAgentError = (e: unknown) => {
+    const fallback = "The AI agents could not prepare a draft for this application.";
+    if (!(e instanceof ApiError)) return fallback;
+    try {
+      const body = JSON.parse(e.message);
+      return body.details ? `${fallback} ${body.details}` : fallback;
+    } catch {
+      return e.status === 404 ? e.message : fallback;
+    }
+  };
+
   // Agent 2 + Agent 3 output: load the stored draft, or run the agents the first time the task is opened
   useEffect(() => {
     if (!taskId) return;
@@ -75,7 +88,7 @@ export default function VerificationWorkspace() {
         applyAgentDraft(stored ?? await generateAgentDraft(taskId));
       } catch (e) {
         console.error("Failed to load agent draft", e);
-        setAgentError("The AI agents could not prepare a draft for this application.");
+        setAgentError(describeAgentError(e));
       } finally {
         setAgentLoading(false);
       }
@@ -91,7 +104,7 @@ export default function VerificationWorkspace() {
       applyAgentDraft(await generateAgentDraft(taskId));
     } catch (e) {
       console.error("Failed to re-run agents", e);
-      setAgentError("The AI agents could not prepare a draft for this application.");
+      setAgentError(describeAgentError(e));
     } finally {
       setAgentLoading(false);
     }

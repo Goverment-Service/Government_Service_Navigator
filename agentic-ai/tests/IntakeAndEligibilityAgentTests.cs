@@ -75,7 +75,7 @@ namespace Government_Service_Navigator.AgenticAi.Tests
         }
 
         [Fact]
-        public async Task Eligibility_UsesCatalogDocuments_AndReportsMissingOnes()
+        public async Task Eligibility_UsesCatalogDocuments_FlagsUnmatchedOnes_WithoutBlocking()
         {
             _retriever.Chunks.AddRange(new[] { VehicleChunk, PassportChunk });
             var agent = new EligibilityDocumentAgent(_retriever, new StubEmbeddingService(), new CheckEligibilityRulesTool(), new GetDocumentRequirementsTool());
@@ -83,9 +83,9 @@ namespace Government_Service_Navigator.AgenticAi.Tests
             var result = await agent.EvaluateEligibilityAsync(new EligibilityPlanRequest(
                 "Passport Renewal & Application",
                 ServiceId: 1,
-                Profile: new CitizenProfile { Age = 30, ProvidedDocuments = new() { "National Identity Card", "Old Passport" } }));
+                Profile: new CitizenProfile { Age = 30, ProvidedDocuments = new() { "Required Document Upload: nic_front.jpg", "Required Document Upload: old passport.pdf" } }));
 
-            Assert.False(result.IsEligible);
+            Assert.True(result.IsEligible);
             Assert.Equal(new[] { "National Identity Card", "Old Passport", "Birth Certificate" }, result.RequiredDocuments);
             Assert.Equal(new[] { "Birth Certificate" }, result.MissingDocuments);
         }

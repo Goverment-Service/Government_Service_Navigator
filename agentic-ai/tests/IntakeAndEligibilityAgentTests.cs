@@ -36,6 +36,13 @@ namespace Government_Service_Navigator.AgenticAi.Tests
                 => Task.FromResult(Chunks);
         }
 
+        private class StubDocumentRepository : IDocumentRequirementRepository
+        {
+            public List<string> Names { get; } = new();
+            public Task<List<string>> GetDocumentNamesAsync(int serviceProcedureId, CancellationToken cancellationToken = default)
+                => Task.FromResult(Names);
+        }
+
         private readonly StubRetriever _retriever = new();
 
         [Fact]
@@ -78,7 +85,7 @@ namespace Government_Service_Navigator.AgenticAi.Tests
         public async Task Eligibility_UsesCatalogDocuments_FlagsUnmatchedOnes_WithoutBlocking()
         {
             _retriever.Chunks.AddRange(new[] { VehicleChunk, PassportChunk });
-            var agent = new EligibilityDocumentAgent(_retriever, new StubEmbeddingService(), new CheckEligibilityRulesTool(), new GetDocumentRequirementsTool());
+            var agent = new EligibilityDocumentAgent(_retriever, new StubEmbeddingService(), new CheckEligibilityRulesTool(), new GetDocumentRequirementsTool(new StubDocumentRepository()));
 
             var result = await agent.EvaluateEligibilityAsync(new EligibilityPlanRequest(
                 "Passport Renewal & Application",
@@ -88,6 +95,23 @@ namespace Government_Service_Navigator.AgenticAi.Tests
             Assert.True(result.IsEligible);
             Assert.Equal(new[] { "National Identity Card", "Old Passport", "Birth Certificate" }, result.RequiredDocuments);
             Assert.Equal(new[] { "Birth Certificate" }, result.MissingDocuments);
+        }
+
+        [Fact]
+        public async Task Eligibility_ServiceNotVectorized_UsesCatalogRequirements_AndMatchesUploadByLabel()
+        {
+            var repository = new StubDocumentRepository();
+            repository.Names.Add("NIC");
+            var agent = new EligibilityDocumentAgent(_retriever, new StubEmbeddingService(), new CheckEligibilityRulesTool(), new GetDocumentRequirementsTool(repository));
+
+            var result = await agent.EvaluateEligibilityAsync(new EligibilityPlanRequest(
+                "Debug",
+                ServiceId: 15,
+                Profile: new CitizenProfile { Age = 21, ProvidedDocuments = new() { "NIC: Test.jpg" } }));
+
+            Assert.Equal(new[] { "NIC" }, result.RequiredDocuments);
+            Assert.Empty(result.MissingDocuments);
+            Assert.Equal(100, result.MatchPercentage);
         }
     }
 }

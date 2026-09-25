@@ -61,23 +61,26 @@ public class EligibilityDocumentAgent : IEligibilityDocumentAgent
         }
         catch
         {
-            // Vector DB unavailable — fall back to the document requirements tool below
+            // Vector DB unavailable — the document requirements tool below reads the catalog directly
             topContexts = new List<string> { "Vector DB unavailable; document requirements tool fallback applied." };
         }
 
         // 2. Rules tool: age / citizenship criteria
         var ruleResult = _rulesTool.EvaluateRules(serviceId, profile.Age, profile.CitizenshipStatus);
 
-        // 3. Required documents: catalog chunk first, generic requirements tool otherwise
-        var fromCatalog = serviceChunk != null;
-        var requiredDocs = fromCatalog ? serviceChunk!.RequiredDocuments : _docsTool.GetRequiredDocumentsForService(serviceId);
+        // 3. Required documents: vector DB catalog chunk first; if the service isn't vectorized (not seeded yet),
+        //    read the catalog directly with the get_document_requirements tool
+        var fromVectorDb = serviceChunk != null;
+        var requiredDocs = fromVectorDb
+            ? serviceChunk!.RequiredDocuments
+            : await _docsTool.GetRequiredDocumentsForServiceAsync(serviceId, cancellationToken);
 
         var missingDocs = requiredDocs.Where(req => !providedDocs.Any(prov => DocumentMatches(req, prov))).ToList();
 
         // Eligibility is decided by the criteria only. Uploaded files are named freely by citizens, so documents
         // that cannot be matched by name are flagged for the Verifying Officer instead of blocking the draft.
         var isEligible = ruleResult.IsEligible;
-        var reasoning = BuildReasoning(request.ServiceName, profile, ruleResult, requiredDocs, missingDocs, fromCatalog, isEligible);
+        var reasoning = BuildReasoning(request.ServiceName, profile, ruleResult, requiredDocs, missingDocs, fromVectorDb, isEligible);
 
         return new EligibilityPlanResponse(
             IsEligible: isEligible,
@@ -129,14 +132,14 @@ public class EligibilityDocumentAgent : IEligibilityDocumentAgent
         EligibilityRuleResult ruleResult,
         List<string> requiredDocs,
         List<string> missingDocs,
-        bool fromCatalog,
+        bool fromVectorDb,
         bool isEligible)
     {
         var criteria = ruleResult.MissingCriteria.Count == 0
             ? $"The applicant meets the age ({profile.Age}) and citizenship ({profile.CitizenshipStatus}) criteria"
             : $"Criteria not met: {string.Join(" ", ruleResult.MissingCriteria)}";
 
-        var source = fromCatalog ? "the service catalog" : "the standard document requirements";
+        var source = fromVectorDb ? "the service catalog (vector DB)" : "the service catalog";
         var documents = requiredDocs.Count == 0
             ? $"{source} lists no required documents"
             : missingDocs.Count == 0

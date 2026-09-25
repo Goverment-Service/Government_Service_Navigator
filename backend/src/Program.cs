@@ -113,6 +113,7 @@ builder.Services.AddScoped<IEligibilityDocumentAgent, EligibilityDocumentAgent>(
 builder.Services.AddScoped<IAgent2WorkflowOrchestrator, Agent2WorkflowOrchestrator>();
 builder.Services.AddScoped<ICheckEligibilityRulesTool, CheckEligibilityRulesTool>();
 builder.Services.AddScoped<IGetDocumentRequirementsTool, GetDocumentRequirementsTool>();
+builder.Services.AddScoped<IDocumentRequirementRepository, DocumentRequirementRepository>();
 builder.Services.AddScoped<IIntakePlanningAgent, IntakePlanningAgent>();
 builder.Services.AddScoped<IFeeScheduleRepository, FeeScheduleRepository>();
 builder.Services.AddScoped<IApplicationTemplateRepository, ApplicationTemplateRepository>();

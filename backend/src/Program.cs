@@ -224,6 +224,49 @@ using (var scope = app.Services.CreateScope())
             context.SaveChanges();
             Console.WriteLine("Seeded mock VerificationTasks into the database.");
         }
+
+        // Seed mock ServiceProcedures if empty so Services tab is populated!
+        if (!context.ServiceProcedures.Any())
+        {
+            context.ServiceProcedures.AddRange(
+                new Government_Service_Navigator.Backend.Models.Entities.ServiceProcedure
+                {
+                    ServiceId = "GSN-SRV-001",
+                    Name = "Passport Renewal & Application",
+                    Category = "Identity",
+                    Status = "Active",
+                    FeeSchedules = new List<Government_Service_Navigator.Backend.Models.Entities.FeeSchedule>
+                    {
+                        new() { FeeType = "Standard Processing", Amount = 10000 }
+                    }
+                },
+                new Government_Service_Navigator.Backend.Models.Entities.ServiceProcedure
+                {
+                    ServiceId = "GSN-SRV-002",
+                    Name = "Small Business Registration",
+                    Category = "Commerce",
+                    Status = "Active",
+                    FeeSchedules = new List<Government_Service_Navigator.Backend.Models.Entities.FeeSchedule>
+                    {
+                        new() { FeeType = "Registration Fee", Amount = 5500 }
+                    }
+                },
+                new Government_Service_Navigator.Backend.Models.Entities.ServiceProcedure
+                {
+                    ServiceId = "GSN-SRV-003",
+                    Name = "Driving License Renewal",
+                    Category = "Transport",
+                    Status = "Active",
+                    FeeSchedules = new List<Government_Service_Navigator.Backend.Models.Entities.FeeSchedule>
+                    {
+                        new() { FeeType = "Renewal Fee", Amount = 3500 }
+                    }
+                }
+            );
+            context.SaveChanges();
+            Console.WriteLine("Seeded mock ServiceProcedures into the database.");
+        }
+
     }
     catch (Exception ex)
     {

@@ -73,6 +73,53 @@ namespace Government_Service_Navigator.Backend.Controllers
             return (name, email ?? string.Empty);
         }
 
+        private const long MaxDocumentBytes = 10 * 1024 * 1024;
+
+        // Uploads one supporting document (PDF / JPEG / PNG, max 10 MB) for a "file" field. The returned id is
+        // sent in SubmitApplicationRequest.Documents; unattached uploads are never shown to officers.
+        [HttpPost("documents")]
+        [RequestSizeLimit(MaxDocumentBytes + 64 * 1024)]
+        public async Task<IActionResult> UploadDocument([FromForm] UploadDocumentRequest request)
+        {
+            var file = request.File;
+            var nic = User.FindFirstValue("nicNumber");
+            if (string.IsNullOrWhiteSpace(nic)) return Forbid();
+
+            if (file == null || file.Length == 0) return BadRequest(new { message = "Choose a file to upload." });
+            if (file.Length > MaxDocumentBytes) return BadRequest(new { message = "Files must be 10 MB or smaller." });
+
+            using var buffer = new MemoryStream();
+            await file.CopyToAsync(buffer);
+            var content = buffer.ToArray();
+
+            // Decide the type from the file's bytes, not the client-supplied header
+            var contentType = DetectContentType(content);
+            if (contentType == null) return BadRequest(new { message = "Only PDF, JPEG and PNG files are accepted." });
+
+            var document = new SubmissionDocument
+            {
+                FieldLabel = request.FieldLabel?.Trim() ?? string.Empty,
+                FileName = Path.GetFileName(file.FileName),
+                ContentType = contentType,
+                SizeBytes = content.LongLength,
+                Content = content,
+                UploaderNic = nic,
+                UploadedAt = DateTime.UtcNow
+            };
+            _context.SubmissionDocuments.Add(document);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { id = document.Id, fileName = document.FileName, contentType, sizeBytes = document.SizeBytes });
+        }
+
+        private static string? DetectContentType(byte[] c)
+        {
+            if (c.Length >= 4 && c[0] == 0x25 && c[1] == 0x50 && c[2] == 0x44 && c[3] == 0x46) return "application/pdf"; // %PDF
+            if (c.Length >= 3 && c[0] == 0xFF && c[1] == 0xD8 && c[2] == 0xFF) return "image/jpeg";
+            if (c.Length >= 8 && c[0] == 0x89 && c[1] == 0x50 && c[2] == 0x4E && c[3] == 0x47) return "image/png";
+            return null;
+        }
+
         [HttpPost("submit")]
         public async Task<IActionResult> Submit([FromBody] SubmitApplicationRequest request)
         {
@@ -81,6 +128,18 @@ namespace Government_Service_Navigator.Backend.Controllers
 
             var service = await _context.ServiceProcedures.FindAsync(request.ServiceProcedureId);
             if (service == null || service.Status == "Retired") return NotFound("Service not found.");
+
+            // Uploaded documents: must belong to the caller and not already be attached to another application
+            var documentIds = request.Documents.Values.Distinct().ToList();
+            var documents = await _context.SubmissionDocuments
+                .Where(d => documentIds.Contains(d.Id) && d.UploaderNic == nic && d.ApplicationId == null)
+                .ToDictionaryAsync(d => d.Id);
+            if (documents.Count != documentIds.Count)
+                return BadRequest(new { message = "One or more uploaded documents are invalid. Please upload them again." });
+
+            // The stored answer for a file field is the uploaded file's name
+            foreach (var (label, id) in request.Documents)
+                request.Answers[label] = documents[id].FileName;
 
             if (request.TemplateId.HasValue)
             {
@@ -115,6 +174,13 @@ namespace Government_Service_Navigator.Backend.Controllers
             };
             _context.ApplicationSubmissions.Add(submission);
             await _context.SaveChangesAsync();
+
+            foreach (var (label, id) in request.Documents)
+            {
+                documents[id].ApplicationId = submission.Id;
+                documents[id].FieldLabel = label;
+            }
+            if (documents.Count > 0) await _context.SaveChangesAsync();
 
             var task = await _verificationService.CreateTaskAsync(new CreateTaskRequest
             {

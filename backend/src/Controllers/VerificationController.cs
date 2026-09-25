@@ -140,13 +140,35 @@ namespace Government_Service_Navigator.Backend.Controllers
                 catch (JsonException) { }
             }
 
+            // Metadata only; the officer fetches each file's bytes from documents/{id}/content
+            var documents = await _context.SubmissionDocuments
+                .Where(d => d.ApplicationId == task.ApplicationId)
+                .OrderBy(d => d.UploadedAt)
+                .Select(d => new { d.Id, d.FieldLabel, d.FileName, d.ContentType, d.SizeBytes, d.UploadedAt })
+                .ToListAsync();
+
             return Ok(new
             {
                 task = summary,
                 submittedAt = submission?.SubmittedAt,
                 userEmail = submission?.UserEmail,
-                answers
+                answers,
+                documents
             });
+        }
+
+        // The file a citizen uploaded, streamed with its detected content type for in-browser preview.
+        [Authorize(Roles = OfficerRoles)]
+        [HttpGet("documents/{documentId:guid}/content")]
+        public async Task<IActionResult> GetDocumentContent(Guid documentId)
+        {
+            var document = await _context.SubmissionDocuments
+                .FirstOrDefaultAsync(d => d.Id == documentId && d.ApplicationId != null);
+            if (document == null) return NotFound("Document not found.");
+
+            // No file name here so the browser shows it inline instead of downloading it
+            Response.Headers["X-Content-Type-Options"] = "nosniff";
+            return File(document.Content, document.ContentType);
         }
 
         // Agent 3 (Action/Tool Agent) draft for the task's application: pre-filled fields, fee,

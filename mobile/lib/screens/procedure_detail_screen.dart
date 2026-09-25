@@ -67,12 +67,27 @@ class _ProcedureDetailScreenState extends State<ProcedureDetailScreen> {
             'Required Documents',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
+          if (docs.isNotEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 4, bottom: 4),
+              child: Text(
+                'You will upload these in the application form after tapping Apply Now.',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+            ),
           ...docs.map<Widget>(
-            (doc) => CheckboxListTile(
+            (doc) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.description_outlined),
               title: Text(doc['documentName']),
-              subtitle: Text(doc['description'] ?? ''),
-              value: doc['isMandatory'],
-              onChanged: (val) {},
+              subtitle: (doc['description'] ?? '').toString().isEmpty ? null : Text(doc['description']),
+              trailing: Text(
+                doc['isMandatory'] == true ? 'Required' : 'Optional',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: doc['isMandatory'] == true ? Colors.red.shade700 : Colors.grey,
+                ),
+              ),
             ),
           ),
           const Divider(height: 30),

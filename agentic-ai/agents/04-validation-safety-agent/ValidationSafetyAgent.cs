@@ -76,7 +76,7 @@ namespace Government_Service_Navigator.AgenticAi.Agents.ValidationSafety
                 try
                 {
                     // Calls the decoupled interface instead of the backend service directly
-                    taskId = await _taskEnqueuer.EnqueueTaskAsync(draft.ApplicationId, "AGENT-04-VALIDATION-SAFETY");
+                    taskId = await _taskEnqueuer.EnqueueTaskAsync(draft.ApplicationId, draft.CitizenNic, "AGENT-04-VALIDATION-SAFETY");
                 }
                 catch
                 {

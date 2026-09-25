@@ -63,6 +63,10 @@ interface TaskData {
   createdDate: string;
   status: string;
   comments?: string;
+  referenceNumber?: string;
+  citizenName?: string | null;
+  citizenNic?: string | null;
+  serviceName?: string | null;
   [key: string]: unknown;
 }
 
@@ -104,9 +108,9 @@ export default function VerifiedRecords() {
         const mappedRows = data.map((t: TaskData) => {
           return {
             id: t.id.toString(),
-            appId: `GSN-2026-${t.applicationId}`,
-            citizen: `User ${t.applicationId}`,
-            service: 'General Verification',
+            appId: t.referenceNumber ?? `APP-${t.applicationId}`,
+            citizen: t.citizenName || t.citizenNic || 'Unknown citizen',
+            service: t.serviceName || 'Unknown service',
             dateVerified: new Date(t.createdDate).toISOString().split('T')[0],
             status: t.status,
             comments: t.comments || ''

@@ -11,7 +11,9 @@ import '../../screens/eligibility_self_check_screen.dart';
 
 
 class HomeDashboardTab extends StatefulWidget {
-  const HomeDashboardTab({super.key});
+  final String? token;
+
+  const HomeDashboardTab({super.key, this.token});
 
   @override
   State<HomeDashboardTab> createState() => _HomeDashboardTabState();
@@ -32,7 +34,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
   }
 
   Future<void> _fetchApplications() async {
-    final apps = await VerificationApiService.fetchApplications();
+    final apps = await VerificationApiService.fetchApplications(token: widget.token);
     if (mounted) {
       setState(() {
         applications = apps;
@@ -227,6 +229,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
                                         MaterialPageRoute(
                                           builder: (context) => ProcedureDetailScreen(
                                             serviceId: service['id'] ?? 1,
+                                            token: widget.token,
                                           ),
                                         ),
                                       );
@@ -503,7 +506,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ServiceDiscoveryScreen(initialCategory: catTitle),
+                  builder: (context) => ServiceDiscoveryScreen(initialCategory: catTitle, token: widget.token),
                 ),
               );
             },

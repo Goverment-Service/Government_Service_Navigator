@@ -13,11 +13,12 @@ public class VerificationTaskEnqueuerService : IVerificationTaskEnqueuer
         _verificationService = verificationService;
     }
 
-    public async Task<int> EnqueueTaskAsync(int applicationId, string agentId)
+    public async Task<int> EnqueueTaskAsync(int applicationId, string citizenNic, string agentId)
     {
         var task = await _verificationService.CreateTaskAsync(new CreateTaskRequest
         {
-            ApplicationId = applicationId
+            ApplicationId = applicationId,
+            CitizenNic = citizenNic
         }, agentId);
 
         return task.Id;

@@ -25,8 +25,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
 
   List<Widget> get _tabs => [
-    const HomeDashboardTab(),
-    const ServicesTab(),
+    HomeDashboardTab(token: widget.token),
+    ServicesTab(token: widget.token),
     ApplicationsTab(token: widget.token, userEmail: widget.userEmail),
     const ProfileTab(),
   ];

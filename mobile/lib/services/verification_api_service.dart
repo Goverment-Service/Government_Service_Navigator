@@ -17,31 +17,27 @@ class VerificationApiService {
     return 'http://localhost:5119/api/verification';
   }
 
-  /// Fetches citizen applications from the backend verification tasks
+  /// Fetches the signed-in citizen's own applications (scoped server-side by the token's NIC)
   static Future<List<ApplicationItemModel>> fetchApplications({String? token}) async {
+    if (token == null || token.isEmpty) return [];
+
     try {
-      final headers = <String, String>{'Content-Type': 'application/json'};
-      if (token != null && token.isNotEmpty) {
-        headers['Authorization'] = 'Bearer $token';
-      }
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
 
-      final pendingResponse = await http
-          .get(Uri.parse('$baseUrl/tasks/pending'), headers: headers)
-          .timeout(const Duration(seconds: 4));
-
-      final verifiedResponse = await http
-          .get(Uri.parse('$baseUrl/tasks/verified'), headers: headers)
+      final response = await http
+          .get(Uri.parse('$baseUrl/my-applications'), headers: headers)
           .timeout(const Duration(seconds: 4));
 
       List<dynamic> backendTasks = [];
 
-      if (pendingResponse.statusCode == 200) {
-        final data = jsonDecode(pendingResponse.body);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
         if (data is List) backendTasks.addAll(data);
-      }
-      if (verifiedResponse.statusCode == 200) {
-        final data = jsonDecode(verifiedResponse.body);
-        if (data is List) backendTasks.addAll(data);
+      } else if (kDebugMode) {
+        debugPrint('VerificationApiService: my-applications request failed (${response.statusCode})');
       }
 
       return backendTasks

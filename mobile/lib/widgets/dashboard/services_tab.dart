@@ -2,18 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
 import '../../services/service_api_client.dart';
-import '../../screens/procedure_detail_screen.dart';
+import '../../screens/department_services_screen.dart';
+import '../category_card.dart';
 
 class ServicesTab extends StatefulWidget {
-  const ServicesTab({super.key});
+  final String token;
+
+  const ServicesTab({super.key, required this.token});
 
   @override
   State<ServicesTab> createState() => _ServicesTabState();
 }
 
 class _ServicesTabState extends State<ServicesTab> {
-  List services = [];
+  /// Services grouped by their department (the service's `category`).
+  Map<String, List<Map<String, dynamic>>> departments = {};
   bool isLoading = true;
+  String? error;
 
   @override
   void initState() {
@@ -22,14 +27,31 @@ class _ServicesTabState extends State<ServicesTab> {
   }
 
   Future<void> _fetchServices() async {
+    setState(() {
+      isLoading = true;
+      error = null;
+    });
     try {
       final data = await ServiceApiClient.fetchServices();
+      final grouped = <String, List<Map<String, dynamic>>>{};
+      for (final service in data.whereType<Map<String, dynamic>>()) {
+        if (service['status'] == 'Retired') continue;
+        final category = (service['category'] as String?)?.trim();
+        final key = (category == null || category.isEmpty) ? 'General' : category;
+        grouped.putIfAbsent(key, () => []).add(service);
+      }
+      final sortedKeys = grouped.keys.toList()..sort();
+      if (!mounted) return;
       setState(() {
-        services = data;
+        departments = {for (final k in sortedKeys) k: grouped[k]!};
         isLoading = false;
       });
     } catch (e) {
-      setState(() => isLoading = false);
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        error = 'Could not load services. Pull down to retry.';
+      });
     }
   }
 
@@ -38,115 +60,73 @@ class _ServicesTabState extends State<ServicesTab> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Service Catalog'),
+        title: const Text('Departments'),
         backgroundColor: AppColors.cardBg,
         elevation: 0,
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : services.isEmpty
-              ? const Center(child: Text('No services found in database.'))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16.0),
-                  itemCount: services.length,
-                  itemBuilder: (context, index) {
-                    final service = services[index];
-                    final fees = service['feeSchedules'] ?? [];
-                    final feeString = fees.isNotEmpty ? 'LKR ${fees[0]['amount']}' : 'Free';
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12.0),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ProcedureDetailScreen(serviceId: service['id']),
-                            ),
-                          );
-                        },
-                        child: _buildServiceItem(
-                          title: service['name'] ?? 'Untitled Service',
-                          category: service['category'] ?? 'General',
-                          fee: feeString,
-                          icon: CupertinoIcons.briefcase,
-                        ),
+          : RefreshIndicator(
+              onRefresh: _fetchServices,
+              child: departments.isEmpty
+                  ? ListView(
+                      children: [
+                        const SizedBox(height: 120),
+                        Center(child: Text(error ?? 'No services found in database.')),
+                      ],
+                    )
+                  : GridView.builder(
+                      padding: const EdgeInsets.all(16.0),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 14,
+                        crossAxisSpacing: 14,
+                        childAspectRatio: 1.05,
                       ),
-                    );
-                  },
-                ),
+                      itemCount: departments.length,
+                      itemBuilder: (context, index) {
+                        final name = departments.keys.elementAt(index);
+                        final services = departments[name]!;
+                        return CategoryCard(
+                          title: '$name\n${services.length} service${services.length == 1 ? '' : 's'}',
+                          icon: departmentIcon(name),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              CupertinoPageRoute(
+                                builder: (context) => DepartmentServicesScreen(
+                                  department: name,
+                                  services: services,
+                                  token: widget.token,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+            ),
     );
   }
+}
 
-  Widget _buildServiceItem({
-    required String title,
-    required String category,
-    required String fee,
-    required IconData icon,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.cardBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.divider, width: 0.8),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: AppColors.primary, size: 24),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.dark,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  category,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.secondaryLabel,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                fee,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Icon(
-                CupertinoIcons.chevron_right,
-                size: 16,
-                color: AppColors.secondaryLabel,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+/// Best-effort icon for a department name; falls back to a generic building.
+IconData departmentIcon(String department) {
+  final d = department.toLowerCase();
+  if (d.contains('health') || d.contains('medical')) return CupertinoIcons.heart;
+  if (d.contains('educat') || d.contains('school')) return CupertinoIcons.book;
+  if (d.contains('transport') || d.contains('motor') || d.contains('vehicle') || d.contains('licen')) {
+    return CupertinoIcons.car_detailed;
   }
+  if (d.contains('immigra') || d.contains('passport') || d.contains('travel')) return CupertinoIcons.airplane;
+  if (d.contains('registr') || d.contains('identity') || d.contains('civil') || d.contains('birth')) {
+    return CupertinoIcons.person_crop_rectangle;
+  }
+  if (d.contains('land') || d.contains('property') || d.contains('housing')) return CupertinoIcons.house;
+  if (d.contains('tax') || d.contains('revenue') || d.contains('finance')) return CupertinoIcons.money_dollar_circle;
+  if (d.contains('police') || d.contains('legal') || d.contains('justice')) return CupertinoIcons.shield;
+  if (d.contains('business') || d.contains('trade') || d.contains('commerce')) return CupertinoIcons.briefcase;
+  if (d.contains('welfare') || d.contains('social')) return CupertinoIcons.person_3;
+  return CupertinoIcons.building_2_fill;
 }

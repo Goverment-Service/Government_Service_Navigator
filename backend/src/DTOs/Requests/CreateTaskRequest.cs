@@ -6,5 +6,7 @@ namespace Government_Service_Navigator.Backend.DTOs.Requests
     {
         [Required(ErrorMessage = "ApplicationId is required.")]
         public int ApplicationId { get; set; }
+
+        public string? CitizenNic { get; set; }
     }
 }

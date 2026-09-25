@@ -63,6 +63,10 @@ interface PendingTaskItem {
   applicationId: number;
   createdDate: string;
   status: string;
+  referenceNumber?: string;
+  citizenName?: string | null;
+  citizenNic?: string | null;
+  serviceName?: string | null;
   [key: string]: unknown;
 }
 
@@ -91,9 +95,9 @@ export default function PendingReviews() {
           const ageDays = Math.floor((Date.now() - new Date(t.createdDate).getTime()) / (1000 * 3600 * 24));
           return {
             id: t.id.toString(),
-            appId: `GSN-2026-${t.applicationId}`,
-            citizen: `User ${t.applicationId}`,
-            service: "General Verification",
+            appId: t.referenceNumber ?? `APP-${t.applicationId}`,
+            citizen: t.citizenName || t.citizenNic || "Unknown citizen",
+            service: t.serviceName || "Unknown service",
             reason: t.status === "Pending" ? "Awaiting Review" : t.status,
             days: `${ageDays} Days`,
             status: t.status === "Pending" ? "Action Required" : t.status

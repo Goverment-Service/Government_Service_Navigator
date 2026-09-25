@@ -31,6 +31,7 @@ namespace Government_Service_Navigator.Backend.Data.Context
         public DbSet<ServiceUsageStat> ServiceUsageStats { get; set; }
         public DbSet<ReportSnapshot> ReportSnapshots { get; set; }
         public DbSet<AnomalyFlag> AnomalyFlags { get; set; }
+        public DbSet<ApplicationSubmission> ApplicationSubmissions { get; set; }
     
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -21,6 +21,21 @@ import {
 } from "@carbon/react";
 import { Checkmark, Close, Document, ChevronLeft, ArrowRight, Warning } from "@carbon/icons-react";
 
+interface TaskDetail {
+  task: {
+    id: number;
+    applicationId: number;
+    status: string;
+    referenceNumber: string;
+    citizenName?: string | null;
+    citizenNic?: string | null;
+    serviceName?: string | null;
+  };
+  submittedAt?: string | null;
+  userEmail?: string | null;
+  answers: Record<string, string>;
+}
+
 export default function VerificationWorkspace() {
   const { taskId } = useParams();
   const navigate = useNavigate();
@@ -30,6 +45,29 @@ export default function VerificationWorkspace() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
   const [rejectionReasons, setRejectionReasons] = useState<{id: number, code: string, description: string}[]>([]);
+  const [detail, setDetail] = useState<TaskDetail | null>(null);
+  const [detailError, setDetailError] = useState("");
+
+  useEffect(() => {
+    if (!taskId) return;
+    const fetchDetail = async () => {
+      try {
+        const token = localStorage.getItem("officerToken");
+        const response = await fetch(`http://localhost:5119/api/Verification/tasks/${taskId}`, {
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+        });
+        if (response.ok) {
+          setDetail(await response.json());
+        } else {
+          setDetailError(response.status === 404 ? "Application not found." : "Failed to load application.");
+        }
+      } catch (e) {
+        console.error("Failed to fetch task detail", e);
+        setDetailError("Failed to load application.");
+      }
+    };
+    fetchDetail();
+  }, [taskId]);
 
   useEffect(() => {
     const fetchReasons = async () => {
@@ -87,7 +125,7 @@ export default function VerificationWorkspace() {
     const token = localStorage.getItem("officerToken");
 
     try {
-      const response = await fetch(`http://localhost:5119/api/Verification/tasks/${taskId || 1}/decision`, {
+      const response = await fetch(`http://localhost:5119/api/Verification/tasks/${taskId}/decision`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -187,8 +225,35 @@ export default function VerificationWorkspace() {
                 
                 <h2 style={{ fontSize: '1.75rem', fontWeight: 300, marginBottom: '0.5rem' }}>Application Review</h2>
                 <div style={{ marginBottom: '2rem' }}>
-                  <p style={{ fontSize: '0.875rem', color: '#525252' }}>App ID: <strong>GSN-2026-9102</strong></p>
-                  <p style={{ fontSize: '0.875rem', color: '#525252' }}>Citizen: <strong>Amila Kumara</strong></p>
+                  <p style={{ fontSize: '0.875rem', color: '#525252' }}>App ID: <strong>{detail?.task.referenceNumber ?? "—"}</strong></p>
+                  <p style={{ fontSize: '0.875rem', color: '#525252' }}>Citizen: <strong>{detail?.task.citizenName || "—"}</strong>{detail?.task.citizenNic ? ` (${detail.task.citizenNic})` : ""}</p>
+                  <p style={{ fontSize: '0.875rem', color: '#525252' }}>Service: <strong>{detail?.task.serviceName || "—"}</strong></p>
+                  {detail?.submittedAt && (
+                    <p style={{ fontSize: '0.875rem', color: '#525252' }}>Submitted: <strong>{new Date(detail.submittedAt).toLocaleString()}</strong></p>
+                  )}
+                </div>
+
+                {detailError && (
+                  <InlineNotification kind="error" title="Error" subtitle={detailError} hideCloseButton lowContrast style={{ marginBottom: '1rem' }} />
+                )}
+
+                {/* Citizen's submitted form answers */}
+                <div style={{ backgroundColor: '#fff', padding: '1rem', border: '1px solid #e0e0e0', marginBottom: '2rem' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>Submitted Application</h3>
+                  {detail && Object.keys(detail.answers).length > 0 ? (
+                    <dl style={{ display: 'grid', gridTemplateColumns: 'minmax(8rem, 40%) 1fr', gap: '0.5rem 1rem', fontSize: '0.875rem' }}>
+                      {Object.entries(detail.answers).map(([label, value]) => (
+                        <div key={label} style={{ display: 'contents' }}>
+                          <dt style={{ color: '#525252' }}>{label}</dt>
+                          <dd style={{ fontWeight: 500, wordBreak: 'break-word' }}>{value || "—"}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : (
+                    <p style={{ fontSize: '0.875rem', color: '#525252' }}>
+                      {detail ? "No form answers were submitted with this application." : "Loading…"}
+                    </p>
+                  )}
                 </div>
 
                 {/* Agent Reasoning Trail Viewer */}

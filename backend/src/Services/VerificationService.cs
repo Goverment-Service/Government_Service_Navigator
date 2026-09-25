@@ -25,7 +25,8 @@ namespace Government_Service_Navigator.Backend.Services
                 {
                     ApplicationId = request.ApplicationId,
                     Status = "Pending",
-                    CreatedDate = DateTime.UtcNow
+                    CreatedDate = DateTime.UtcNow,
+                    CitizenNic = request.CitizenNic
                 };
 
                 _context.VerificationTasks.Add(task);
@@ -212,6 +213,14 @@ namespace Government_Service_Navigator.Backend.Services
         {
             return await _context.VerificationTasks
                 .Where(t => t.Status == "Approved" || t.Status == "Rejected")
+                .OrderByDescending(t => t.CreatedDate)
+                .ToListAsync();
+        }
+
+        public async Task<List<VerificationTask>> GetTasksForCitizenAsync(string citizenNic)
+        {
+            return await _context.VerificationTasks
+                .Where(t => t.CitizenNic == citizenNic)
                 .OrderByDescending(t => t.CreatedDate)
                 .ToListAsync();
         }

@@ -4,7 +4,8 @@ import 'procedure_detail_screen.dart';
 
 class ServiceDiscoveryScreen extends StatefulWidget {
   final String initialCategory;
-  const ServiceDiscoveryScreen({super.key, this.initialCategory = 'All'});
+  final String? token;
+  const ServiceDiscoveryScreen({super.key, this.initialCategory = 'All', this.token});
 
   @override
   State<ServiceDiscoveryScreen> createState() => _ServiceDiscoveryScreenState();
@@ -126,7 +127,7 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => ProcedureDetailScreen(serviceId: service['id']),
+                                    builder: (context) => ProcedureDetailScreen(serviceId: service['id'], token: widget.token),
                                   ),
                                 );
                               },

@@ -6,10 +6,12 @@ import '../theme/app_colors.dart';
 
 class VerificationDetailScreen extends StatefulWidget {
   final ApplicationItemModel application;
+  final String? token;
 
   const VerificationDetailScreen({
     super.key,
     required this.application,
+    this.token,
   });
 
   @override
@@ -28,7 +30,7 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
 
   Future<void> _refresh() async {
     setState(() => _isRefreshing = true);
-    final apps = await VerificationApiService.fetchApplications();
+    final apps = await VerificationApiService.fetchApplications(token: widget.token);
     final updated = apps.firstWhere(
       (a) => a.applicationId == _app.applicationId,
       orElse: () => _app,

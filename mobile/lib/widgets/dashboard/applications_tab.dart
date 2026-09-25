@@ -47,7 +47,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
 
   Future<void> _loadApplications() async {
     setState(() => _isLoading = true);
-    final apps = await VerificationApiService.fetchApplications();
+    final apps = await VerificationApiService.fetchApplications(token: widget.token);
     if (mounted) {
       setState(() {
         _applications = apps;
@@ -488,7 +488,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
         final result = await Navigator.push<ApplicationItemModel>(
           context,
           CupertinoPageRoute(
-            builder: (context) => VerificationDetailScreen(application: app),
+            builder: (context) => VerificationDetailScreen(application: app, token: widget.token),
           ),
         );
         if (result != null) {

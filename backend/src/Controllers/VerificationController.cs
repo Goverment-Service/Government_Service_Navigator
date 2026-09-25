@@ -1,7 +1,11 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using Government_Service_Navigator.Backend.Data.Context;
 using Government_Service_Navigator.Backend.DTOs.Requests;
+using Government_Service_Navigator.Backend.Models.Entities;
 using Government_Service_Navigator.Backend.Services.Interfaces;
 
 namespace Government_Service_Navigator.Backend.Controllers
@@ -11,11 +15,56 @@ namespace Government_Service_Navigator.Backend.Controllers
     [Authorize] // Require JWT token
     public class VerificationController : ControllerBase
     {
-        private readonly IVerificationService _verificationService;
+        // Every staff role that can sign in to the web portal; citizens ("User") are excluded.
+        private const string OfficerRoles =
+            "Verifying Officer,Department Admin,Auditor,Finance Officer,Officer,Admin,System Admin";
 
-        public VerificationController(IVerificationService verificationService)
+        private readonly IVerificationService _verificationService;
+        private readonly AppDbContext _context;
+
+        public VerificationController(IVerificationService verificationService, AppDbContext context)
         {
             _verificationService = verificationService;
+            _context = context;
+        }
+
+        // Officer queue rows: each task joined to its submitted application, service and citizen.
+        private async Task<List<object>> WithApplicationDetailsAsync(List<VerificationTask> tasks)
+        {
+            var appIds = tasks.Select(t => t.ApplicationId).ToList();
+            var submissions = await _context.ApplicationSubmissions
+                .Where(s => appIds.Contains(s.Id))
+                .Select(s => new { s.Id, s.CitizenNic, ServiceName = s.ServiceProcedure!.Name, s.ServiceProcedure.Category })
+                .ToDictionaryAsync(s => s.Id);
+
+            var nics = submissions.Values.Select(s => s.CitizenNic)
+                .Concat(tasks.Select(t => t.CitizenNic ?? string.Empty))
+                .Where(n => n != string.Empty)
+                .Distinct()
+                .ToList();
+            var names = await _context.Users
+                .Where(u => nics.Contains(u.NicNumber))
+                .GroupBy(u => u.NicNumber)
+                .Select(g => new { Nic = g.Key, g.First().FullName })
+                .ToDictionaryAsync(u => u.Nic, u => u.FullName);
+
+            return tasks.Select(t =>
+            {
+                submissions.TryGetValue(t.ApplicationId, out var s);
+                var nic = s?.CitizenNic ?? t.CitizenNic;
+                return (object)new
+                {
+                    t.Id,
+                    t.ApplicationId,
+                    t.Status,
+                    t.CreatedDate,
+                    ReferenceNumber = $"APP-{t.ApplicationId}",
+                    CitizenNic = nic,
+                    CitizenName = nic != null && names.TryGetValue(nic, out var name) ? name : null,
+                    ServiceName = s?.ServiceName,
+                    Category = s?.Category
+                };
+            }).ToList();
         }
 
         // The "sub" JWT claim is inbound-mapped to ClaimTypes.NameIdentifier by the JWT bearer
@@ -23,20 +72,78 @@ namespace Government_Service_Navigator.Backend.Controllers
         private string GetCurrentOfficerId() =>
             User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.Identity?.Name ?? "Unknown";
 
+        // Citizen view: only the applications submitted under the caller's own NIC.
+        [HttpGet("my-applications")]
+        public async Task<IActionResult> GetMyApplications()
+        {
+            var nic = User.FindFirstValue("nicNumber");
+            if (string.IsNullOrWhiteSpace(nic)) return Ok(Array.Empty<object>());
+
+            var tasks = await _verificationService.GetTasksForCitizenAsync(nic);
+
+            // Attach the service name/department from the citizen's submissions so the app can label each entry.
+            var appIds = tasks.Select(t => t.ApplicationId).ToList();
+            var services = await _context.ApplicationSubmissions
+                .Where(s => appIds.Contains(s.Id) && s.CitizenNic == nic)
+                .Select(s => new { s.Id, s.ServiceProcedure!.Name, s.ServiceProcedure.Category })
+                .ToDictionaryAsync(s => s.Id);
+
+            return Ok(tasks.Select(t => new
+            {
+                t.Id,
+                t.ApplicationId,
+                t.Status,
+                t.CreatedDate,
+                ReferenceNumber = $"APP-{t.ApplicationId}",
+                ServiceName = services.TryGetValue(t.ApplicationId, out var s) ? s.Name : null,
+                Category = s?.Category
+            }));
+        }
+
+        [Authorize(Roles = OfficerRoles)]
         [HttpGet("tasks/pending")]
         public async Task<IActionResult> GetPendingTasks()
         {
             var tasks = await _verificationService.GetPendingTasksAsync();
-            return Ok(tasks);
+            return Ok(await WithApplicationDetailsAsync(tasks));
         }
 
+        [Authorize(Roles = OfficerRoles)]
         [HttpGet("tasks/verified")]
         public async Task<IActionResult> GetVerifiedTasks()
         {
             var tasks = await _verificationService.GetVerifiedTasksAsync();
-            return Ok(tasks);
+            return Ok(await WithApplicationDetailsAsync(tasks));
         }
 
+        // Review workspace: the task plus the citizen's submitted form answers.
+        [Authorize(Roles = OfficerRoles)]
+        [HttpGet("tasks/{id:int}")]
+        public async Task<IActionResult> GetTaskDetail(int id)
+        {
+            var task = await _context.VerificationTasks.FindAsync(id);
+            if (task == null) return NotFound();
+
+            var summary = (await WithApplicationDetailsAsync(new List<VerificationTask> { task }))[0];
+            var submission = await _context.ApplicationSubmissions.FindAsync(task.ApplicationId);
+
+            Dictionary<string, string> answers = new();
+            if (submission != null)
+            {
+                try { answers = JsonSerializer.Deserialize<Dictionary<string, string>>(submission.FormDataJson) ?? new(); }
+                catch (JsonException) { }
+            }
+
+            return Ok(new
+            {
+                task = summary,
+                submittedAt = submission?.SubmittedAt,
+                userEmail = submission?.UserEmail,
+                answers
+            });
+        }
+
+        [Authorize(Roles = OfficerRoles)]
         [HttpGet("stats")]
         public async Task<IActionResult> GetOfficerStats()
         {
@@ -44,6 +151,7 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(stats);
         }
 
+        [Authorize(Roles = OfficerRoles)]
         [HttpPost("tasks")]
         public async Task<IActionResult> CreateVerificationTask([FromBody] CreateTaskRequest request)
         {
@@ -51,6 +159,7 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(task);
         }
 
+        [Authorize(Roles = OfficerRoles)]
         [HttpGet("audit-logs")]
         public async Task<IActionResult> GetAuditLogs([FromQuery] int applicationId)
         {
@@ -58,6 +167,7 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(logs);
         }
 
+        [Authorize(Roles = OfficerRoles)]
         [HttpGet("audit-logs/all")]
         public async Task<IActionResult> GetAllAuditLogs()
         {
@@ -65,6 +175,7 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(logs);
         }
 
+        [Authorize(Roles = OfficerRoles)]
         [HttpPut("tasks/{id}/decision")]
         public async Task<IActionResult> RecordDecision(int id, [FromBody] VerificationDecisionRequest request)
         {
@@ -74,6 +185,7 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok();
         }
 
+        [Authorize(Roles = OfficerRoles)]
         [HttpDelete("tasks/{id}")]
         public async Task<IActionResult> DeleteTask(int id)
         {
@@ -83,6 +195,7 @@ namespace Government_Service_Navigator.Backend.Controllers
             return NoContent();
         }
 
+        [Authorize(Roles = OfficerRoles)]
         [HttpPost("tasks/bulk-verify")]
         public async Task<IActionResult> BulkVerify([FromBody] BulkVerifyRequest request)
         {
@@ -91,6 +204,7 @@ namespace Government_Service_Navigator.Backend.Controllers
             if (!result) return BadRequest("Bulk verification failed");
             return Ok();
         }
+        [Authorize(Roles = OfficerRoles)]
         [HttpGet("rejection-reasons")]
         public async Task<IActionResult> GetRejectionReasons()
         {
@@ -98,6 +212,7 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(reasons);
         }
 
+        [Authorize(Roles = OfficerRoles)]
         [HttpPost("rejection-reasons")]
         public async Task<IActionResult> CreateRejectionReason([FromBody] Government_Service_Navigator.Backend.Models.Entities.RejectionReason reason)
         {
@@ -105,6 +220,7 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(created);
         }
 
+        [Authorize(Roles = OfficerRoles)]
         [HttpPut("rejection-reasons/{id}")]
         public async Task<IActionResult> UpdateRejectionReason(int id, [FromBody] Government_Service_Navigator.Backend.Models.Entities.RejectionReason reason)
         {
@@ -113,6 +229,7 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok();
         }
 
+        [Authorize(Roles = OfficerRoles)]
         [HttpDelete("rejection-reasons/{id}")]
         public async Task<IActionResult> DeleteRejectionReason(int id)
         {

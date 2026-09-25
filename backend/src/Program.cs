@@ -123,7 +123,7 @@ builder.Services.AddScoped<IActionVectorRetriever, ActionVectorRetrieverService>
 builder.Services.AddScoped<IActionToolAgent, ActionToolAgent>();
 builder.Services.AddScoped<IAgent3WorkflowOrchestrator, Agent3WorkflowOrchestrator>();
 builder.Services.AddScoped<IApplicationDraftingService, ApplicationDraftingService>();
-builder.Services.AddHttpClient<IGenerativeAiService, GeminiAiService>();
+builder.Services.AddSingleton<IEmbeddingService, LocalEmbeddingService>();
 
 
 

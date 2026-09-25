@@ -1,21 +1,27 @@
 using System;
 using System.Collections.Generic;
-using System.Text.Json;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Pgvector;
 
 namespace AgenticAi.Agents.IntakePlanningAgent;
 
+/// <summary>
+/// Agent 1 — matches the citizen's need to a service using the vector DB only.
+/// The plan is built from the matched catalog chunk; no external LLM is called.
+/// </summary>
 public class IntakePlanningAgent : IIntakePlanningAgent
 {
-    private readonly IVectorRetriever _retriever;
-    private readonly IGenerativeAiService _aiService;
+    private const string NotFound = "Service Not Found";
 
-    public IntakePlanningAgent(IVectorRetriever retriever, IGenerativeAiService aiService)
+    private readonly IVectorRetriever _retriever;
+    private readonly IEmbeddingService _embeddingService;
+
+    public IntakePlanningAgent(IVectorRetriever retriever, IEmbeddingService embeddingService)
     {
         _retriever = retriever;
-        _aiService = aiService;
+        _embeddingService = embeddingService;
     }
 
     public async Task<IntakePlanResponse> GeneratePlanAsync(
@@ -23,85 +29,43 @@ public class IntakePlanningAgent : IIntakePlanningAgent
         CancellationToken cancellationToken = default)
     {
         // 1. Vectorize user query
-        Vector queryEmbedding = await _aiService.GetEmbeddingAsync(request.UserNeedDescription);
+        Vector queryEmbedding = await _embeddingService.GetEmbeddingAsync(request.UserNeedDescription);
 
-        // 2. Retrieve top matching knowledge chunks
+        // 2. Retrieve top matching knowledge chunks (ordered by cosine distance)
         var topResults = await _retriever.GetRelevantContextAsync(queryEmbedding, 3, cancellationToken);
-        var retrievedContext = string.Join("\n\n---\n\n", topResults);
-        // 3. System prompt instructing strict JSON output and fallback logic
-        var systemPrompt = $$"""
-            You are a Government Service Intake Assistant.
-            Using ONLY the provided documentation, analyze the citizen's need.
-            
-            CRITICAL RULE: Vector search may return loosely related documents. You must evaluate if the [OFFICIAL DOCUMENTATION] actually answers the [USER REQUEST]. 
-            If the documentation does NOT match the request (e.g., they ask for Passports, but documentation is only about Vehicles or Land), you MUST reject it.
 
-            Respond strictly in valid raw JSON with NO markdown wrappers (do not use ```json).
+        // 3. Vector search always returns something, so only accept a chunk whose service name/category
+        //    shares a keyword with the request (e.g. a passport request must not match Vehicle Registration)
+        var queryTokens = TextTokenizer.Tokenize(request.UserNeedDescription);
+        var match = topResults
+            .Select(ServiceCatalogChunk.TryParse)
+            .FirstOrDefault(chunk => chunk != null && TextTokenizer.SharesKeyword(queryTokens, chunk.KeywordTokens()));
 
-            If the documentation MATCHES the request:
-            {
-              "recommendedService": "Name of the government procedure",
-              "requiredDocuments": ["Document 1", "Document 2"],
-              "stepByStepPlan": [
-                "Step 1: Description",
-                "Step 2: Description"
-              ]
-            }
-
-            If the documentation DOES NOT MATCH the request:
-            {
-              "recommendedService": "Service Not Found",
-              "requiredDocuments": [],
-              "stepByStepPlan": [
-                "We currently do not offer services matching your request in our system. Please contact the main helpdesk."
-              ]
-            }
-
-            [OFFICIAL DOCUMENTATION]
-            {{retrievedContext}}
-
-            [USER REQUEST]
-            {{request.UserNeedDescription}}
-            """;
-
-
-        // 4. Generate structured response
-        var rawResponse = await _aiService.GenerateTextAsync(systemPrompt);
-
-        // Sanitize any potential markdown tags returned by the model
-        var cleanedJson = rawResponse
-            .Replace("```json", "", StringComparison.OrdinalIgnoreCase)
-            .Replace("```", "")
-            .Trim();
-
-        try
+        if (match == null)
         {
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var parsed = JsonSerializer.Deserialize<AgentStructuredOutput>(cleanedJson, options);
-
             return new IntakePlanResponse(
-                RecommendedService: parsed?.RecommendedService ?? "General Procedure",
-                RequiredDocuments: parsed?.RequiredDocuments ?? new List<string>(),
-                StepByStepPlan: parsed?.StepByStepPlan ?? new List<string> { rawResponse },
-                RetrievedContextSnippets: topResults
-            );
-        }
-        catch
-        {
-            // Fallback if parsing fails
-            return new IntakePlanResponse(
-                RecommendedService: "Government Service Request",
+                RecommendedService: NotFound,
                 RequiredDocuments: new List<string>(),
-                StepByStepPlan: new List<string> { rawResponse },
-                RetrievedContextSnippets: topResults
-            );
+                StepByStepPlan: new List<string>
+                {
+                    "We currently do not offer services matching your request in our system. Please contact the main helpdesk."
+                },
+                RetrievedContextSnippets: topResults);
         }
-    }
 
-    private class AgentStructuredOutput
-    {
-        public string? RecommendedService { get; set; }
-        public List<string>? RequiredDocuments { get; set; }
-        public List<string>? StepByStepPlan { get; set; }
+        // 4. Build the plan from the matched catalog entry
+        var steps = new List<string>();
+        steps.Add(match.RequiredDocuments.Count > 0
+            ? $"Step {steps.Count + 1}: Gather the required documents: {string.Join(", ", match.RequiredDocuments)}."
+            : $"Step {steps.Count + 1}: No specific documents are required for this service.");
+        steps.Add($"Step {steps.Count + 1}: Submit an application for {match.ServiceName} through the portal.");
+        steps.Add($"Step {steps.Count + 1}: Pay the applicable fees: {match.FeeText}.");
+        steps.Add($"Step {steps.Count + 1}: Track your application status until a Verifying Officer completes the review.");
+
+        return new IntakePlanResponse(
+            RecommendedService: match.ServiceName,
+            RequiredDocuments: match.RequiredDocuments,
+            StepByStepPlan: steps,
+            RetrievedContextSnippets: topResults);
     }
 }

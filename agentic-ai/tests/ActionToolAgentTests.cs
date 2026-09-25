@@ -38,17 +38,14 @@ namespace Government_Service_Navigator.AgenticAi.Tests
                 => Task.FromResult(new List<string> { "Fee schedule for Passport Renewal: Standard Processing: LKR 10,000.00." });
         }
 
-        private class StubAiService : IGenerativeAiService
+        private class StubEmbeddingService : IEmbeddingService
         {
-            public string? Response { get; set; }
             public Task<Vector> GetEmbeddingAsync(string text) => Task.FromResult(new Vector(new float[768]));
-            public Task<string> GenerateTextAsync(string prompt)
-                => Response == null ? throw new InvalidOperationException("AI unavailable") : Task.FromResult(Response);
         }
 
         private readonly StubFeeRepository _fees = new();
         private readonly StubTemplateRepository _templates = new();
-        private readonly StubAiService _ai = new();
+        private readonly StubEmbeddingService _embeddings = new();
         private readonly ActionToolAgent _agent;
 
         public ActionToolAgentTests()
@@ -56,7 +53,7 @@ namespace Government_Service_Navigator.AgenticAi.Tests
             FindAppointmentSlotTool.ClearProposedSlots();
             _agent = new ActionToolAgent(
                 new StubRetriever(),
-                _ai,
+                _embeddings,
                 new CalculateFeeTool(_fees),
                 new FindAppointmentSlotTool(),
                 new PrefillApplicationTool(_templates));
@@ -129,15 +126,15 @@ namespace Government_Service_Navigator.AgenticAi.Tests
         }
 
         [Fact]
-        public async Task Guardrail_ModelValueNotInCitizenData_IsDiscarded()
+        public async Task UnsuppliedRequiredField_StaysEmpty_AndOfficialContextIsReturned()
         {
             _templates.Fields.Add(new FormFieldDefinition("Business Name", "text", true, 0));
-            _ai.Response = """{ "additionalFieldValues": { "Business Name": "Invented Holdings" }, "notesForOfficer": [], "reasoning": "ok" }""";
 
             var result = await _agent.PrepareDraftAsync(BuildRequest());
 
             Assert.DoesNotContain("Business Name", result.Draft!.FormFields.Keys);
             Assert.False(result.IsReadyForValidation);
+            Assert.Contains("Fee schedule for Passport Renewal: Standard Processing: LKR 10,000.00.", result.RetrievedContextSnippets);
         }
 
         [Fact]

@@ -1,49 +1,28 @@
 import '../theme/app_colors.dart';
 import 'package:flutter/material.dart';
-import '../services/service_api_client.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/catalog_providers.dart';
+import '../providers/session_provider.dart';
 import 'eligibility_self_check_screen.dart';
 import 'application_form_screen.dart';
 
-class ProcedureDetailScreen extends StatefulWidget {
+class ProcedureDetailScreen extends ConsumerWidget {
   final int serviceId;
-  final String? token;
-  const ProcedureDetailScreen({super.key, required this.serviceId, this.token});
+  const ProcedureDetailScreen({super.key, required this.serviceId});
 
   @override
-  State<ProcedureDetailScreen> createState() => _ProcedureDetailScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final details = ref.watch(serviceDetailsProvider(serviceId));
+    final isSignedIn = ref.watch(sessionProvider.select((s) => s.isSignedIn));
 
-class _ProcedureDetailScreenState extends State<ProcedureDetailScreen> {
-  Map<String, dynamic>? serviceDetails;
-  bool isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    fetchDetails();
-  }
-
-  void fetchDetails() async {
-    try {
-      final data = await ServiceApiClient.fetchServiceDetails(widget.serviceId);
-      setState(() {
-        serviceDetails = data;
-        isLoading = false;
-      });
-    } catch (e) {
-      setState(() => isLoading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading) {
+    if (details.isLoading) {
       return Scaffold(
         appBar: AppBar(),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
+    final serviceDetails = details.value;
     if (serviceDetails == null) {
       return Scaffold(
         appBar: AppBar(),
@@ -51,16 +30,16 @@ class _ProcedureDetailScreenState extends State<ProcedureDetailScreen> {
       );
     }
 
-    final docs = serviceDetails!['documentRequirements'] ?? [];
-    final fees = serviceDetails!['feeSchedules'] ?? [];
+    final docs = serviceDetails['documentRequirements'] ?? [];
+    final fees = serviceDetails['feeSchedules'] ?? [];
 
     return Scaffold(
-      appBar: AppBar(title: Text(serviceDetails!['name'])),
+      appBar: AppBar(title: Text(serviceDetails['name'])),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
           Text(
-            'Service ID: ${serviceDetails!['serviceId']}',
+            'Service ID: ${serviceDetails['serviceId']}',
             style: const TextStyle(color: AppColors.secondaryLabel),
           ),
           const SizedBox(height: 10),
@@ -103,7 +82,7 @@ class _ProcedureDetailScreenState extends State<ProcedureDetailScreen> {
             ),
           ),
           const SizedBox(height: 30),
-          if (widget.token != null) ...[
+          if (isSignedIn) ...[
             ElevatedButton.icon(
               icon: const Icon(Icons.edit_document),
               label: const Text('Apply Now'),
@@ -117,10 +96,9 @@ class _ProcedureDetailScreenState extends State<ProcedureDetailScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => ApplicationFormScreen(
-                      serviceId: widget.serviceId,
+                      serviceId: serviceId,
                       serviceName:
-                          serviceDetails!['name'] ?? 'Government Service',
-                      token: widget.token!,
+                          serviceDetails['name'] ?? 'Government Service',
                     ),
                   ),
                 );
@@ -136,9 +114,9 @@ class _ProcedureDetailScreenState extends State<ProcedureDetailScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (context) => EligibilitySelfCheckScreen(
-                    serviceId: widget.serviceId,
+                    serviceId: serviceId,
                     serviceName:
-                        serviceDetails!['name'] ?? 'Government Service',
+                        serviceDetails['name'] ?? 'Government Service',
                   ),
                 ),
               );

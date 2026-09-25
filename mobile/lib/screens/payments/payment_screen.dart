@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
-import '../../services/payment_service.dart';
-import '../../services/installment_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/application_providers.dart';
+import '../../providers/payment_providers.dart';
+import '../../providers/service_providers.dart';
+import '../../providers/session_provider.dart';
 import 'checkout_webview_screen.dart';
 import 'installment_plan_view.dart';
 
-class PaymentScreen extends StatefulWidget {
-  final String? token;
+class PaymentScreen extends ConsumerStatefulWidget {
+  /// Overrides the signed-in user's email on the receipt.
   final String? userEmail;
   final String? applicationId;
   final double? amount;
@@ -17,7 +20,6 @@ class PaymentScreen extends StatefulWidget {
 
   const PaymentScreen({
     super.key,
-    this.token,
     this.userEmail,
     this.applicationId,
     this.amount,
@@ -25,10 +27,10 @@ class PaymentScreen extends StatefulWidget {
   });
 
   @override
-  State<PaymentScreen> createState() => _PaymentScreenState();
+  ConsumerState<PaymentScreen> createState() => _PaymentScreenState();
 }
 
-class _PaymentScreenState extends State<PaymentScreen> {
+class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   bool _isLoading = false;
   String? _resultMessage;
   bool _isSuccess = false;
@@ -42,17 +44,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   int _paymentMethodIndex = 0; // 0 = Full Payment, 1 = Installment Plan
   int _selectedInstallments = 3; // 2, 3, 4, 6 months
 
-  String get _effectiveToken {
-    if (widget.token != null && widget.token!.isNotEmpty) {
-      return widget.token!;
-    }
-    final routeArgs = ModalRoute.of(context)?.settings.arguments;
-    if (routeArgs is Map<String, dynamic> && routeArgs.containsKey('token')) {
-      return routeArgs['token']?.toString() ?? '';
-    }
-    return '';
-  }
-
   String get _effectiveUserEmail {
     if (widget.userEmail != null && widget.userEmail!.isNotEmpty) {
       return widget.userEmail!;
@@ -61,7 +52,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (routeArgs is Map<String, dynamic> && routeArgs.containsKey('userEmail')) {
       return routeArgs['userEmail']?.toString() ?? '';
     }
-    return '';
+    return ref.read(sessionProvider).email;
   }
 
   String get _effectiveAppId {
@@ -88,6 +79,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return 0.0;
   }
 
+  /// Payments and application statuses shown elsewhere change once money moves.
+  void _invalidatePaymentData() {
+    ref.invalidate(myPaymentsProvider);
+    ref.invalidate(myApplicationsProvider);
+  }
+
   Future<void> _onPayNowPressed() async {
     if (!mounted) return;
     if (_effectiveAppId.isEmpty || _effectiveAmount <= 0) {
@@ -109,7 +106,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
 
     try {
-      final service = PaymentService(_effectiveToken);
+      final service = ref.read(paymentServiceProvider);
       final response = await service.checkout(
         applicationId: _effectiveAppId,
         amount: _effectiveAmount,
@@ -187,10 +184,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
 
     try {
-      final service = PaymentService(_effectiveToken);
+      final service = ref.read(paymentServiceProvider);
       final payment = await service.confirmPayment(paymentId);
 
       if (!mounted) return;
+      _invalidatePaymentData();
       final statusStr = payment.status ?? 'Pending';
       final isPaid = statusStr.toLowerCase() == 'paid' || statusStr.toLowerCase() == 'completed';
 
@@ -245,14 +243,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
 
     try {
-      final paymentService = PaymentService(_effectiveToken);
+      final paymentService = ref.read(paymentServiceProvider);
       final response = await paymentService.checkout(
         applicationId: _effectiveAppId,
         amount: _effectiveAmount,
         userEmail: _effectiveUserEmail,
       );
 
-      final installmentService = InstallmentService(_effectiveToken);
+      final installmentService = ref.read(installmentServiceProvider);
       final plan = await installmentService.createInstallmentPlan(
         response.paymentId,
         numberOfInstallments: _selectedInstallments,
@@ -260,6 +258,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
 
       if (!mounted) return;
+      _invalidatePaymentData();
       setState(() {
         _isLoading = false;
         _paymentId = response.paymentId;
@@ -268,7 +267,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
       await Navigator.of(context).push(
         CupertinoPageRoute(
           builder: (_) => InstallmentPlanView(
-            token: _effectiveToken,
             planId: plan.id.toString(),
             paymentId: response.paymentId,
           ),

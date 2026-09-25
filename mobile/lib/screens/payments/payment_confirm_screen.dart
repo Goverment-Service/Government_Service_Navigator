@@ -1,48 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
-import '../../services/payment_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/payment_providers.dart';
 import '../../models/payment.dart';
 import 'payment_ledger_screen.dart';
 
-class PaymentConfirmScreen extends StatefulWidget {
-  final String token;
+class PaymentConfirmScreen extends ConsumerStatefulWidget {
   final String paymentId;
   final String? checkoutUrl;
 
   const PaymentConfirmScreen({
     super.key,
-    required this.token,
     required this.paymentId,
     this.checkoutUrl,
   });
 
   @override
-  State<PaymentConfirmScreen> createState() => _PaymentConfirmScreenState();
+  ConsumerState<PaymentConfirmScreen> createState() => _PaymentConfirmScreenState();
 }
 
-class _PaymentConfirmScreenState extends State<PaymentConfirmScreen> {
-  Payment? _payment;
-  bool _isLoading = true;
-  String? _errorMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPayment();
-  }
-
-  Future<void> _loadPayment() async {
-    try {
-      final service = PaymentService(widget.token);
-      final payment = await service.confirmPayment(widget.paymentId);
-      if (mounted) setState(() => _payment = payment);
-    } catch (e) {
-      if (mounted) setState(() => _errorMessage = e.toString());
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
+class _PaymentConfirmScreenState extends ConsumerState<PaymentConfirmScreen> {
+  AsyncValue<Payment> get _paymentState => ref.watch(paymentConfirmationProvider(widget.paymentId));
+  bool get _isLoading => _paymentState.isLoading;
+  String? get _errorMessage => _paymentState.hasError ? _paymentState.error.toString() : null;
+  Payment? get _payment => _paymentState.value;
 
   Color _statusColor(String? status) {
     switch (status?.toLowerCase()) {
@@ -98,13 +80,7 @@ class _PaymentConfirmScreenState extends State<PaymentConfirmScreen> {
             ),
             const SizedBox(height: 20),
             CupertinoButton.filled(
-              onPressed: () {
-                setState(() {
-                  _isLoading = true;
-                  _errorMessage = null;
-                });
-                _loadPayment();
-              },
+              onPressed: () => ref.invalidate(paymentConfirmationProvider(widget.paymentId)),
               child: const Text('Retry'),
             ),
           ],
@@ -215,7 +191,6 @@ class _PaymentConfirmScreenState extends State<PaymentConfirmScreen> {
                 Navigator.of(context).push(
                   CupertinoPageRoute(
                     builder: (_) => PaymentLedgerScreen(
-                      token: widget.token,
                       paymentId: p.id,
                     ),
                   ),

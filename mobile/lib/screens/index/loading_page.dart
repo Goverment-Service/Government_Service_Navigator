@@ -5,18 +5,19 @@ import 'landing_page.dart';
 import '../../theme/glass_theme.dart';
 import '../../theme/app_colors.dart';
 import '../login_page.dart';
-import '../../services/onboarding_prefs.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/auth_provider.dart';
 
 /// Splash screen: calm light backdrop, a frosted emblem card with a soft light sweep,
 /// a slowly rotating navy ring, and a navy progress bar. Then routes to onboarding or login.
-class LoadingPage extends StatefulWidget {
+class LoadingPage extends ConsumerStatefulWidget {
   const LoadingPage({super.key});
 
   @override
-  State<LoadingPage> createState() => _LoadingPageState();
+  ConsumerState<LoadingPage> createState() => _LoadingPageState();
 }
 
-class _LoadingPageState extends State<LoadingPage> with TickerProviderStateMixin {
+class _LoadingPageState extends ConsumerState<LoadingPage> with TickerProviderStateMixin {
   static const _splashDuration = Duration(milliseconds: 2800);
   static const _accent = GlassTheme.accentGradient;
   static const _statusMessages = [
@@ -43,7 +44,7 @@ class _LoadingPageState extends State<LoadingPage> with TickerProviderStateMixin
   /// First launch: slides → terms → sign up. After the user has signed up or logged in once: login page.
   Future<void> _navigateNext() async {
     final results = await Future.wait([
-      OnboardingPrefs.isCompleted(),
+      ref.read(onboardingCompletedProvider.future),
       Future.delayed(_splashDuration),
     ]);
     if (!mounted) return;

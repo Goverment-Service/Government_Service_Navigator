@@ -1,61 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
-import '../../services/refund_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/refund_providers.dart';
 import '../../models/refund.dart';
 import '../../widgets/status_badge.dart';
 import 'refund_detail_screen.dart';
 import 'refund_request_screen.dart';
 
-class MyRefundsScreen extends StatefulWidget {
-  final String? token;
-
-  const MyRefundsScreen({super.key, this.token});
+class MyRefundsScreen extends ConsumerStatefulWidget {
+  const MyRefundsScreen({super.key});
 
   @override
-  State<MyRefundsScreen> createState() => _MyRefundsScreenState();
+  ConsumerState<MyRefundsScreen> createState() => _MyRefundsScreenState();
 }
 
-class _MyRefundsScreenState extends State<MyRefundsScreen> {
-  List<RefundRequest> _refunds = [];
-  bool _isLoading = true;
-  String? _errorMessage;
-
-  String get _effectiveToken {
-    if (widget.token != null && widget.token!.isNotEmpty) {
-      return widget.token!;
-    }
-    final routeArgs = ModalRoute.of(context)?.settings.arguments;
-    if (routeArgs is Map<String, dynamic> && routeArgs.containsKey('token')) {
-      return routeArgs['token']?.toString() ?? '';
-    }
-    return '';
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadRefunds();
-    });
-  }
+class _MyRefundsScreenState extends ConsumerState<MyRefundsScreen> {
+  AsyncValue<List<RefundRequest>> get _refundsState => ref.watch(myRefundsProvider);
+  bool get _isLoading => _refundsState.isLoading;
+  String? get _errorMessage =>
+      _refundsState.hasError ? _refundsState.error.toString().replaceAll('Exception: ', '') : null;
+  List<RefundRequest> get _refunds => _refundsState.value ?? const [];
 
   Future<void> _loadRefunds() async {
-    if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
     try {
-      final service = RefundService(_effectiveToken);
-      final list = await service.myRefunds();
-      if (mounted) setState(() => _refunds = list);
-    } catch (e) {
-      if (mounted) {
-        setState(() => _errorMessage = e.toString().replaceAll('Exception: ', ''));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      ref.invalidate(myRefundsProvider);
+      await ref.read(myRefundsProvider.future);
+    } catch (_) {
+      // Shown from the provider's error state
     }
   }
 
@@ -78,7 +50,7 @@ class _MyRefundsScreenState extends State<MyRefundsScreen> {
             onPressed: () async {
               await Navigator.of(context).push(
                 CupertinoPageRoute(
-                  builder: (_) => RefundRequestScreen(token: _effectiveToken),
+                  builder: (_) => const RefundRequestScreen(),
                 ),
               );
               if (mounted) _loadRefunds();
@@ -235,7 +207,6 @@ class _MyRefundsScreenState extends State<MyRefundsScreen> {
                   Navigator.of(context).push(
                     CupertinoPageRoute(
                       builder: (_) => RefundDetailScreen(
-                        token: _effectiveToken,
                         refundId: r.id,
                       ),
                     ),

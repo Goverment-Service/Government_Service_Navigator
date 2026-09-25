@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 //import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/session_provider.dart';
 import '../theme/app_colors.dart';
 import '../screens/login_page.dart';
 
-class AppDrawer extends StatelessWidget {
+class AppDrawer extends ConsumerWidget {
+  /// Forces the signed-in menu; otherwise it follows the current session.
   final bool isAuthenticated;
 
   const AppDrawer({super.key, this.isAuthenticated = false});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isAuthenticated = this.isAuthenticated || ref.watch(sessionProvider).isSignedIn;
+
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -111,6 +116,7 @@ class AppDrawer extends StatelessWidget {
               title: const Text('Log Out',
                   style: TextStyle(color: AppColors.danger)),
               onTap: () {
+                ref.read(sessionProvider.notifier).signOut();
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(
                     builder: (_) => const LoginPage(),

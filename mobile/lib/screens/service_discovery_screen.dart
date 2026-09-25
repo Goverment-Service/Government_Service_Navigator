@@ -1,20 +1,17 @@
 import 'package:flutter/material.dart';
-import '../services/service_api_client.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/catalog_providers.dart';
 import 'procedure_detail_screen.dart';
 
-class ServiceDiscoveryScreen extends StatefulWidget {
+class ServiceDiscoveryScreen extends ConsumerStatefulWidget {
   final String initialCategory;
-  final String? token;
-  const ServiceDiscoveryScreen({super.key, this.initialCategory = 'All', this.token});
+  const ServiceDiscoveryScreen({super.key, this.initialCategory = 'All'});
 
   @override
-  State<ServiceDiscoveryScreen> createState() => _ServiceDiscoveryScreenState();
+  ConsumerState<ServiceDiscoveryScreen> createState() => _ServiceDiscoveryScreenState();
 }
 
-class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
-  List services = [];
-  List filteredServices = [];
-  bool isLoading = true;
+class _ServiceDiscoveryScreenState extends ConsumerState<ServiceDiscoveryScreen> {
   String searchQuery = '';
   late String selectedCategory;
 
@@ -24,38 +21,14 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
   void initState() {
     super.initState();
     selectedCategory = widget.initialCategory;
-    loadServices();
   }
 
-  void loadServices() async {
-    try {
-      final data = await ServiceApiClient.fetchServices();
-      setState(() {
-        services = data;
-        applyFilters();
-        isLoading = false;
-      });
-    } catch (e) {
-      setState(() => isLoading = false);
-    }
-  }
+  void filterSearch(String query) => setState(() => searchQuery = query);
 
-  void filterSearch(String query) {
-    setState(() {
-      searchQuery = query;
-      applyFilters();
-    });
-  }
+  void filterCategory(String category) => setState(() => selectedCategory = category);
 
-  void filterCategory(String category) {
-    setState(() {
-      selectedCategory = category;
-      applyFilters();
-    });
-  }
-
-  void applyFilters() {
-    filteredServices = services.where((service) {
+  List<Map<String, dynamic>> applyFilters(List<Map<String, dynamic>> services) {
+    return services.where((service) {
       final serviceName = service['name']?.toLowerCase() ?? '';
       final serviceId = service['serviceId']?.toLowerCase() ?? '';
       final serviceCategory = service['category'] ?? '';
@@ -72,6 +45,9 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final services = ref.watch(servicesProvider);
+    final filteredServices = applyFilters(services.value ?? const []);
+
     return Scaffold(
       appBar: AppBar(title: Text(selectedCategory == 'All' ? 'Government Services' : '$selectedCategory Services')),
       body: Column(
@@ -106,7 +82,7 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
             ),
           ),
           Expanded(
-            child: isLoading
+            child: services.isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : filteredServices.isEmpty
                     ? const Center(child: Text('No services found in this category.'))
@@ -127,7 +103,7 @@ class _ServiceDiscoveryScreenState extends State<ServiceDiscoveryScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => ProcedureDetailScreen(serviceId: service['id'], token: widget.token),
+                                    builder: (context) => ProcedureDetailScreen(serviceId: service['id']),
                                   ),
                                 );
                               },

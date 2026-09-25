@@ -1,46 +1,39 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../models/verification_models.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/application_providers.dart';
 import '../services/verification_api_service.dart';
 import '../theme/app_colors.dart';
 
-class VerificationDetailScreen extends StatefulWidget {
+class VerificationDetailScreen extends ConsumerStatefulWidget {
+  /// The application as it looked in the list; newer data from [myApplicationsProvider] wins.
   final ApplicationItemModel application;
-  final String? token;
 
   const VerificationDetailScreen({
     super.key,
     required this.application,
-    this.token,
   });
 
   @override
-  State<VerificationDetailScreen> createState() => _VerificationDetailScreenState();
+  ConsumerState<VerificationDetailScreen> createState() => _VerificationDetailScreenState();
 }
 
-class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
-  late ApplicationItemModel _app;
-  bool _isRefreshing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _app = widget.application;
+class _VerificationDetailScreenState extends ConsumerState<VerificationDetailScreen> {
+  /// Safe in callbacks; [build] watches the provider so the screen still updates.
+  ApplicationItemModel get _app {
+    final apps = ref.read(myApplicationsProvider).value ?? const <ApplicationItemModel>[];
+    return apps.firstWhere(
+      (a) => a.applicationId == widget.application.applicationId,
+      orElse: () => widget.application,
+    );
   }
 
+  bool get _isRefreshing => ref.read(myApplicationsProvider).isLoading;
+
   Future<void> _refresh() async {
-    setState(() => _isRefreshing = true);
-    final apps = await VerificationApiService.fetchApplications(token: widget.token);
-    final updated = apps.firstWhere(
-      (a) => a.applicationId == _app.applicationId,
-      orElse: () => _app,
-    );
-    if (mounted) {
-      setState(() {
-        _app = updated;
-        _isRefreshing = false;
-      });
-    }
+    ref.invalidate(myApplicationsProvider);
+    await ref.read(myApplicationsProvider.future);
   }
 
   bool _isRevised(String s) =>
@@ -90,6 +83,7 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(myApplicationsProvider);
     final statusColor = _getStatusColor(_app.status);
 
     return Scaffold(

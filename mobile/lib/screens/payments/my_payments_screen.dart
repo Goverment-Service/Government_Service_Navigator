@@ -1,49 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
-import '../../services/payment_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/payment_providers.dart';
 import '../../models/payment.dart';
 import 'payment_confirm_screen.dart';
 import 'checkout_screen.dart';
 
-class MyPaymentsScreen extends StatefulWidget {
-  final String token;
-  final String userEmail;
-
-  const MyPaymentsScreen({
-    super.key,
-    required this.token,
-    required this.userEmail,
-  });
+class MyPaymentsScreen extends ConsumerStatefulWidget {
+  const MyPaymentsScreen({super.key});
 
   @override
-  State<MyPaymentsScreen> createState() => _MyPaymentsScreenState();
+  ConsumerState<MyPaymentsScreen> createState() => _MyPaymentsScreenState();
 }
 
-class _MyPaymentsScreenState extends State<MyPaymentsScreen> {
-  List<Payment> _payments = [];
-  bool _isLoading = true;
-  String? _errorMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPayments();
-  }
+class _MyPaymentsScreenState extends ConsumerState<MyPaymentsScreen> {
+  AsyncValue<List<Payment>> get _paymentsState => ref.watch(myPaymentsProvider);
+  bool get _isLoading => _paymentsState.isLoading;
+  String? get _errorMessage => _paymentsState.hasError ? _paymentsState.error.toString() : null;
+  List<Payment> get _payments => _paymentsState.value ?? const [];
 
   Future<void> _loadPayments() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
     try {
-      final service = PaymentService(widget.token);
-      final list = await service.myPayments();
-      if (mounted) setState(() => _payments = list);
-    } catch (e) {
-      if (mounted) setState(() => _errorMessage = e.toString());
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      ref.invalidate(myPaymentsProvider);
+      await ref.read(myPaymentsProvider.future);
+    } catch (_) {
+      // Shown from the provider's error state
     }
   }
 
@@ -81,10 +63,7 @@ class _MyPaymentsScreenState extends State<MyPaymentsScreen> {
             onPressed: () {
               Navigator.of(context).push(
                 CupertinoPageRoute(
-                  builder: (_) => CheckoutScreen(
-                    token: widget.token,
-                    userEmail: widget.userEmail,
-                  ),
+                  builder: (_) => const CheckoutScreen(),
                 ),
               );
             },
@@ -168,7 +147,6 @@ class _MyPaymentsScreenState extends State<MyPaymentsScreen> {
               Navigator.of(context).push(
                 CupertinoPageRoute(
                   builder: (_) => PaymentConfirmScreen(
-                    token: widget.token,
                     paymentId: p.id,
                   ),
                 ),

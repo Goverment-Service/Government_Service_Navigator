@@ -3,46 +3,27 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/installment_plan.dart';
-import '../../services/installment_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/payment_providers.dart';
+import '../../providers/service_providers.dart';
 import '../../theme/app_colors.dart';
 
 /// Bank transfer for one installment: shows the account to pay into, then uploads the transfer receipt.
 /// Pops `true` once the receipt is submitted (the installment then awaits staff verification).
-class BankTransferScreen extends StatefulWidget {
-  final String token;
+class BankTransferScreen extends ConsumerStatefulWidget {
   final Installment installment;
 
-  const BankTransferScreen({super.key, required this.token, required this.installment});
+  const BankTransferScreen({super.key, required this.installment});
 
   @override
-  State<BankTransferScreen> createState() => _BankTransferScreenState();
+  ConsumerState<BankTransferScreen> createState() => _BankTransferScreenState();
 }
 
-class _BankTransferScreenState extends State<BankTransferScreen> {
+class _BankTransferScreenState extends ConsumerState<BankTransferScreen> {
   static const _maxReceiptBytes = 10 * 1024 * 1024;
-
-  Map<String, String>? _bankDetails;
-  String? _bankDetailsError;
 
   PlatformFile? _receipt;
   bool _isSubmitting = false;
-
-  InstallmentService get _service => InstallmentService(widget.token);
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBankDetails();
-  }
-
-  Future<void> _loadBankDetails() async {
-    try {
-      final details = await _service.getBankDetails();
-      if (mounted) setState(() => _bankDetails = details);
-    } catch (e) {
-      if (mounted) setState(() => _bankDetailsError = e.toString().replaceFirst('Exception: ', ''));
-    }
-  }
 
   Future<void> _pickReceipt() async {
     final List<PlatformFile> files;
@@ -71,7 +52,7 @@ class _BankTransferScreenState extends State<BankTransferScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      await _service.submitBankTransfer(
+      await ref.read(installmentServiceProvider).submitBankTransfer(
         widget.installment.id,
         fileName: receipt.name,
         bytes: await receipt.readAsBytes(),
@@ -165,10 +146,14 @@ class _BankTransferScreenState extends State<BankTransferScreen> {
   }
 
   Widget _buildBankDetails() {
-    if (_bankDetailsError != null) {
-      return Text(_bankDetailsError!, style: const TextStyle(color: AppColors.danger));
+    final bankDetails = ref.watch(bankDetailsProvider);
+    if (bankDetails.hasError) {
+      return Text(
+        bankDetails.error.toString().replaceFirst('Exception: ', ''),
+        style: const TextStyle(color: AppColors.danger),
+      );
     }
-    final details = _bankDetails;
+    final details = bankDetails.value;
     if (details == null) return const Center(child: CupertinoActivityIndicator());
 
     final rows = [

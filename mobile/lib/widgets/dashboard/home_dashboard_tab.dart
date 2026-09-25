@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
-import '../../services/service_api_client.dart';
-import '../../services/verification_api_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/application_providers.dart';
+import '../../providers/catalog_providers.dart';
 import '../../models/verification_models.dart';
 import '../../screens/procedure_detail_screen.dart';
 import '../../screens/describe_need_screen.dart';
@@ -10,60 +11,20 @@ import '../../screens/service_discovery_screen.dart';
 import '../../screens/eligibility_self_check_screen.dart';
 
 
-class HomeDashboardTab extends StatefulWidget {
-  final String? token;
-
-  const HomeDashboardTab({super.key, this.token});
+class HomeDashboardTab extends ConsumerStatefulWidget {
+  const HomeDashboardTab({super.key});
 
   @override
-  State<HomeDashboardTab> createState() => _HomeDashboardTabState();
+  ConsumerState<HomeDashboardTab> createState() => _HomeDashboardTabState();
 }
 
-class _HomeDashboardTabState extends State<HomeDashboardTab> {
+class _HomeDashboardTabState extends ConsumerState<HomeDashboardTab> {
   final TextEditingController _searchController = TextEditingController();
-  List<dynamic> popularServices = [];
-  bool isLoading = true;
-  List<ApplicationItemModel> applications = [];
-  bool isLoadingApplications = true;
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchPopularServices();
-    _fetchApplications();
-  }
-
-  Future<void> _fetchApplications() async {
-    final apps = await VerificationApiService.fetchApplications(token: widget.token);
-    if (mounted) {
-      setState(() {
-        applications = apps;
-        isLoadingApplications = false;
-      });
-    }
-  }
+  List<ApplicationItemModel> get _applications => ref.watch(myApplicationsProvider).value ?? const [];
 
   int _countWhere(bool Function(String status) test) =>
-      applications.where((a) => test(a.status.toLowerCase())).length;
-
-  Future<void> _fetchPopularServices() async {
-    try {
-      final data = await ServiceApiClient.fetchServices();
-      if (mounted) {
-        setState(() {
-          popularServices = data.take(4).toList();
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          popularServices = [];
-          isLoading = false;
-        });
-      }
-    }
-  }
+      _applications.where((a) => test(a.status.toLowerCase())).length;
 
   @override
   void dispose() {
@@ -73,6 +34,9 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
 
   @override
   Widget build(BuildContext context) {
+    final services = ref.watch(servicesProvider);
+    final popularServices = services.value?.take(4).toList() ?? const [];
+
     return SafeArea(
       child: CustomScrollView(
         physics: const BouncingScrollPhysics(),
@@ -202,7 +166,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  isLoading
+                  services.isLoading
                       ? const Center(
                           child: Padding(
                             padding: EdgeInsets.all(20.0),
@@ -229,7 +193,6 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
                                         MaterialPageRoute(
                                           builder: (context) => ProcedureDetailScreen(
                                             serviceId: service['id'] ?? 1,
-                                            token: widget.token,
                                           ),
                                         ),
                                       );
@@ -506,7 +469,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ServiceDiscoveryScreen(initialCategory: catTitle, token: widget.token),
+                  builder: (context) => ServiceDiscoveryScreen(initialCategory: catTitle),
                 ),
               );
             },
@@ -551,7 +514,8 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
   }
 
   Widget _buildActiveApplicationCard() {
-    if (isLoadingApplications) {
+    final applications = ref.watch(myApplicationsProvider);
+    if (applications.isLoading && !applications.hasValue) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(20.0),
@@ -559,7 +523,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
         ),
       );
     }
-    final active = applications.where((a) => a.status.toLowerCase() == 'pending').toList();
+    final active = _applications.where((a) => a.status.toLowerCase() == 'pending').toList();
     if (active.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(12.0),

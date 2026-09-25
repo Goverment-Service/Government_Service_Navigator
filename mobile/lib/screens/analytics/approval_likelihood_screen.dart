@@ -1,33 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
-import '../../services/analytics_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/agent_providers.dart';
 import '../../models/analytics.dart';
 
-class ApprovalLikelihoodScreen extends StatefulWidget {
-  final String token;
+class ApprovalLikelihoodScreen extends ConsumerStatefulWidget {
   final String? prefillServiceProcedureId;
 
   const ApprovalLikelihoodScreen({
     super.key,
-    required this.token,
     this.prefillServiceProcedureId,
   });
 
   @override
-  State<ApprovalLikelihoodScreen> createState() =>
+  ConsumerState<ApprovalLikelihoodScreen> createState() =>
       _ApprovalLikelihoodScreenState();
 }
 
 class _ApprovalLikelihoodScreenState
-    extends State<ApprovalLikelihoodScreen>
+    extends ConsumerState<ApprovalLikelihoodScreen>
     with SingleTickerProviderStateMixin {
   late final TextEditingController _idController;
   final _formKey = GlobalKey<FormState>();
-
-  ApprovalLikelihood? _result;
-  bool _isLoading = false;
-  String? _errorMessage;
 
   late final AnimationController _animController;
   late final Animation<double> _progressAnim;
@@ -56,25 +51,13 @@ class _ApprovalLikelihoodScreenState
 
   Future<void> _check() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-      _result = null;
-    });
     _animController.reset();
 
-    try {
-      final service = AnalyticsService(widget.token);
-      final result =
-          await service.getApprovalLikelihood(_idController.text.trim());
-      if (mounted) {
-        setState(() => _result = result);
-        _animController.forward();
-      }
-    } catch (e) {
-      if (mounted) setState(() => _errorMessage = e.toString());
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    await ref
+        .read(approvalLikelihoodControllerProvider.notifier)
+        .check(_idController.text.trim());
+    if (mounted && ref.read(approvalLikelihoodControllerProvider).hasValue) {
+      _animController.forward();
     }
   }
 
@@ -86,6 +69,11 @@ class _ApprovalLikelihoodScreenState
 
   @override
   Widget build(BuildContext context) {
+    final check = ref.watch(approvalLikelihoodControllerProvider);
+    final isLoading = check.isLoading;
+    final errorMessage = check.hasError ? check.error.toString() : null;
+    final result = check.value;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -206,8 +194,8 @@ class _ApprovalLikelihoodScreenState
                       height: 52,
                       child: CupertinoButton.filled(
                         borderRadius: BorderRadius.circular(14),
-                        onPressed: _isLoading ? null : _check,
-                        child: _isLoading
+                        onPressed: isLoading ? null : _check,
+                        child: isLoading
                             ? const CupertinoActivityIndicator(
                                 color: Colors.white, radius: 11)
                             : const Text(
@@ -222,7 +210,7 @@ class _ApprovalLikelihoodScreenState
                 ),
               ),
 
-              if (_errorMessage != null) ...[
+              if (errorMessage != null) ...[
                 const SizedBox(height: 20),
                 Container(
                   width: double.infinity,
@@ -238,7 +226,7 @@ class _ApprovalLikelihoodScreenState
                           color: AppColors.danger, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(_errorMessage!,
+                        child: Text(errorMessage,
                             style: const TextStyle(
                                 color: AppColors.danger, fontSize: 13)),
                       ),
@@ -247,9 +235,9 @@ class _ApprovalLikelihoodScreenState
                 ),
               ],
 
-              if (_result != null) ...[
+              if (result != null) ...[
                 const SizedBox(height: 28),
-                _buildResultCard(_result!),
+                _buildResultCard(result),
               ],
             ],
           ),

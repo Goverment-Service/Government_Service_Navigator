@@ -1,28 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/screens/dashboard_screen.dart';
 import '../theme/app_colors.dart';
 import '../theme/glass_theme.dart';
-import '../services/auth_service.dart';
-import '../services/onboarding_prefs.dart';
+import '../providers/auth_provider.dart';
 import 'signup_page.dart';
 
-class LoginPage extends StatefulWidget {
+class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _authService = AuthService();
 
   bool _obscurePassword = true;
-  bool _isLoading = false;
-  String? _errorMessage;
 
   @override
   void dispose() {
@@ -33,35 +30,25 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _isLoading = true; _errorMessage = null; });
 
-    final result = await _authService.login(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
+    final signedIn = await ref.read(authControllerProvider.notifier).login(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+
+    if (!signedIn || !mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      CupertinoPageRoute(builder: (_) => const DashboardScreen()),
+      (route) => false,
     );
-
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    if (result.success) {
-      await OnboardingPrefs.markCompleted();
-      if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        CupertinoPageRoute(
-          builder: (_) => DashboardScreen(
-            token: result.token ?? '',
-            userEmail: _emailController.text.trim(),
-          ),
-        ),
-        (route) => false,
-      );
-    } else {
-      setState(() => _errorMessage = result.errorMessage ?? 'Login failed');
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authControllerProvider);
+    final isLoading = auth.isLoading;
+    final errorMessage = auth.hasError ? auth.error.toString() : null;
+
     return AuroraBackdrop(
       child: Scaffold(
       backgroundColor: Colors.transparent,
@@ -151,8 +138,8 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                if (_errorMessage != null) ...[
-                  _buildErrorBanner(_errorMessage!),
+                if (errorMessage != null) ...[
+                  _buildErrorBanner(errorMessage),
                   const SizedBox(height: 16),
                 ],
                 // iOS-style full-width blue button
@@ -161,8 +148,8 @@ class _LoginPageState extends State<LoginPage> {
                   height: 52,
                   child: CupertinoButton.filled(
                     borderRadius: BorderRadius.circular(14),
-                    onPressed: _isLoading ? null : _handleLogin,
-                    child: _isLoading
+                    onPressed: isLoading ? null : _handleLogin,
+                    child: isLoading
                         ? const CupertinoActivityIndicator(
                             color: Colors.white, radius: 11)
                         : const Text(
@@ -188,11 +175,13 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       CupertinoButton(
                         padding: EdgeInsets.zero,
-                        onPressed: () {
-                          Navigator.of(context).push(
+                        onPressed: () async {
+                          await Navigator.of(context).push(
                             CupertinoPageRoute(
                                 builder: (_) => const SignUpPage()),
                           );
+                          // Don't carry a sign-up error back onto the login form
+                          ref.invalidate(authControllerProvider);
                         },
                         child: const Text(
                           'Sign Up',

@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/session_provider.dart';
+import '../../screens/login_page.dart';
 import '../../theme/app_colors.dart';
 
-class ProfileTab extends StatelessWidget {
+class ProfileTab extends ConsumerWidget {
   const ProfileTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(sessionProvider);
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -24,9 +30,9 @@ class ProfileTab extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.divider, width: 0.8),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                CircleAvatar(
+                const CircleAvatar(
                   radius: 28,
                   backgroundColor: AppColors.primary,
                   child: Icon(
@@ -35,19 +41,27 @@ class ProfileTab extends StatelessWidget {
                     size: 30,
                   ),
                 ),
-                SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Citizen Account',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.dark,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        session.fullName ?? 'Citizen Account',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.dark,
+                        ),
                       ),
-                    ),
-                  ],
+                      if (session.email.isNotEmpty)
+                        Text(
+                          session.email,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13, color: AppColors.secondaryLabel),
+                        ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -72,6 +86,13 @@ class ProfileTab extends StatelessWidget {
             icon: CupertinoIcons.arrow_right_square,
             title: 'Sign Out',
             isDanger: true,
+            onTap: () {
+              ref.read(authControllerProvider.notifier).signOut();
+              Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                CupertinoPageRoute(builder: (_) => const LoginPage()),
+                (route) => false,
+              );
+            },
           ),
         ],
       ),
@@ -82,6 +103,7 @@ class ProfileTab extends StatelessWidget {
     required IconData icon,
     required String title,
     bool isDanger = false,
+    VoidCallback? onTap,
   }) {
     final color = isDanger ? AppColors.danger : AppColors.dark;
     final iconColor = isDanger ? AppColors.danger : AppColors.primary;
@@ -106,7 +128,7 @@ class ProfileTab extends StatelessWidget {
             size: 16,
             color: AppColors.secondaryLabel,
           ),
-          onTap: () {},
+          onTap: onTap ?? () {},
         ),
       ),
     );

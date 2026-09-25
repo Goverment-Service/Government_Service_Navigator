@@ -1,26 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
-import '../../services/payment_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/payment_providers.dart';
+import '../../providers/service_providers.dart';
+import '../../providers/session_provider.dart';
 import 'payment_confirm_screen.dart';
 
-class CheckoutScreen extends StatefulWidget {
-  final String token;
-  final String userEmail;
+class CheckoutScreen extends ConsumerStatefulWidget {
   final String? prefillApplicationId;
 
   const CheckoutScreen({
     super.key,
-    required this.token,
-    required this.userEmail,
     this.prefillApplicationId,
   });
 
   @override
-  State<CheckoutScreen> createState() => _CheckoutScreenState();
+  ConsumerState<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
-class _CheckoutScreenState extends State<CheckoutScreen> {
+class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _applicationIdController;
   final TextEditingController _amountController = TextEditingController();
@@ -34,7 +33,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.initState();
     _applicationIdController =
         TextEditingController(text: widget.prefillApplicationId ?? '');
-    _emailController = TextEditingController(text: widget.userEmail);
+    _emailController = TextEditingController(text: ref.read(sessionProvider).email);
   }
 
   @override
@@ -53,18 +52,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     });
 
     try {
-      final service = PaymentService(widget.token);
-      final result = await service.checkout(
+      final result = await ref.read(paymentServiceProvider).checkout(
         applicationId: _applicationIdController.text.trim(),
         amount: double.parse(_amountController.text.trim()),
         userEmail: _emailController.text.trim(),
       );
-
       if (!mounted) return;
+      ref.invalidate(myPaymentsProvider);
       Navigator.of(context).push(
         CupertinoPageRoute(
           builder: (_) => PaymentConfirmScreen(
-            token: widget.token,
             paymentId: result.paymentId,
             checkoutUrl: result.checkoutUrl,
           ),

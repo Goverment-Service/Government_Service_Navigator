@@ -2,30 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../theme/app_colors.dart';
 import '../theme/glass_theme.dart';
-import '../services/auth_service.dart';
-import '../services/onboarding_prefs.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/auth_provider.dart';
 import 'dashboard_screen.dart';
 
-class SignUpPage extends StatefulWidget {
+class SignUpPage extends ConsumerStatefulWidget {
   const SignUpPage({super.key});
 
   @override
-  State<SignUpPage> createState() => _SignUpPageState();
+  ConsumerState<SignUpPage> createState() => _SignUpPageState();
 }
 
-class _SignUpPageState extends State<SignUpPage> {
+class _SignUpPageState extends ConsumerState<SignUpPage> {
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
   final _nicController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _authService = AuthService();
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  bool _isLoading = false;
-  String? _errorMessage;
 
   @override
   void dispose() {
@@ -40,41 +37,26 @@ class _SignUpPageState extends State<SignUpPage> {
   Future<void> _handleSignUp() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    final signedIn = await ref.read(authControllerProvider.notifier).signUp(
+          fullName: _fullNameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          nicNumber: _nicController.text.trim(),
+        );
 
-    final result = await _authService.signUp(
-      fullName: _fullNameController.text.trim(),
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-      nicNumber: _nicController.text.trim(),
+    if (!signedIn || !mounted) return;
+    // TODO: persist the session token (e.g. flutter_secure_storage)
+    Navigator.of(context).pushAndRemoveUntil(
+      CupertinoPageRoute(builder: (_) => const DashboardScreen()),
+      (route) => false,
     );
-
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    if (result.success) {
-      await OnboardingPrefs.markCompleted();
-      if (!mounted) return;
-      // TODO: persist result.token (e.g. flutter_secure_storage)
-      Navigator.of(context).pushAndRemoveUntil(
-        CupertinoPageRoute(
-          builder: (_) => DashboardScreen(
-            token: result.token ?? '',
-            userEmail: _emailController.text.trim(),
-          ),
-        ),
-        (route) => false,
-      );
-    } else {
-      setState(() => _errorMessage = result.errorMessage ?? 'Sign up failed');
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authControllerProvider);
+    final errorMessage = auth.hasError ? auth.error.toString() : null;
+
     return AuroraBackdrop(
       child: Scaffold(
       backgroundColor: Colors.transparent,
@@ -186,9 +168,9 @@ class _SignUpPageState extends State<SignUpPage> {
                     return null;
                   },
                 ),
-                if (_errorMessage != null) ...[
+                if (errorMessage != null) ...[
                   const SizedBox(height: 14),
-                  _buildErrorBanner(_errorMessage!),
+                  _buildErrorBanner(errorMessage),
                 ],
                 const SizedBox(height: 24),
                 _buildSignUpButton(),
@@ -303,11 +285,12 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   Widget _buildSignUpButton() {
+    final isLoading = ref.watch(authControllerProvider).isLoading;
     return SizedBox(
       width: double.infinity,
       height: 50,
       child: ElevatedButton(
-        onPressed: _isLoading ? null : _handleSignUp,
+        onPressed: isLoading ? null : _handleSignUp,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
@@ -316,7 +299,7 @@ class _SignUpPageState extends State<SignUpPage> {
           ),
           elevation: 0,
         ),
-        child: _isLoading
+        child: isLoading
             ? const SizedBox(
                 width: 22,
                 height: 22,

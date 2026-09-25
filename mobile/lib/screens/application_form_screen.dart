@@ -3,28 +3,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:file_picker/file_picker.dart';
 import '../theme/app_colors.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/application_providers.dart';
+import '../providers/catalog_providers.dart';
+import '../providers/session_provider.dart';
 import '../services/service_api_client.dart';
 import 'payments/payment_screen.dart';
 
 /// Renders the admin-built application template as a paper-style government form
 /// (matching the web Template Builder canvas) and submits the citizen's answers.
-class ApplicationFormScreen extends StatefulWidget {
+class ApplicationFormScreen extends ConsumerStatefulWidget {
   final int serviceId;
   final String serviceName;
-  final String token;
 
   const ApplicationFormScreen({
     super.key,
     required this.serviceId,
     required this.serviceName,
-    required this.token,
   });
 
   @override
-  State<ApplicationFormScreen> createState() => _ApplicationFormScreenState();
+  ConsumerState<ApplicationFormScreen> createState() => _ApplicationFormScreenState();
 }
 
-class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
+class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
   static const _ink = Color(0xFF000000);
   static const _faint = Color(0xFF999999);
   static const _tableHeaderBg = Color(0xFFE0E0E0);
@@ -39,17 +41,12 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
 
   final _formKey = GlobalKey<FormState>();
 
-  Map<String, dynamic>? _template;
-  List<Map<String, dynamic>> _fields = [];
-  bool _isLoading = true;
   bool _isSubmitting = false;
-  String? _loadError;
   Map<String, dynamic>? _submitted;
 
   /// Saved application waiting for its fee to be paid (response from submit / finalize).
   Map<String, dynamic>? _pendingPayment;
   bool _isFinalizing = false;
-  bool _hasFee = false;
 
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, String?> _selectValues = {};
@@ -59,17 +56,31 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
   final Map<String, ({String id, String fileName})> _documents = {};
   final Set<String> _uploading = {};
 
-  /// The service's required documents from the catalog, each uploaded like a file field.
-  List<({String name, String description, bool isMandatory})> _requiredDocs = [];
-
   /// Table fields: label -> rows -> one controller per column.
   final Map<String, List<List<TextEditingController>>> _tableRows = {};
 
   @override
   void initState() {
     super.initState();
-    _loadForm();
+    // Prefill the footer from the department once the form has loaded
+    ref.listenManual(applicationFormDataProvider(widget.serviceId), (previous, next) {
+      final department = next.value?.department;
+      if (previous?.value != null || next.value == null) return;
+      _controllerFor(_presentedByKey).text = department?['name']?.toString() ?? '';
+      _controllerFor(_emailKey).text = department?['email']?.toString() ?? '';
+    }, fireImmediately: true);
   }
+
+  // Loaded form data. Read (not watched) so these are safe in callbacks; [build] watches.
+  AsyncValue<ApplicationFormData> get _formState => ref.read(applicationFormDataProvider(widget.serviceId));
+  bool get _isLoading => _formState.isLoading;
+  String? get _loadError => _formState.hasError ? 'Could not load the application form.' : null;
+  Map<String, dynamic>? get _template => _formState.value?.template;
+  List<Map<String, dynamic>> get _fields => _formState.value?.fields ?? const [];
+
+  /// The service's required documents from the catalog, each uploaded like a file field.
+  List<RequiredDocument> get _requiredDocs => _formState.value?.requiredDocs ?? const [];
+  bool get _hasFee => _formState.value?.hasFee ?? false;
 
   @override
   void dispose() {
@@ -84,53 +95,6 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
       }
     }
     super.dispose();
-  }
-
-  Future<void> _loadForm() async {
-    try {
-      final results = await Future.wait([
-        ServiceApiClient.fetchApplicationForm(widget.serviceId, widget.token),
-        // The service catalog's required documents; the form still works if this fails
-        ServiceApiClient.fetchServiceDetails(widget.serviceId).then<Map<String, dynamic>?>((d) => d, onError: (_) => null),
-      ]);
-      final form = results[0];
-      final service = results[1];
-      final template = form?['template'] as Map<String, dynamic>?;
-      final department = form?['department'] as Map<String, dynamic>?;
-      _controllerFor(_presentedByKey).text = department?['name']?.toString() ?? '';
-      _controllerFor(_emailKey).text = department?['email']?.toString() ?? '';
-      final fields = (template?['fields'] as List? ?? [])
-          .whereType<Map<String, dynamic>>()
-          .toList()
-        ..sort((a, b) => ((a['orderIndex'] ?? 0) as int).compareTo((b['orderIndex'] ?? 0) as int));
-
-      // Skip requirements the admin already added to the template as a file field
-      final fileLabels = fields.where((f) => f['type'] == 'file').map((f) => f['label']?.toString()).toSet();
-      final requiredDocs = (service?['documentRequirements'] as List? ?? [])
-          .whereType<Map<String, dynamic>>()
-          .map((d) => (
-                name: d['documentName']?.toString() ?? '',
-                description: d['description']?.toString() ?? '',
-                isMandatory: d['isMandatory'] == true,
-              ))
-          .where((d) => d.name.isNotEmpty && !fileLabels.contains(d.name))
-          .toList();
-
-      if (!mounted) return;
-      setState(() {
-        _template = template;
-        _fields = fields;
-        _requiredDocs = requiredDocs;
-        _hasFee = (service?['feeSchedules'] as List? ?? []).isNotEmpty;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loadError = 'Could not load the application form.';
-        _isLoading = false;
-      });
-    }
   }
 
   TextEditingController _controllerFor(String label) =>
@@ -200,9 +164,10 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
         templateId: _template?['id']?.toString(),
         answers: _collectAnswers(),
         documents: {for (final e in _documents.entries) e.key: e.value.id},
-        token: widget.token,
+        token: ref.read(authTokenProvider),
       );
       if (!mounted) return;
+      ref.invalidate(myApplicationsProvider);
       if (result['paymentRequired'] == true) {
         // Saved, but only sent to the officers once the fee is paid
         setState(() => _pendingPayment = result);
@@ -228,7 +193,6 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
     await Navigator.of(context).push<bool>(
       CupertinoPageRoute(
         builder: (_) => PaymentScreen(
-          token: widget.token,
           userEmail: pending['userEmail']?.toString() ?? '',
           applicationId: pending['applicationId'].toString(),
           amount: (pending['amount'] as num).toDouble(),
@@ -249,9 +213,10 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
     try {
       final result = await ServiceApiClient.finalizeApplication(
         applicationId: (pending['applicationId'] as num).toInt(),
-        token: widget.token,
+        token: ref.read(authTokenProvider),
       );
       if (!mounted) return;
+      ref.invalidate(myApplicationsProvider);
       setState(() {
         if (result['paymentRequired'] == true) {
           _pendingPayment = result;
@@ -269,6 +234,7 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(applicationFormDataProvider(widget.serviceId));
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -614,7 +580,7 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
         fieldLabel: label,
         fileName: file.name,
         bytes: await file.readAsBytes(),
-        token: widget.token,
+        token: ref.read(authTokenProvider),
       );
       if (!mounted) return;
       setState(() => _documents[label] = (

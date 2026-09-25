@@ -1,47 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_colors.dart';
-import '../../services/installment_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/payment_providers.dart';
 import '../../models/installment_plan.dart';
 
-class InstallmentPlanScreen extends StatefulWidget {
-  final String token;
+class InstallmentPlanScreen extends ConsumerStatefulWidget {
   final String planId;
 
   const InstallmentPlanScreen({
     super.key,
-    required this.token,
     required this.planId,
   });
 
   @override
-  State<InstallmentPlanScreen> createState() => _InstallmentPlanScreenState();
+  ConsumerState<InstallmentPlanScreen> createState() => _InstallmentPlanScreenState();
 }
 
-class _InstallmentPlanScreenState extends State<InstallmentPlanScreen> {
-  InstallmentPlan? _plan;
-  bool _isLoading = true;
-  String? _errorMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPlan();
-  }
+class _InstallmentPlanScreenState extends ConsumerState<InstallmentPlanScreen> {
+  AsyncValue<InstallmentPlan> get _planState => ref.watch(installmentPlanProvider(widget.planId));
+  bool get _isLoading => _planState.isLoading;
+  String? get _errorMessage => _planState.hasError ? _planState.error.toString() : null;
+  InstallmentPlan? get _plan => _planState.value;
 
   Future<void> _loadPlan() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
     try {
-      final service = InstallmentService(widget.token);
-      final plan = await service.getInstallmentPlan(widget.planId);
-      if (mounted) setState(() => _plan = plan);
-    } catch (e) {
-      if (mounted) setState(() => _errorMessage = e.toString());
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      ref.invalidate(installmentPlanProvider(widget.planId));
+      await ref.read(installmentPlanProvider(widget.planId).future);
+    } catch (_) {
+      // Shown from the provider's error state
     }
   }
 

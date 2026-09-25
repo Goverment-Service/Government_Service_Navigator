@@ -3,6 +3,7 @@ using Government_Service_Navigator.Backend.DTOs.Responses;
 using Government_Service_Navigator.Backend.Models.Entities;
 using Government_Service_Navigator.Backend.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Stripe.Checkout;
 
 namespace Government_Service_Navigator.Backend.Services
 {
@@ -141,6 +142,14 @@ namespace Government_Service_Navigator.Backend.Services
                 if (allInstallments.All(i => i.Status == "Paid"))
                 {
                     plan.Status = "Completed";
+
+                    // The whole fee is now paid, so the underlying payment is too
+                    var payment = await _context.Payments.FindAsync(plan.PaymentId);
+                    if (payment != null && payment.Status != "Paid")
+                    {
+                        payment.Status = "Paid";
+                        payment.PaidDate = DateTime.UtcNow;
+                    }
                     await _context.SaveChangesAsync();
                 }
             }
@@ -174,6 +183,143 @@ namespace Government_Service_Navigator.Backend.Services
             await _context.SaveChangesAsync();
 
             return plan;
+        }
+
+        public async Task<bool> BelongsToCitizenAsync(int installmentId, string? nic, string? email)
+        {
+            var owner = await _context.Installments
+                .Where(i => i.Id == installmentId)
+                .Select(i => new
+                {
+                    i.InstallmentPlan!.Payment!.ApplicationId,
+                    i.InstallmentPlan.Payment.UserEmail
+                })
+                .FirstOrDefaultAsync();
+            if (owner == null) return false;
+
+            if (!string.IsNullOrWhiteSpace(nic) &&
+                await _context.ApplicationSubmissions.AnyAsync(s => s.Id == owner.ApplicationId && s.CitizenNic == nic))
+                return true;
+
+            return !string.IsNullOrWhiteSpace(email) &&
+                   string.Equals(owner.UserEmail, email, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public async Task<string> CreateOnlineCheckoutAsync(int installmentId)
+        {
+            var installment = await PayableInstallmentAsync(installmentId);
+
+            var session = await new SessionService().CreateAsync(new SessionCreateOptions
+            {
+                PaymentMethodTypes = new List<string> { "card" },
+                LineItems = new List<SessionLineItemOptions>
+                {
+                    new SessionLineItemOptions
+                    {
+                        PriceData = new SessionLineItemPriceDataOptions
+                        {
+                            UnitAmount = (long)Math.Round(installment.Amount * 100), // smallest currency unit
+                            Currency = "usd", // same sandbox currency as PaymentService.CreateStripeCheckoutAsync
+                            ProductData = new SessionLineItemPriceDataProductDataOptions
+                            {
+                                Name = $"Installment #{installment.InstallmentNumber} (plan {installment.InstallmentPlanId})"
+                            }
+                        },
+                        Quantity = 1
+                    }
+                },
+                Mode = "payment",
+                // The mobile checkout webview closes on these /success and /cancel URLs
+                SuccessUrl = $"https://example.com/success?installmentId={installment.Id}",
+                CancelUrl = $"https://example.com/cancel?installmentId={installment.Id}"
+            });
+
+            installment.PaymentMethod = "Online";
+            installment.StripeSessionId = session.Id;
+            await _context.SaveChangesAsync();
+
+            return session.Url;
+        }
+
+        public async Task<Installment> ConfirmOnlineCheckoutAsync(int installmentId)
+        {
+            var installment = await _context.Installments.FindAsync(installmentId)
+                ?? throw new KeyNotFoundException($"Installment {installmentId} not found.");
+            if (installment.Status == "Paid") return installment;
+            if (string.IsNullOrEmpty(installment.StripeSessionId))
+                throw new InvalidOperationException("This installment has no online checkout to confirm.");
+
+            var session = await new SessionService().GetAsync(installment.StripeSessionId);
+            if (session.PaymentStatus != "paid")
+                throw new InvalidOperationException("The online payment has not been completed yet.");
+
+            return await MarkInstallmentPaidAsync(installmentId);
+        }
+
+        public async Task<Installment> SubmitBankTransferAsync(int installmentId, string fileName, string contentType, byte[] content)
+        {
+            var installment = await PayableInstallmentAsync(installmentId);
+
+            var receipt = new PaymentReceipt
+            {
+                InstallmentId = installment.Id,
+                FileName = fileName,
+                ContentType = contentType,
+                SizeBytes = content.LongLength,
+                Content = content,
+                UploadedAt = DateTime.UtcNow
+            };
+            _context.PaymentReceipts.Add(receipt);
+
+            installment.PaymentMethod = "BankTransfer";
+            installment.ReceiptId = receipt.Id;
+            installment.Status = "PendingVerification";
+            await _context.SaveChangesAsync();
+
+            return installment;
+        }
+
+        public async Task<Installment> RejectBankTransferAsync(int installmentId)
+        {
+            var installment = await _context.Installments.FindAsync(installmentId)
+                ?? throw new KeyNotFoundException($"Installment {installmentId} not found.");
+            if (installment.Status != "PendingVerification")
+                throw new InvalidOperationException("Only bank transfers awaiting verification can be rejected.");
+
+            // Back to payable; the rejected receipt stays stored for the audit trail
+            installment.Status = installment.DueDate < DateTime.UtcNow ? "Overdue" : "Pending";
+            installment.ReceiptId = null;
+            await _context.SaveChangesAsync();
+
+            return installment;
+        }
+
+        public async Task<PaymentReceipt?> GetReceiptAsync(int installmentId)
+        {
+            var receiptId = await _context.Installments
+                .Where(i => i.Id == installmentId)
+                .Select(i => i.ReceiptId)
+                .FirstOrDefaultAsync();
+
+            return receiptId == null ? null : await _context.PaymentReceipts.FindAsync(receiptId.Value);
+        }
+
+        // An installment the citizen can still pay: not already paid or awaiting receipt verification, on an active plan
+        private async Task<Installment> PayableInstallmentAsync(int installmentId)
+        {
+            var installment = await _context.Installments
+                .Include(i => i.InstallmentPlan)
+                .FirstOrDefaultAsync(i => i.Id == installmentId)
+                ?? throw new KeyNotFoundException($"Installment {installmentId} not found.");
+
+            if (installment.InstallmentPlan?.Status != "Active")
+                throw new InvalidOperationException("This installment plan is no longer active.");
+            if (installment.Status == "Paid")
+                throw new InvalidOperationException("This installment is already paid.");
+            if (installment.Status == "PendingVerification")
+                throw new InvalidOperationException("A bank transfer receipt for this installment is already awaiting verification.");
+
+            return installment;
         }
     }
 }

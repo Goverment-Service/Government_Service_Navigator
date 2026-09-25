@@ -23,8 +23,10 @@ export interface InstallmentResponse {
   installmentNumber: number;
   amount: number;
   dueDate: string;
-  status: string; // "Pending" | "Paid" | "Overdue"
+  status: string; // "Pending" | "PendingVerification" | "Paid" | "Overdue"
   paidDate: string | null;
+  paymentMethod?: string | null; // "Online" | "BankTransfer"
+  hasReceipt?: boolean;
 }
 
 export interface InstallmentPlanResponse {
@@ -93,4 +95,30 @@ export function cancelInstallmentPlan(
   return apiFetch(`/api/installment-plans/${planId}/cancel`, {
     method: "POST",
   });
+}
+
+// POST /api/installment-plans/installments/{installmentId}/reject-transfer
+export function rejectBankTransfer(
+  installmentId: number
+): Promise<InstallmentResponse> {
+  return apiFetch(
+    `/api/installment-plans/installments/${installmentId}/reject-transfer`,
+    { method: "POST" }
+  );
+}
+
+// GET /api/installment-plans/installments/{installmentId}/receipt — opens the bank transfer receipt in a new tab.
+// Fetched with the auth header (a plain link can't send it), then shown from a blob URL.
+export async function openInstallmentReceipt(installmentId: number): Promise<void> {
+  const token = localStorage.getItem("officerToken");
+  const response = await fetch(
+    `http://localhost:5119/api/installment-plans/installments/${installmentId}/receipt`,
+    { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+  );
+  if (!response.ok) throw new Error(`Could not load the receipt (HTTP ${response.status}).`);
+
+  const url = URL.createObjectURL(await response.blob());
+  window.open(url, "_blank", "noopener");
+  // Give the new tab time to load it before releasing the blob
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

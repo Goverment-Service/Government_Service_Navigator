@@ -112,4 +112,18 @@ class ServiceApiClient {
     } catch (_) {}
     throw Exception(message);
   }
+
+  /// Sends a paid application to the officer queue. Returns the submitted reference, or — if the fee
+  /// isn't fully paid yet (HTTP 402) — the payment details with `paymentRequired: true`.
+  static Future<Map<String, dynamic>> finalizeApplication({
+    required int applicationId,
+    required String token,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${AppConfig.baseUrl}/applications/$applicationId/finalize'),
+      headers: _authHeaders(token),
+    );
+    if (response.statusCode == 200 || response.statusCode == 402) return jsonDecode(response.body);
+    throw Exception('Could not confirm your application (${response.statusCode})');
+  }
 }

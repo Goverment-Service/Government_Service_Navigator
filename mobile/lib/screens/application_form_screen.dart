@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:file_picker/file_picker.dart';
 import '../theme/app_colors.dart';
 import '../services/service_api_client.dart';
+import 'payments/payment_screen.dart';
 
 /// Renders the admin-built application template as a paper-style government form
 /// (matching the web Template Builder canvas) and submits the citizen's answers.
@@ -44,6 +45,11 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
   bool _isSubmitting = false;
   String? _loadError;
   Map<String, dynamic>? _submitted;
+
+  /// Saved application waiting for its fee to be paid (response from submit / finalize).
+  Map<String, dynamic>? _pendingPayment;
+  bool _isFinalizing = false;
+  bool _hasFee = false;
 
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, String?> _selectValues = {};
@@ -115,6 +121,7 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
         _template = template;
         _fields = fields;
         _requiredDocs = requiredDocs;
+        _hasFee = (service?['feeSchedules'] as List? ?? []).isNotEmpty;
         _isLoading = false;
       });
     } catch (e) {
@@ -196,7 +203,13 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
         token: widget.token,
       );
       if (!mounted) return;
-      setState(() => _submitted = result);
+      if (result['paymentRequired'] == true) {
+        // Saved, but only sent to the officers once the fee is paid
+        setState(() => _pendingPayment = result);
+        await _pay();
+      } else {
+        setState(() => _submitted = result);
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -204,6 +217,53 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  /// Opens the payment screen for the outstanding fee, then asks the backend to finalize the application.
+  Future<void> _pay() async {
+    final pending = _pendingPayment;
+    if (pending == null) return;
+
+    await Navigator.of(context).push<bool>(
+      CupertinoPageRoute(
+        builder: (_) => PaymentScreen(
+          token: widget.token,
+          userEmail: pending['userEmail']?.toString() ?? '',
+          applicationId: pending['applicationId'].toString(),
+          amount: (pending['amount'] as num).toDouble(),
+          popOnPaid: true,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    await _finalize();
+  }
+
+  /// The backend checks the payments itself, so this is also safe to call when the user backed out.
+  Future<void> _finalize() async {
+    final pending = _pendingPayment;
+    if (pending == null) return;
+
+    setState(() => _isFinalizing = true);
+    try {
+      final result = await ServiceApiClient.finalizeApplication(
+        applicationId: (pending['applicationId'] as num).toInt(),
+        token: widget.token,
+      );
+      if (!mounted) return;
+      setState(() {
+        if (result['paymentRequired'] == true) {
+          _pendingPayment = result;
+        } else {
+          _pendingPayment = null;
+          _submitted = result;
+        }
+      });
+    } catch (e) {
+      _showError(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _isFinalizing = false);
     }
   }
 
@@ -223,6 +283,7 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
   Widget _buildBody() {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
     if (_submitted != null) return _buildSuccess();
+    if (_pendingPayment != null) return _buildPaymentPending();
     if (_loadError != null) return _buildMessage(CupertinoIcons.exclamationmark_triangle, _loadError!);
     if (_template == null) {
       return _buildMessage(
@@ -277,7 +338,8 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
                       height: 22,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Submit Application', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  : Text(_hasFee ? 'Continue to Payment' : 'Submit Application',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           ),
           const SizedBox(height: 12),
@@ -845,6 +907,81 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Shown after the form is saved but before the fee is paid.
+  Widget _buildPaymentPending() {
+    final p = _pendingPayment!;
+    final currency = p['currency']?.toString() ?? 'LKR';
+    String money(dynamic v) => '$currency ${((v as num?) ?? 0).toStringAsFixed(2)}';
+    final items = (p['feeItems'] as List? ?? []).whereType<Map<String, dynamic>>().toList();
+    final paid = (p['amountPaid'] as num?) ?? 0;
+
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        const Icon(CupertinoIcons.creditcard, size: 64, color: AppColors.primary),
+        const SizedBox(height: 16),
+        const Text('Pay to Submit',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.dark)),
+        const SizedBox(height: 8),
+        Text(
+          'Your application ${p['referenceNumber']} is saved. It will be sent for verification once the fee is paid.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: AppColors.secondaryLabel, height: 1.4),
+        ),
+        const SizedBox(height: 20),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: AppColors.cardBg, borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            children: [
+              ...items.map((i) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(children: [
+                      Expanded(child: Text(i['feeType']?.toString() ?? 'Fee')),
+                      Text(money(i['amount'])),
+                    ]),
+                  )),
+              if (paid > 0)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(children: [
+                    const Expanded(child: Text('Already paid')),
+                    Text('- ${money(paid)}'),
+                  ]),
+                ),
+              const Divider(),
+              Row(children: [
+                const Expanded(child: Text('Amount due', style: TextStyle(fontWeight: FontWeight.w700))),
+                Text(money(p['amount']), style: const TextStyle(fontWeight: FontWeight.w700)),
+              ]),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          height: 50,
+          child: ElevatedButton(
+            onPressed: _isFinalizing ? null : _pay,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text('Pay ${money(p['amount'])}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: _isFinalizing ? null : _finalize,
+          child: _isFinalizing
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('I have paid — check again'),
+        ),
+      ],
     );
   }
 

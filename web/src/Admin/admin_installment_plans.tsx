@@ -49,18 +49,21 @@ import {
   getInstallmentPlan,
   payInstallment,
   cancelInstallmentPlan,
+  rejectBankTransfer,
+  openInstallmentReceipt,
   type InstallmentPlanResponse,
   type InstallmentResponse,
 } from "../Finance/paymentsApi";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-type InstallmentStatus = "Pending" | "Paid" | "Overdue";
+type InstallmentStatus = "Pending" | "PendingVerification" | "Paid" | "Overdue";
 
 function statusTagType(status: string): "blue" | "green" | "red" | "cool-gray" {
   if (status === "Paid") return "green";
   if (status === "Overdue") return "red";
   if (status === "Pending") return "blue";
+  if (status === "PendingVerification") return "cool-gray";
   return "cool-gray";
 }
 
@@ -194,6 +197,31 @@ export default function AdminInstallmentPlans() {
       setBanner({ kind: "success", msg: "Installment marked as paid." });
     } catch (e: unknown) {
       setBanner({ kind: "error", msg: e instanceof Error ? e.message : "Failed to mark installment paid." });
+    } finally {
+      setPaying(null);
+    }
+  }
+
+  async function handleViewReceipt(installmentId: number) {
+    setBanner(null);
+    try {
+      await openInstallmentReceipt(installmentId);
+    } catch (e: unknown) {
+      setBanner({ kind: "error", msg: e instanceof Error ? e.message : "Failed to open the receipt." });
+    }
+  }
+
+  // Bank transfer receipt rejected: the installment becomes payable again for the citizen
+  async function handleRejectTransfer(installmentId: number) {
+    if (!plan) return;
+    setPaying(installmentId);
+    setBanner(null);
+    try {
+      await rejectBankTransfer(installmentId);
+      setPlan(await getInstallmentPlan(plan.id));
+      setBanner({ kind: "success", msg: "Bank transfer rejected. The citizen can pay this installment again." });
+    } catch (e: unknown) {
+      setBanner({ kind: "error", msg: e instanceof Error ? e.message : "Failed to reject the bank transfer." });
     } finally {
       setPaying(null);
     }
@@ -508,7 +536,7 @@ export default function AdminInstallmentPlans() {
                             </TableCell>
                             <TableCell>
                               <Tag type={statusTagType(inst.status as InstallmentStatus)}>
-                                {inst.status}
+                                {inst.status === "PendingVerification" ? `Receipt to verify${inst.paymentMethod === "BankTransfer" ? " (bank transfer)" : ""}` : inst.status}
                               </Tag>
                             </TableCell>
                             <TableCell>{fmtDate(inst.paidDate)}</TableCell>
@@ -525,6 +553,32 @@ export default function AdminInstallmentPlans() {
                                     {paying === inst.id ? "Saving…" : "Mark Paid"}
                                   </Button>
                                 )}
+                              {inst.status === "PendingVerification" && plan.status === "Active" && (
+                                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                                  {inst.hasReceipt && (
+                                    <Button size="sm" kind="ghost" onClick={() => handleViewReceipt(inst.id)}>
+                                      View Receipt
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="sm"
+                                    kind="primary"
+                                    renderIcon={Checkmark}
+                                    onClick={() => handleMarkPaid(inst.id)}
+                                    disabled={paying !== null}
+                                  >
+                                    {paying === inst.id ? "Saving…" : "Approve"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    kind="danger--tertiary"
+                                    onClick={() => handleRejectTransfer(inst.id)}
+                                    disabled={paying !== null}
+                                  >
+                                    Reject
+                                  </Button>
+                                </div>
+                              )}
                               {inst.status === "Paid" && (
                                 <span style={{ color: "#0e6027", fontSize: "0.875rem", fontWeight: 600 }}>
                                   ✓ Paid

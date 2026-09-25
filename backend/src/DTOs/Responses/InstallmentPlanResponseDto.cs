@@ -10,6 +10,8 @@ namespace Government_Service_Navigator.Backend.DTOs.Responses
         public DateTime DueDate { get; set; }
         public string Status { get; set; } = string.Empty;
         public DateTime? PaidDate { get; set; }
+        public string? PaymentMethod { get; set; }
+        public bool HasReceipt { get; set; }
 
         public static InstallmentDto FromEntity(Installment i) => new InstallmentDto
         {
@@ -18,7 +20,9 @@ namespace Government_Service_Navigator.Backend.DTOs.Responses
             Amount = i.Amount,
             DueDate = i.DueDate,
             Status = i.Status,
-            PaidDate = i.PaidDate
+            PaidDate = i.PaidDate,
+            PaymentMethod = i.PaymentMethod,
+            HasReceipt = i.ReceiptId != null
         };
     }
 

@@ -167,7 +167,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
     final effectiveUserEmail = widget.userEmail ?? '';
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text(
           'My Applications & Verification',
@@ -177,7 +177,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
             fontSize: 19,
           ),
         ),
-        backgroundColor: AppColors.cardBg,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
           IconButton(

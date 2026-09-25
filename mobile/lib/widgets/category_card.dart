@@ -105,7 +105,7 @@ class _CategoryCardState extends State<CategoryCard>
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF000000),
+                          color: AppColors.dark,
                           height: 1.25,
                         ),
                       ),

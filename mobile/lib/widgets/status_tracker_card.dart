@@ -69,7 +69,7 @@ class StatusTrackerCard extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF000000),
+                          color: AppColors.dark,
                         ),
                       ),
                       const SizedBox(height: 4),

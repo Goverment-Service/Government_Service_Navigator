@@ -1,3 +1,4 @@
+import '../theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import '../models/eligibility_agent_model.dart';
 import '../services/eligibility_agent_service.dart';
@@ -137,7 +138,7 @@ class _EligibilitySelfCheckScreenState extends State<EligibilitySelfCheckScreen>
             if (agentResult != null) ...[
               Card(
                 elevation: 4,
-                color: agentResult!.isEligible ? Colors.green[50] : Colors.red[50],
+                color: (agentResult!.isEligible ? AppColors.success : AppColors.danger).withValues(alpha: 0.12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -153,7 +154,7 @@ class _EligibilitySelfCheckScreenState extends State<EligibilitySelfCheckScreen>
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: agentResult!.isEligible ? Colors.green[800] : Colors.red[800],
+                                color: agentResult!.isEligible ? AppColors.success : AppColors.danger,
                               ),
                             ),
                           ),
@@ -162,7 +163,7 @@ class _EligibilitySelfCheckScreenState extends State<EligibilitySelfCheckScreen>
                               'Match: ${agentResult!.matchPercentage}%',
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                             ),
-                            backgroundColor: agentResult!.matchPercentage >= 70 ? Colors.green : Colors.orange,
+                            backgroundColor: agentResult!.matchPercentage >= 70 ? AppColors.success : AppColors.warning,
                           ),
                         ],
                       ),
@@ -174,21 +175,21 @@ class _EligibilitySelfCheckScreenState extends State<EligibilitySelfCheckScreen>
                         const SizedBox(height: 12),
                       ],
                       if (agentResult!.missingCriteria.isNotEmpty) ...[
-                        const Text('Missing / Failed Criteria:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                        const Text('Missing / Failed Criteria:', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.danger)),
                         const SizedBox(height: 4),
-                        ...agentResult!.missingCriteria.map((c) => Text('• $c', style: const TextStyle(color: Colors.red))),
+                        ...agentResult!.missingCriteria.map((c) => Text('• $c', style: const TextStyle(color: AppColors.danger))),
                         const SizedBox(height: 12),
                       ],
                       if (agentResult!.missingDocuments.isNotEmpty) ...[
-                        const Text('Missing Required Documents:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                        const Text('Missing Required Documents:', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.warning)),
                         const SizedBox(height: 4),
                         ...agentResult!.missingDocuments.map((d) => Text('• $d', style: const TextStyle(color: Colors.deepOrange))),
                       ] else ...[
                         const Row(
                           children: [
-                            Icon(Icons.check_circle, color: Colors.green, size: 18),
+                            Icon(Icons.check_circle, color: AppColors.success, size: 18),
                             SizedBox(width: 6),
-                            Text('All required documents provided!', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                            Text('All required documents provided!', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ]

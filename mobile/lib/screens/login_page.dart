@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:mobile/screens/dashboard_screen.dart';
 import '../theme/app_colors.dart';
+import '../theme/glass_theme.dart';
 import '../services/auth_service.dart';
 import '../services/onboarding_prefs.dart';
 import 'signup_page.dart';
@@ -61,8 +62,9 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
+    return AuroraBackdrop(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -117,7 +119,7 @@ class _LoginPageState extends State<LoginPage> {
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF000000),
+                    color: AppColors.dark,
                     letterSpacing: -0.4,
                   ),
                 ),
@@ -209,6 +211,7 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -234,7 +237,7 @@ class _LoginPageState extends State<LoginPage> {
             child: TextFormField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
-              style: const TextStyle(fontSize: 16, color: Color(0xFF000000)),
+              style: const TextStyle(fontSize: 16, color: AppColors.dark),
               decoration: InputDecoration(
                 hintText: 'Email',
                 hintStyle: TextStyle(color: AppColors.secondaryLabel),
@@ -259,7 +262,7 @@ class _LoginPageState extends State<LoginPage> {
             child: TextFormField(
               controller: _passwordController,
               obscureText: _obscurePassword,
-              style: const TextStyle(fontSize: 16, color: Color(0xFF000000)),
+              style: const TextStyle(fontSize: 16, color: AppColors.dark),
               decoration: InputDecoration(
                 hintText: 'Password',
                 hintStyle: TextStyle(color: AppColors.secondaryLabel),

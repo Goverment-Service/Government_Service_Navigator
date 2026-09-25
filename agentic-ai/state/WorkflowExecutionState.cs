@@ -27,6 +27,12 @@ namespace Government_Service_Navigator.AgenticAi.State
         /// </summary>
         public ValidationResult? ValidationResult { get; set; }
 
+        /// <summary>
+        /// Output produced by Agent 2 (Eligibility & Document Analysis Agent).
+        /// </summary>
+        public Government_Service_Navigator.AgenticAi.Agents.EligibilityDocumentAgent.DTOs.EligibilityPlanResponse? EligibilityResult { get; set; }
+
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

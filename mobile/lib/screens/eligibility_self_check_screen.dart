@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
-import '../services/service_api_client.dart';
+import '../models/eligibility_agent_model.dart';
+import '../services/eligibility_agent_service.dart';
 
 class EligibilitySelfCheckScreen extends StatefulWidget {
   final int serviceId;
-  const EligibilitySelfCheckScreen({super.key, required this.serviceId});
+  final String serviceName;
+
+  const EligibilitySelfCheckScreen({
+    super.key,
+    required this.serviceId,
+    this.serviceName = 'Passport Renewal & Application',
+  });
 
   @override
   State<EligibilitySelfCheckScreen> createState() => _EligibilitySelfCheckScreenState();
@@ -12,72 +19,151 @@ class EligibilitySelfCheckScreen extends StatefulWidget {
 class _EligibilitySelfCheckScreenState extends State<EligibilitySelfCheckScreen> {
   final _ageController = TextEditingController(text: '25');
   final _citizenshipController = TextEditingController(text: 'Sri Lankan');
-  
-  Map<String, dynamic>? result;
+  final _incomeController = TextEditingController(text: '500000');
+  final _employmentController = TextEditingController(text: 'Employed');
+  final _providedDocsController = TextEditingController(text: 'National Identity Card (NIC)');
+
+  EligibilityAgentResponse? agentResult;
   bool isEvaluating = false;
 
   void evaluate() async {
     setState(() => isEvaluating = true);
     try {
-      final res = await ServiceApiClient.evaluateEligibility(
-        widget.serviceId,
-        int.parse(_ageController.text),
-        _citizenshipController.text,
+      final providedList = _providedDocsController.text
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+
+      final res = await EligibilityAgentService.evaluateEligibility(
+        serviceName: widget.serviceName,
+        serviceId: widget.serviceId,
+        age: int.tryParse(_ageController.text) ?? 25,
+        citizenshipStatus: _citizenshipController.text,
+        annualIncome: double.tryParse(_incomeController.text) ?? 0,
+        employmentStatus: _employmentController.text,
+        providedDocuments: providedList,
       );
+
       setState(() {
-        result = res;
+        agentResult = res;
         isEvaluating = false;
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Evaluation failed')));
+      setState(() => isEvaluating = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Agent evaluation failed: ${e.toString()}')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Eligibility Self-Check')),
-      body: Padding(
+      appBar: AppBar(title: const Text('Agent 2: Eligibility & Document Check')),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Text(
+              'Service: ${widget.serviceName}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: _ageController,
-              decoration: const InputDecoration(labelText: 'Your Age'),
+              decoration: const InputDecoration(labelText: 'Applicant Age', border: OutlineInputBorder()),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _citizenshipController,
-              decoration: const InputDecoration(labelText: 'Citizenship'),
+              decoration: const InputDecoration(labelText: 'Citizenship Status', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _employmentController,
+              decoration: const InputDecoration(labelText: 'Employment Status', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _providedDocsController,
+              decoration: const InputDecoration(
+                labelText: 'Provided Documents (comma-separated)',
+                hintText: 'e.g. NIC, Birth Certificate',
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: isEvaluating ? null : evaluate,
-              child: isEvaluating ? const CircularProgressIndicator() : const Text('Check Eligibility'),
+              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+              child: isEvaluating
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Consult Agent 2 RAG Engine', style: TextStyle(fontSize: 16)),
             ),
-            const SizedBox(height: 30),
-            if (result != null) ...[
+            const SizedBox(height: 24),
+            if (agentResult != null) ...[
               Card(
-                color: result!['isEligible'] ? Colors.green[50] : Colors.red[50],
+                elevation: 4,
+                color: agentResult!.isEligible ? Colors.green[50] : Colors.red[50],
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        result!['isEligible'] ? 'Eligible for Service!' : 'Not Eligible',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: result!['isEligible'] ? Colors.green[800] : Colors.red[800],
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            agentResult!.isEligible ? 'Eligible for Service' : 'Requirements Not Met',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: agentResult!.isEligible ? Colors.green[800] : Colors.red[800],
+                            ),
+                          ),
+                          Chip(
+                            label: Text(
+                              'Match: ${agentResult!.matchPercentage}%',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                            backgroundColor: agentResult!.matchPercentage >= 70 ? Colors.green : Colors.orange,
+                          ),
+                        ],
                       ),
-                      Text('Match: ${result!['matchPercentage']}%', style: const TextStyle(fontSize: 16)),
-                      const SizedBox(height: 10),
-                      if ((result!['missingCriteria'] as List).isNotEmpty) ...[
-                        const Text('Missing / Failed Criteria:', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ...((result!['missingCriteria'] as List).map((crit) => Text('• $crit', style: const TextStyle(color: Colors.red)))),
+                      const Divider(height: 20),
+                      if (agentResult!.reasoning.isNotEmpty) ...[
+                        const Text('AI Reasoning:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        const SizedBox(height: 4),
+                        Text(agentResult!.reasoning, style: const TextStyle(fontSize: 14)),
+                        const SizedBox(height: 12),
+                      ],
+                      if (agentResult!.missingCriteria.isNotEmpty) ...[
+                        const Text('Missing / Failed Criteria:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                        const SizedBox(height: 4),
+                        ...agentResult!.missingCriteria.map((c) => Text('• $c', style: const TextStyle(color: Colors.red))),
+                        const SizedBox(height: 12),
+                      ],
+                      if (agentResult!.missingDocuments.isNotEmpty) ...[
+                        const Text('Missing Required Documents:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                        const SizedBox(height: 4),
+                        ...agentResult!.missingDocuments.map((d) => Text('• $d', style: const TextStyle(color: Colors.deepOrange))),
+                      ] else ...[
+                        const Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.green, size: 18),
+                            SizedBox(width: 6),
+                            Text('All required documents provided!', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                       ]
                     ],
                   ),

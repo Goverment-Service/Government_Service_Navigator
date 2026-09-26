@@ -110,9 +110,15 @@ class ServiceApiClient {
     String message = 'Failed to submit application';
     try {
       final body = jsonDecode(response.body);
-      if (body is Map && body['message'] != null) message = body['message'].toString();
-      if (body is Map && body['missingFields'] is List) {
-        message = '$message ${(body['missingFields'] as List).join(', ')}';
+      if (body is Map) {
+        if (body['errors'] is List && (body['errors'] as List).isNotEmpty) {
+          message = (body['errors'] as List).join('\n');
+        } else if (body['message'] != null) {
+          message = body['message'].toString();
+        }
+        if (body['missingFields'] is List && (body['missingFields'] as List).isNotEmpty) {
+          message = '$message: ${(body['missingFields'] as List).join(', ')}';
+        }
       }
     } catch (_) {}
     throw Exception(message);
@@ -141,7 +147,13 @@ class ServiceApiClient {
     String message = 'Failed to submit stage application';
     try {
       final body = jsonDecode(response.body);
-      if (body is Map && body['message'] != null) message = body['message'].toString();
+      if (body is Map) {
+        if (body['errors'] is List && (body['errors'] as List).isNotEmpty) {
+          message = (body['errors'] as List).join('\n');
+        } else if (body['message'] != null) {
+          message = body['message'].toString();
+        }
+      }
     } catch (_) {}
     throw Exception(message);
   }

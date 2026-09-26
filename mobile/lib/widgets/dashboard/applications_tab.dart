@@ -643,7 +643,7 @@ class _ApplicationsTabState extends ConsumerState<ApplicationsTab> {
                       child: Text(
                         app.stageStatus == 'AwaitingFeePayment'
                             ? 'Fee Payment Required'
-                            : (app.stageStatus == 'StageApproved'
+                            : ((app.stageStatus == 'StageApproved' || app.stageStatus.endsWith('Unlocked'))
                                 ? 'Stage ${app.currentStage} Ready • ${app.currentDepartment ?? 'Next Dept'}'
                                 : (app.stageStatus == 'Completed'
                                     ? 'All Milestones Cleared'
@@ -652,15 +652,15 @@ class _ApplicationsTabState extends ConsumerState<ApplicationsTab> {
                                         : 'In Review'))),
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight: (app.stageStatus == 'AwaitingFeePayment' || app.stageStatus == 'StageApproved') ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: (app.stageStatus == 'AwaitingFeePayment' || app.stageStatus == 'StageApproved' || app.stageStatus.endsWith('Unlocked')) ? FontWeight.w700 : FontWeight.w500,
                           color: app.stageStatus == 'AwaitingFeePayment'
                               ? AppColors.warning
-                              : (app.stageStatus == 'StageApproved' ? AppColors.success : AppColors.dark),
+                              : ((app.stageStatus == 'StageApproved' || app.stageStatus.endsWith('Unlocked')) ? AppColors.success : AppColors.dark),
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (app.stageStatus == 'StageApproved')
+                    if (app.stageStatus == 'StageApproved' || app.stageStatus.endsWith('Unlocked'))
                       CupertinoButton(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         color: AppColors.success,

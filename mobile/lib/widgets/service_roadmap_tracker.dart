@@ -137,7 +137,7 @@ class ServiceRoadmapTracker extends StatelessWidget {
               ),
             ),
           ],
-          if (stageStatus == 'StageApproved' && onFillStageFormTap != null) ...[
+          if ((stageStatus == 'StageApproved' || stageStatus.endsWith('Unlocked')) && onFillStageFormTap != null) ...[
             const SizedBox(height: 14),
             SizedBox(
               width: double.infinity,
@@ -178,9 +178,20 @@ class ServiceRoadmapTracker extends StatelessWidget {
     IconData icon;
     Color iconColor;
 
+    final isWaitingReview = isCurrent && (stageStatus == 'PendingReview' || stageStatus == 'Submitted' || stageStatus == 'InReview' || stageStatus == 'Pending');
+    final isStageUnlocked = isCurrent && (stageStatus == 'StageApproved' || stageStatus.endsWith('Unlocked'));
+
     if (isPassed) {
       iconBg = AppColors.success.withValues(alpha: 0.15);
       icon = CupertinoIcons.checkmark_alt;
+      iconColor = AppColors.success;
+    } else if (isWaitingReview) {
+      iconBg = const Color(0xFFFFF1C5);
+      icon = CupertinoIcons.hourglass;
+      iconColor = const Color(0xFFB25E00);
+    } else if (isStageUnlocked) {
+      iconBg = AppColors.success.withValues(alpha: 0.15);
+      icon = CupertinoIcons.pencil;
       iconColor = AppColors.success;
     } else if (isCurrent) {
       iconBg = AppColors.primary.withValues(alpha: 0.15);
@@ -201,23 +212,31 @@ class ServiceRoadmapTracker extends StatelessWidget {
     final String statusSubtitle;
     if (isPassed) {
       statusSubtitle = assignedDept != null
-          ? 'Approved by $assignedDept Officer'
-          : 'Approved by Verification Officer';
+          ? 'Completed • Verified by $assignedDept Officer'
+          : 'Completed • Verified by Verification Officer';
     } else if (isCurrent) {
       if (stageStatus == 'AwaitingFeePayment') {
-        statusSubtitle = 'Active / In-Progress • Tap to complete payment';
-      } else if (stageStatus == 'StageApproved') {
+        statusSubtitle = 'Action Required • Fee payment required to proceed';
+      } else if (isStageUnlocked) {
         statusSubtitle = assignedDept != null
-            ? 'Unlocked! Ready for $assignedDept form submission'
-            : 'Unlocked! Ready for next stage submission';
+            ? 'Verified! Ready for $assignedDept form submission'
+            : 'Verified! Ready for next stage submission';
+      } else if (isWaitingReview) {
+        statusSubtitle = assignedDept != null
+            ? 'Stage $stageNumber Submitted • Waiting for $assignedDept verification'
+            : 'Stage $stageNumber Submitted • Waiting for official verification';
+      } else if (stageStatus == 'NotStarted') {
+        statusSubtitle = assignedDept != null
+            ? 'Initial Stage • Ready for $assignedDept application'
+            : 'Initial Stage • Ready to apply';
       } else {
         statusSubtitle = assignedDept != null
-            ? 'Active • Under review by $assignedDept'
-            : 'Active / In-Progress • Under official verification';
+            ? 'In-Progress • Under review by $assignedDept'
+            : 'In-Progress • Under official verification';
       }
     } else {
       statusSubtitle = assignedDept != null
-          ? 'Locked until prior stage completed • $assignedDept'
+          ? 'Locked • Unlocks after Stage ${stageNumber - 1} clearance ($assignedDept)'
           : (stageNumber == 3
               ? 'Locked until payment verified'
               : 'Locked until prior stage completed');

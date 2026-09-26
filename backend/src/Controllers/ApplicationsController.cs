@@ -26,10 +26,12 @@ namespace Government_Service_Navigator.Backend.Controllers
         // Service Catalog category -> department; mirrors web/src/constants/departments.ts.
         private static readonly Dictionary<string, string> DepartmentByCategory = new(StringComparer.OrdinalIgnoreCase)
         {
+            ["Immigration"] = "Department of Immigration & Emigration",
+            ["Transport"] = "Department of Motor Traffic",
             ["Police"] = "Police Department",
-            ["Commerce"] = "Finance Department",
-            ["Transport"] = "Transport Department",
-            ["Civil"] = "Civil Department",
+            ["Civil"] = "Department of Registration of Persons",
+            ["Public Administration"] = "Divisional Secretariat",
+            ["Commerce"] = "Divisional Secretariat",
         };
 
         private const string PresentedByKey = "Presented by";
@@ -67,11 +69,20 @@ namespace Government_Service_Navigator.Backend.Controllers
             var service = await _context.ServiceProcedures.FindAsync(serviceProcedureId);
             var deptName = !string.IsNullOrEmpty(template.Department) ? template.Department : null;
             var (resolvedDept, email) = await ResolveDepartmentAsync(deptName ?? service?.Category);
+
+            List<string> workflowDepts = new();
+            if (!string.IsNullOrEmpty(service?.WorkflowDepartments))
+            {
+                try { workflowDepts = JsonSerializer.Deserialize<List<string>>(service!.WorkflowDepartments) ?? new(); }
+                catch { }
+            }
+
             return Ok(new
             {
                 template,
                 stage = template.StageOrder,
                 totalStages = service?.TotalStages ?? 1,
+                workflowDepartments = workflowDepts,
                 department = new { name = deptName ?? resolvedDept, email }
             });
         }
@@ -192,10 +203,11 @@ namespace Government_Service_Navigator.Backend.Controllers
 
             string? targetDept = null;
             int stageOrder = 1;
+            Template? template = null;
 
             if (request.TemplateId.HasValue)
             {
-                var template = await _context.Templates
+                template = await _context.Templates
                     .Include(t => t.Fields)
                     .FirstOrDefaultAsync(t => t.Id == request.TemplateId.Value
                                               && t.ServiceProcedureId == request.ServiceProcedureId);
@@ -219,9 +231,7 @@ namespace Government_Service_Navigator.Backend.Controllers
             request.Answers[PresentedByKey] = finalDept;
             request.Answers[EmailKey] = departmentEmail;
 
-            var fee = await _feeTool.CalculateAsync(service.Id);
-            var statutoryStages = fee.TotalAmount > 0 ? 3 : 2;
-            var maxStages = Math.Max(service.TotalStages, statutoryStages);
+            var maxStages = service.TotalStages > 0 ? service.TotalStages : 1;
 
             var submission = new ApplicationSubmission
             {
@@ -238,6 +248,39 @@ namespace Government_Service_Navigator.Backend.Controllers
             };
 
             // 1. Build Draft Application for Agent 4
+            var derivedAge = ApplicationDraftingService.AgeFromNic(nic, DateTime.UtcNow);
+            int citizenAge = derivedAge ?? 0;
+            if (citizenAge == 0)
+            {
+                var ageKey = request.Answers.Keys.FirstOrDefault(k => k.Contains("age", StringComparison.OrdinalIgnoreCase));
+                if (ageKey != null && int.TryParse(request.Answers[ageKey], out var parsedAge))
+                {
+                    citizenAge = parsedAge;
+                }
+            }
+            if (citizenAge == 0)
+            {
+                citizenAge = 25; // Default valid legal age
+            }
+
+            var attachedDocList = new List<string>();
+            foreach (var doc in documents.Values)
+            {
+                attachedDocList.Add(doc.FileName);
+                if (!string.IsNullOrWhiteSpace(doc.FieldLabel))
+                {
+                    attachedDocList.Add(doc.FieldLabel);
+                    attachedDocList.Add($"{doc.FieldLabel}: {doc.FileName}");
+                }
+            }
+            foreach (var label in request.Documents.Keys)
+            {
+                if (!attachedDocList.Contains(label))
+                {
+                    attachedDocList.Add(label);
+                }
+            }
+
             var draft = new DraftApplication
             {
                 ApplicationId = 0, // will be set upon save
@@ -245,12 +288,25 @@ namespace Government_Service_Navigator.Backend.Controllers
                 ServiceName = service.Name,
                 CitizenNic = nic,
                 CitizenName = User.FindFirstValue(ClaimTypes.Name) ?? nic,
+                CitizenAge = citizenAge,
                 FormFields = request.Answers,
-                AttachedDocumentNames = documents.Values.Select(d => d.FileName).ToList()
+                AttachedDocumentNames = attachedDocList
             };
 
+            // Identify required document fields for this template/stage
+            List<string>? requiredDocs = null;
+            if (template != null)
+            {
+                var reqFileFields = template.Fields
+                    .Where(f => f.IsRequired && (f.Type == "file" || f.Type == "document" || f.Type == "documentUpload"))
+                    .Select(f => f.Label.Trim().TrimEnd(':').Trim())
+                    .ToList();
+                requiredDocs = reqFileFields;
+            }
+            requiredDocs ??= new List<string>();
+
             // 2. Run Agent 4 (Schema, Duplicates, Risk Scoring)
-            var validationResult = await _safetyAgent.ValidateAndEnqueueAsync(draft);
+            var validationResult = await _safetyAgent.ValidateAndEnqueueAsync(draft, requiredDocs);
 
             if (!validationResult.IsValid)
             {
@@ -272,9 +328,42 @@ namespace Government_Service_Navigator.Backend.Controllers
             }
             if (documents.Count > 0) await _context.SaveChangesAsync();
 
-            // Services with a fee: the application stays out of the officer queue until it is paid (see Finalize)
-            if (fee.TotalAmount > 0)
-                return Ok(PaymentRequiredResponse(submission, service.Name, fee));
+            // Services with custom stage templates: only require payment if THIS stage has a payment field
+            FeeCalculationResult? stageFeeResult = null;
+
+            if (template != null)
+            {
+                var paymentField = template.Fields.FirstOrDefault(f => f.Type == "payment");
+                if (paymentField != null && !string.IsNullOrWhiteSpace(paymentField.Options))
+                {
+                    try
+                    {
+                        using var pDoc = JsonDocument.Parse(paymentField.Options);
+                        if (pDoc.RootElement.TryGetProperty("amount", out var amt) && amt.GetDecimal() > 0)
+                        {
+                            var stageAmt = amt.GetDecimal();
+                            string feeName = pDoc.RootElement.TryGetProperty("feeType", out var ft)
+                                ? ft.GetString() ?? paymentField.Label
+                                : paymentField.Label;
+                            stageFeeResult = new FeeCalculationResult
+                            {
+                                TotalAmount = stageAmt,
+                                Currency = "LKR",
+                                LineItems = new List<FeeLineItem> { new FeeLineItem(feeName, stageAmt) }
+                            };
+                        }
+                    }
+                    catch { }
+                }
+            }
+            else if (service.TotalStages <= 1)
+            {
+                var generalFee = await _feeTool.CalculateAsync(service.Id);
+                if (generalFee.TotalAmount > 0) stageFeeResult = generalFee;
+            }
+
+            if (stageFeeResult != null && stageFeeResult.TotalAmount > 0)
+                return Ok(PaymentRequiredResponse(submission, service.Name, stageFeeResult));
 
             return Ok(await SendToVerificationAsync(submission, service.Name, nic, validationResult.ComplianceChecks));
         }
@@ -298,7 +387,40 @@ namespace Government_Service_Navigator.Backend.Controllers
             if (existingTask != null)
                 return Ok(SubmittedResponse(submission, serviceName, existingTask.Id));
 
-            var fee = await _feeTool.CalculateAsync(submission.ServiceProcedureId);
+            // Determine required fee for this submission's current stage
+            decimal requiredAmount = 0m;
+            FeeCalculationResult fee;
+
+            var currentTemplate = await _context.Templates
+                .Include(t => t.Fields)
+                .FirstOrDefaultAsync(t => t.ServiceProcedureId == submission.ServiceProcedureId && t.StageOrder == submission.CurrentStage && t.Status == "Active");
+            var finalizePaymentField = currentTemplate?.Fields.FirstOrDefault(f => f.Type == "payment");
+            if (finalizePaymentField != null && !string.IsNullOrWhiteSpace(finalizePaymentField.Options))
+            {
+                decimal stageAmt = 0m;
+                string feeName = finalizePaymentField.Label;
+                try
+                {
+                    using var pDoc = JsonDocument.Parse(finalizePaymentField.Options);
+                    if (pDoc.RootElement.TryGetProperty("amount", out var amt)) stageAmt = amt.GetDecimal();
+                    if (pDoc.RootElement.TryGetProperty("feeType", out var ft) && ft.GetString() is string s) feeName = s;
+                }
+                catch { }
+
+                fee = new FeeCalculationResult
+                {
+                    TotalAmount = stageAmt,
+                    Currency = "LKR",
+                    LineItems = new List<FeeLineItem> { new FeeLineItem(feeName, stageAmt) }
+                };
+                requiredAmount = stageAmt;
+            }
+            else
+            {
+                fee = await _feeTool.CalculateAsync(submission.ServiceProcedureId);
+                requiredAmount = fee.TotalAmount;
+            }
+
             var paid = await _context.Payments
                 .Where(p => p.ApplicationId == applicationId && p.Status == "Paid")
                 .SumAsync(p => (decimal?)p.Amount) ?? 0m;
@@ -311,10 +433,10 @@ namespace Government_Service_Navigator.Backend.Controllers
             var onInstallmentPlan = await _context.InstallmentPlans
                 .AnyAsync(ip => paymentIds.Contains(ip.PaymentId)
                                 && (ip.Status == "Active" || ip.Status == "Completed")
-                                && ip.TotalAmount >= fee.TotalAmount
+                                && ip.TotalAmount >= requiredAmount
                                 && ip.Installments!.Any(i => i.Status == "Paid"));
 
-            if (paid < fee.TotalAmount && !onInstallmentPlan)
+            if (paid < requiredAmount && !onInstallmentPlan)
                 return StatusCode(StatusCodes.Status402PaymentRequired, PaymentRequiredResponse(submission, serviceName, fee, paid));
 
             return Ok(await SendToVerificationAsync(submission, serviceName, nic));
@@ -429,6 +551,31 @@ namespace Government_Service_Navigator.Backend.Controllers
             }, User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Citizen");
 
             await _context.SaveChangesAsync();
+
+            // Check if THIS sequential stage has a payment field
+            var stagePaymentField = template.Fields.FirstOrDefault(f => f.Type == "payment");
+            if (stagePaymentField != null && !string.IsNullOrWhiteSpace(stagePaymentField.Options))
+            {
+                try
+                {
+                    using var pDoc = JsonDocument.Parse(stagePaymentField.Options);
+                    if (pDoc.RootElement.TryGetProperty("amount", out var amt) && amt.GetDecimal() > 0)
+                    {
+                        var stageAmt = amt.GetDecimal();
+                        string feeName = pDoc.RootElement.TryGetProperty("feeType", out var ft)
+                            ? ft.GetString() ?? stagePaymentField.Label
+                            : stagePaymentField.Label;
+                        var stageFee = new FeeCalculationResult
+                        {
+                            TotalAmount = stageAmt,
+                            Currency = "LKR",
+                            LineItems = new List<FeeLineItem> { new FeeLineItem(feeName, stageAmt) }
+                        };
+                        return Ok(PaymentRequiredResponse(submission, submission.ServiceProcedure?.Name ?? "Service", stageFee));
+                    }
+                }
+                catch { }
+            }
 
             return Ok(new
             {

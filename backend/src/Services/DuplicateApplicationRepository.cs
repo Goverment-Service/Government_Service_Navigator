@@ -15,7 +15,12 @@ public class DuplicateApplicationRepository : IDuplicateApplicationRepository
 
     public async Task<bool> HasDuplicateAsync(string citizenNic, int serviceProcedureId)
     {
-        // Adjust this query to match your actual schema for detecting active duplicate applications
-        return await _db.VerificationTasks.AnyAsync(t => t.Status == "Pending"); 
+        if (string.IsNullOrWhiteSpace(citizenNic)) return false;
+        var normalizedNic = citizenNic.Trim();
+        return await _db.ApplicationSubmissions.AnyAsync(s => 
+            s.CitizenNic == normalizedNic && 
+            s.ServiceProcedureId == serviceProcedureId && 
+            s.StageStatus != "Completed" && 
+            s.StageStatus != "Rejected");
     }
 }

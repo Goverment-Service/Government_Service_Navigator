@@ -67,7 +67,19 @@ namespace Government_Service_Navigator.AgenticAi.Tools.ValidateSchema
             var attached = draft.AttachedDocumentNames ?? new List<string>();
 
             var missingDocs = neededDocs.Where(needed => 
-                !attached.Any(a => a.IndexOf(needed, StringComparison.OrdinalIgnoreCase) >= 0 || needed.IndexOf(a, StringComparison.OrdinalIgnoreCase) >= 0)
+                !attached.Any(a => 
+                    a.IndexOf(needed, StringComparison.OrdinalIgnoreCase) >= 0 || 
+                    needed.IndexOf(a, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    (needed.Contains("Identity", StringComparison.OrdinalIgnoreCase) && 
+                     (a.Contains("NIC", StringComparison.OrdinalIgnoreCase) || 
+                      a.Contains("Passport", StringComparison.OrdinalIgnoreCase) || 
+                      a.Contains("License", StringComparison.OrdinalIgnoreCase) || 
+                      a.Contains("ID", StringComparison.OrdinalIgnoreCase))) ||
+                    (needed.Contains("NIC", StringComparison.OrdinalIgnoreCase) && 
+                     (a.Contains("Identity", StringComparison.OrdinalIgnoreCase) || 
+                      a.Contains("NIC", StringComparison.OrdinalIgnoreCase) || 
+                      a.Contains("ID", StringComparison.OrdinalIgnoreCase)))
+                )
             ).ToList();
 
             if (missingDocs.Any())

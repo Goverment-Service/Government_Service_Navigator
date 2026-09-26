@@ -20,7 +20,7 @@ function getStoredOfficerData() {
     fullName: "Finance Officer",
     email: "finance@gov.lk",
     role: "Finance Officer",
-    department: "Finance Department",
+    department: "Department of Immigration & Emigration",
   };
 
   const storedUser = localStorage.getItem("officerUser");

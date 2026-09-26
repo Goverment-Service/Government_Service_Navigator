@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../services/service_api_client.dart';
 import 'session_provider.dart';
@@ -49,12 +50,24 @@ class ApplicationFormData {
   final List<RequiredDocument> requiredDocs;
   final bool hasFee;
 
+  /// Multi-stage sequential workflow properties
+  final int stage;
+  final int totalStages;
+  final List<String> workflowDepartments;
+  final String? stageDescription;
+  final String? stageDepartment;
+
   const ApplicationFormData({
     required this.template,
     required this.department,
     required this.fields,
     required this.requiredDocs,
     required this.hasFee,
+    this.stage = 1,
+    this.totalStages = 1,
+    this.workflowDepartments = const [],
+    this.stageDescription,
+    this.stageDepartment,
   });
 }
 
@@ -85,11 +98,39 @@ Future<ApplicationFormData> applicationFormData(Ref ref, int serviceId) async {
       .where((d) => d.name.isNotEmpty && !fileLabels.contains(d.name))
       .toList();
 
+  List<String> workflowDepts = [];
+  final rawDepts = form?['workflowDepartments'] ?? service?['workflowDepartments'];
+  if (rawDepts is List) {
+    workflowDepts = rawDepts.map((e) => e.toString()).toList();
+  } else if (rawDepts is String && rawDepts.isNotEmpty) {
+    try {
+      final decoded = jsonDecode(rawDepts);
+      if (decoded is List) {
+        workflowDepts = decoded.map((e) => e.toString()).toList();
+      }
+    } catch (_) {}
+  }
+
+  final totalStages = (form?['totalStages'] as num?)?.toInt() ??
+                      (service?['totalStages'] as num?)?.toInt() ??
+                      (workflowDepts.isNotEmpty ? workflowDepts.length : 1);
+  final stage = (form?['stage'] as num?)?.toInt() ?? 
+                (template?['stageOrder'] as num?)?.toInt() ?? 1;
+  final stageDesc = template?['stageDescription']?.toString();
+  final stageDept = template?['department']?.toString() ??
+                    (workflowDepts.isNotEmpty && stage - 1 < workflowDepts.length ? workflowDepts[stage - 1] : null) ??
+                    (form?['department'] as Map<String, dynamic>?)?['name']?.toString();
+
   return ApplicationFormData(
     template: template,
     department: form?['department'] as Map<String, dynamic>?,
     fields: fields,
     requiredDocs: requiredDocs,
     hasFee: (service?['feeSchedules'] as List? ?? []).isNotEmpty,
+    stage: stage,
+    totalStages: totalStages,
+    workflowDepartments: workflowDepts,
+    stageDescription: stageDesc,
+    stageDepartment: stageDept,
   );
 }

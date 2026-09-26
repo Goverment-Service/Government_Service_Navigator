@@ -16,7 +16,7 @@ import { getCategoryForDepartment } from "../../constants/departments";
 
 export type FieldType = 
   | 'text' | 'textarea' | 'number' | 'select' | 'multiselect' 
-  | 'date' | 'file' | 'heading' | 'paragraph' | 'table';
+  | 'date' | 'file' | 'heading' | 'paragraph' | 'table' | 'payment';
 
 export interface FormField {
   id: string;
@@ -82,6 +82,9 @@ export default function TemplateBuilder() {
   const [newFieldType, setNewFieldType] = useState<FieldType>("text");
   const [newFieldOptions, setNewFieldOptions] = useState("");
   const [newFieldRequired, setNewFieldRequired] = useState(false);
+  const [paymentFeeAmount, setPaymentFeeAmount] = useState<number>(5000);
+  const [paymentMethods, setPaymentMethods] = useState<string>("Online Card, Manual Bank Deposit Slip");
+  const [selectedFeeScheduleId, setSelectedFeeScheduleId] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
 
   // Linking this template to a Service Catalog entry so its Eligibility
@@ -98,7 +101,8 @@ export default function TemplateBuilder() {
   const [isLoadingServiceDetail, setIsLoadingServiceDetail] = useState(false);
 
   useEffect(() => {
-    if (currentUser?.department) {
+    const urlDept = new URLSearchParams(window.location.search).get("department");
+    if (!urlDept && currentUser?.department) {
       setDepartment(currentUser.department);
     }
   }, [currentUser]);
@@ -141,7 +145,9 @@ export default function TemplateBuilder() {
         setFormName(data.formName || "");
         setSubTitle(data.subTitle || "");
         setLawText(data.lawText || "");
-        setLinkedServiceId(data.serviceProcedureId ? data.serviceProcedureId.toString() : "");
+        if (data.serviceProcedureId) {
+          setLinkedServiceId(data.serviceProcedureId.toString());
+        }
         if (data.department) setDepartment(data.department);
         if (data.stageOrder) setStageOrder(data.stageOrder);
         if (data.stageDescription) setStageDescription(data.stageDescription);
@@ -220,9 +226,11 @@ export default function TemplateBuilder() {
       }
 
       alert(`Stage ${stageOrder} Form Template Saved Successfully!`);
-      const isAdminContext = window.location.pathname.startsWith("/admin") || Boolean(new URLSearchParams(window.location.search).get("serviceId"));
+      const searchServiceId = new URLSearchParams(window.location.search).get("serviceId");
+      const returnSvcId = linkedServiceId || searchServiceId || "";
+      const isAdminContext = window.location.pathname.startsWith("/admin") || Boolean(searchServiceId);
       if (isAdminContext) {
-        window.location.href = "/admin/services/config";
+        window.location.href = `/admin/services/config?serviceId=${encodeURIComponent(returnSvcId)}&tab=3`;
       } else {
         window.location.href = "/officer/dashboard";
       }
@@ -236,12 +244,24 @@ export default function TemplateBuilder() {
 
   const handleAddField = () => {
     if (!newFieldLabel) return;
+
+    let optionsVal: string | undefined = undefined;
+    if (['select', 'multiselect', 'table'].includes(newFieldType)) {
+      optionsVal = newFieldOptions;
+    } else if (newFieldType === 'payment') {
+      optionsVal = JSON.stringify({
+        feeType: newFieldLabel,
+        amount: paymentFeeAmount,
+        methods: paymentMethods,
+      });
+    }
+
     const newField: FormField = {
       id: Date.now().toString(),
       label: newFieldLabel,
       type: newFieldType,
-      required: newFieldRequired,
-      options: (['select', 'multiselect', 'table'].includes(newFieldType)) ? newFieldOptions : undefined
+      required: newFieldType === 'payment' ? true : newFieldRequired,
+      options: optionsVal
     };
     setCustomFields([...customFields, newField]);
     setNewFieldLabel("");
@@ -312,6 +332,56 @@ export default function TemplateBuilder() {
           </div>
         );
 
+      case 'payment': {
+        let paymentConfig = { feeType: "Statutory Processing Fee", amount: 5000, methods: "Online Card, Manual Bank Deposit Slip" };
+        if (field.options) {
+          try {
+            paymentConfig = { ...paymentConfig, ...JSON.parse(field.options) };
+          } catch {
+            paymentConfig.feeType = field.options;
+          }
+        }
+        return (
+          <div style={{ margin: '1.25rem 0', border: '2px solid #0043ce', borderRadius: '4px', backgroundColor: '#f0f5ff', padding: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #d0e2ff', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+              <div>
+                <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#0043ce', fontWeight: 'bold' }}>
+                  Statutory Government Fee
+                </span>
+                <h4 style={{ margin: '0.25rem 0 0 0', fontWeight: 'bold', fontSize: '1.1rem', color: '#161616' }}>
+                  {field.label || paymentConfig.feeType}
+                </h4>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '0.75rem', color: '#525252' }}>Payable Amount</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#0043ce' }}>
+                  Rs. {Number(paymentConfig.amount).toLocaleString()}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '0.85rem', color: '#393939', marginBottom: '0.75rem' }}>
+              <strong>Payment Options Accepted:</strong> {paymentConfig.methods}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', backgroundColor: '#fff', padding: '0.75rem', border: '1px solid #d0e2ff', borderRadius: '4px' }}>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#666', display: 'block' }}>Option 1: Online Payment</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{"Credit / Debit Card (Instant Clearance)"}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#666', display: 'block' }}>Option 2: Bank Deposit Slip</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{"Upload stamped deposit slip and reference number"}</span>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#525252', fontStyle: 'italic' }}>
+              {"Payments are automatically routed to the Department Finance Officer for statutory ledger auditing."}
+            </div>
+          </div>
+        );
+      }
+
       case 'textarea':
         return (
           <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '1rem' }}>
@@ -371,7 +441,11 @@ export default function TemplateBuilder() {
             kind="ghost"
             size="sm"
             renderIcon={ArrowLeft}
-            onClick={() => window.location.href = "/admin/services/config"}
+            onClick={() => {
+              const searchServiceId = new URLSearchParams(window.location.search).get("serviceId");
+              const returnSvcId = linkedServiceId || searchServiceId || "";
+              window.location.href = `/admin/services/config?serviceId=${encodeURIComponent(returnSvcId)}&tab=3`;
+            }}
             style={{ color: '#0f62fe' }}
           >
             Back to Service Workflow Configuration
@@ -457,7 +531,6 @@ export default function TemplateBuilder() {
                 >
                   <SelectItem value="Civil Department" text="Civil Department" />
                   <SelectItem value="Police Department" text="Police Department" />
-                  <SelectItem value="Finance Department" text="Finance Department" />
                   <SelectItem value="Transport Department" text="Transport Department" />
                   <SelectItem value="Department of Registration of Persons" text="Department of Registration of Persons" />
                   <SelectItem value="Department of Immigration & Emigration" text="Department of Immigration & Emigration" />
@@ -574,7 +647,14 @@ export default function TemplateBuilder() {
                   id="fieldType"
                   labelText="Element Type"
                   value={newFieldType}
-                  onChange={(e) => setNewFieldType(e.target.value as FieldType)}
+                  onChange={(e) => {
+                    const val = e.target.value as FieldType;
+                    setNewFieldType(val);
+                    if (val === 'payment') {
+                      if (!newFieldLabel) setNewFieldLabel("Statutory Processing Fee");
+                      setNewFieldRequired(true);
+                    }
+                  }}
                 >
                   <optgroup label="Layout & Text">
                     <SelectItem value="heading" text="Section Heading" />
@@ -590,20 +670,80 @@ export default function TemplateBuilder() {
                     <SelectItem value="select" text="Dropdown (Single Select)" />
                     <SelectItem value="multiselect" text="Dropdown (Multi-Select)" />
                   </optgroup>
-                  <optgroup label="Complex">
+                  <optgroup label="Complex & Official">
                     <SelectItem value="table" text="Data Table Grid" />
                     <SelectItem value="file" text="Required Document Upload" />
+                    <SelectItem value="payment" text="💳 Statutory Payment Section" />
                   </optgroup>
                 </Select>
 
                 <TextArea
                   id="fieldLabel"
-                  labelText={['heading', 'paragraph'].includes(newFieldType) ? "Text Content" : "Field Label"}
+                  labelText={['heading', 'paragraph'].includes(newFieldType) ? "Text Content" : newFieldType === 'payment' ? "Payment Section Title" : "Field Label"}
                   rows={2}
                   value={newFieldLabel}
                   onChange={(e) => setNewFieldLabel(e.target.value)}
                 />
                 
+                {newFieldType === 'payment' && (
+                  <div style={{ backgroundColor: '#edf5ff', border: '1px solid #a6c8ff', padding: '0.75rem', borderRadius: '4px' }}>
+                    <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#0043ce', marginBottom: '0.5rem' }}>
+                      Statutory Payment Settings
+                    </div>
+
+                    {linkedServiceDetail?.feeSchedules && linkedServiceDetail.feeSchedules.length > 0 && (
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <Select
+                          id="select-fee-schedule"
+                          labelText="Link to Service Fee Schedule"
+                          size="sm"
+                          value={selectedFeeScheduleId}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSelectedFeeScheduleId(val);
+                            const found = linkedServiceDetail.feeSchedules.find((f) => f.id.toString() === val);
+                            if (found) {
+                              setNewFieldLabel(found.feeType);
+                              setPaymentFeeAmount(found.amount);
+                            }
+                          }}
+                        >
+                          <SelectItem value="" text="-- Select predefined fee --" />
+                          {linkedServiceDetail.feeSchedules.map((fee) => (
+                            <SelectItem
+                              key={fee.id}
+                              value={fee.id.toString()}
+                              text={`${fee.feeType} — Rs. ${fee.amount.toLocaleString()}`}
+                            />
+                          ))}
+                        </Select>
+                      </div>
+                    )}
+
+                    <div style={{ marginBottom: '0.5rem' }}>
+                      <TextInput
+                        id="payment-fee-amount"
+                        labelText="Statutory Payable Amount (LKR)"
+                        type="number"
+                        size="sm"
+                        value={paymentFeeAmount}
+                        onChange={(e) => setPaymentFeeAmount(Number(e.target.value))}
+                      />
+                    </div>
+
+                    <div>
+                      <TextInput
+                        id="payment-methods"
+                        labelText="Accepted Payment Methods"
+                        size="sm"
+                        value={paymentMethods}
+                        onChange={(e) => setPaymentMethods(e.target.value)}
+                        placeholder="e.g. Online Card, Manual Bank Deposit Slip"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {(['select', 'multiselect', 'table'].includes(newFieldType)) && (
                   <TextArea
                     id="fieldOptions"
@@ -615,7 +755,7 @@ export default function TemplateBuilder() {
                   />
                 )}
                 
-                {!['heading', 'paragraph'].includes(newFieldType) && (
+                {!['heading', 'paragraph', 'payment'].includes(newFieldType) && (
                   <Checkbox 
                     labelText="Required Field" 
                     id="required-checkbox" 

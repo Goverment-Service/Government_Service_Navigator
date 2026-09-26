@@ -398,7 +398,7 @@ namespace Government_Service_Navigator.Backend.Controllers
                     task.Department = nextTemplate.Department;
                     submission.CurrentDepartment = nextTemplate.Department;
                     task.Status = "Pending";
-                    submission.StageStatus = $"Stage{task.CurrentStage}Unlocked";
+                    submission.StageStatus = "StageApproved";
                 }
                 else
                 {

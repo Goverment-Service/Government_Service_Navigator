@@ -93,14 +93,13 @@ interface FeeSchedule {
 }
 
 const AVAILABLE_DEPARTMENTS = [
-  "Civil Department",
-  "Police Department",
-  "Finance Department",
-  "Transport Department",
-  "Department of Registration of Persons",
   "Department of Immigration & Emigration",
+  "Department of Registration of Persons",
   "Department of Motor Traffic",
+  "Police Department",
   "Divisional Secretariat",
+  "Transport Department",
+  "Civil Department",
 ];
 
 export default function ServiceConfigurationTabs() {
@@ -164,6 +163,14 @@ export default function ServiceConfigurationTabs() {
   const [searchQuery, setSearchQuery] = useState("");
   const [serviceSearchQuery, setServiceSearchQuery] = useState("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("All");
+  const [selectedTabIndex, setSelectedTabIndex] = useState<number>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    if (tab === "3" || tab === "workflow" || tab === "stages") return 3;
+    if (tab === "2" || tab === "knowledge") return 2;
+    if (tab === "1" || tab === "fees") return 1;
+    return 0;
+  });
   const [notification, setNotification] = useState<{
     type: "success" | "error" | "info" | "warning";
     title: string;
@@ -254,6 +261,12 @@ export default function ServiceConfigurationTabs() {
       }
 
       setWorkflowDepartments(trimmedDepts);
+      sessionStorage.setItem("admin_selected_service_id", selectedServiceId);
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.set("serviceId", selectedServiceId);
+      currentUrl.searchParams.set("tab", "3");
+      window.history.replaceState({}, "", currentUrl.toString());
+
       setNotification({
         type: "success",
         title: "Workflow Configuration Saved",
@@ -270,6 +283,29 @@ export default function ServiceConfigurationTabs() {
     } finally {
       setIsSavingWorkflow(false);
     }
+  };
+
+  const handleNavigateToBuilder = async (targetUrl: string) => {
+    if (selectedServiceId) {
+      try {
+        const depts = [...workflowDepartments];
+        while (depts.length < totalStages) {
+          depts.push(AVAILABLE_DEPARTMENTS[depts.length % AVAILABLE_DEPARTMENTS.length] || "Civil Department");
+        }
+        const trimmedDepts = depts.slice(0, totalStages);
+        await fetch(`http://localhost:5119/api/services/${selectedServiceId}/workflow`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            totalStages: totalStages,
+            workflowDepartments: trimmedDepts,
+          }),
+        });
+      } catch (err) {
+        console.warn("Auto-saving workflow before builder navigation:", err);
+      }
+    }
+    window.location.href = targetUrl;
   };
 
   const fetchKnowledge = async (svcId: string) => {
@@ -392,9 +428,30 @@ export default function ServiceConfigurationTabs() {
         const scopedServices = activeServices.filter(
           (srv: ServiceOption) => !deptAdminUser || !scopedCategory || srv.category === scopedCategory
         );
-        if (scopedServices.length > 0) {
-          setSelectedServiceId(scopedServices[0].id.toString());
-          setSelectedServiceName(scopedServices[0].name);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlSvcId = urlParams.get("serviceId");
+        const savedSvcId = sessionStorage.getItem("admin_selected_service_id");
+
+        let targetService: ServiceOption | undefined;
+        if (urlSvcId) {
+          targetService = scopedServices.find(
+            (s: ServiceOption) => s.id.toString() === urlSvcId || s.serviceId === urlSvcId
+          );
+        }
+        if (!targetService && savedSvcId) {
+          targetService = scopedServices.find(
+            (s: ServiceOption) => s.id.toString() === savedSvcId || s.serviceId === savedSvcId
+          );
+        }
+        if (!targetService && scopedServices.length > 0) {
+          targetService = scopedServices[0];
+        }
+
+        if (targetService) {
+          setSelectedServiceId(targetService.id.toString());
+          setSelectedServiceName(targetService.name);
+          sessionStorage.setItem("admin_selected_service_id", targetService.id.toString());
         }
         setIsLoading(false);
       })
@@ -965,7 +1022,14 @@ export default function ServiceConfigurationTabs() {
                 labelText={`Target Procedure (${filteredProcedureOptions.length} available)`}
                 size="md"
                 value={selectedServiceId}
-                onChange={(e) => setSelectedServiceId(e.target.value)}
+                onChange={(e) => {
+                  const newId = e.target.value;
+                  setSelectedServiceId(newId);
+                  sessionStorage.setItem("admin_selected_service_id", newId);
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("serviceId", newId);
+                  window.history.replaceState({}, "", url.toString());
+                }}
                 disabled={filteredProcedureOptions.length === 0}
               >
                 {filteredProcedureOptions.length === 0 ? (
@@ -1021,7 +1085,15 @@ export default function ServiceConfigurationTabs() {
         </Tile>
 
         <div style={{ width: "100%" }}>
-          <Tabs>
+          <Tabs
+            selectedIndex={selectedTabIndex}
+            onChange={({ selectedIndex }) => {
+              setSelectedTabIndex(selectedIndex);
+              const url = new URL(window.location.href);
+              url.searchParams.set("tab", selectedIndex.toString());
+              window.history.replaceState({}, "", url.toString());
+            }}
+          >
             <TabList aria-label="Configuration Tabs">
               <Tab>Required Documents</Tab>
               <Tab>Fee Schedule</Tab>
@@ -1584,7 +1656,9 @@ export default function ServiceConfigurationTabs() {
                               <Button
                                 kind="tertiary"
                                 size="sm"
-                                href={`/admin/services/builder?id=${templateForStage.id}&serviceId=${selectedServiceId}&stage=${stageNum}&department=${encodeURIComponent(stageDept)}`}
+                                onClick={() => handleNavigateToBuilder(
+                                  `/admin/services/builder?id=${templateForStage.id}&serviceId=${selectedServiceId}&stage=${stageNum}&department=${encodeURIComponent(stageDept)}`
+                                )}
                               >
                                 Edit Stage Form in Builder
                               </Button>
@@ -1592,7 +1666,9 @@ export default function ServiceConfigurationTabs() {
                               <Button
                                 kind="primary"
                                 size="sm"
-                                href={`/admin/services/builder?serviceId=${selectedServiceId}&stage=${stageNum}&department=${encodeURIComponent(stageDept)}`}
+                                onClick={() => handleNavigateToBuilder(
+                                  `/admin/services/builder?serviceId=${selectedServiceId}&stage=${stageNum}&department=${encodeURIComponent(stageDept)}`
+                                )}
                               >
                                 + Build Stage {stageNum} Form
                               </Button>
@@ -1613,14 +1689,9 @@ export default function ServiceConfigurationTabs() {
                                 setWorkflowDepartments(updated);
                               }}
                             >
-                              <SelectItem value="Civil Department" text="Civil Department" />
-                              <SelectItem value="Police Department" text="Police Department" />
-                              <SelectItem value="Finance Department" text="Finance Department" />
-                              <SelectItem value="Transport Department" text="Transport Department" />
-                              <SelectItem value="Department of Registration of Persons" text="Department of Registration of Persons" />
-                              <SelectItem value="Department of Immigration & Emigration" text="Department of Immigration & Emigration" />
-                              <SelectItem value="Department of Motor Traffic" text="Department of Motor Traffic" />
-                              <SelectItem value="Divisional Secretariat" text="Divisional Secretariat" />
+                              {AVAILABLE_DEPARTMENTS.map((dept) => (
+                                <SelectItem key={dept} value={dept} text={dept} />
+                              ))}
                             </Select>
                           </div>
                           <div style={{ fontSize: "0.8rem", color: "#525252", maxWidth: "420px" }}>

@@ -44,11 +44,10 @@ jobs:
       - name: Generate Riverpod code
         run: dart run build_runner build --delete-conflicting-outputs
 
-      - name: Install CocoaPods dependencies
-        run: |
-          flutter precache --ios
-          cd ios
-          pod install --repo-update
+      # No Podfile is committed; `flutter build ios` generates ios/Podfile and
+      # runs `pod install` itself, so only the iOS engine artifacts are fetched here.
+      - name: Precache iOS artifacts
+        run: flutter precache --ios
 
       - name: Build iOS app (no codesign)
         run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }}

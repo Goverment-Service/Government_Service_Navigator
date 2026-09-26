@@ -1,7 +1,7 @@
 import "@carbon/styles/css/styles.css";
 import { useState, useEffect } from "react";
 import CurrentUserBadge from "../../components/CurrentUserBadge";
-import { getAdminOverviewHref } from "../../utils/currentUser";
+import { getAdminOverviewHref, getStoredUser, canManageServices, isDeptAdmin } from "../../utils/currentUser";
 import {
   Header,
   HeaderName,
@@ -40,8 +40,10 @@ import {
   Categories,
   TrashCan,
   Edit,
+  Document,
+  Money,
 } from "@carbon/icons-react";
-import { DEPARTMENTS, getCategoryForDepartment } from "../../constants/departments";
+import { DEPARTMENTS, getCategoryForDepartment, getDepartmentSlug } from "../../constants/departments";
 
 const headers = [
   { key: "serviceId", header: "Service ID" },
@@ -63,32 +65,27 @@ interface ServiceRecord {
   workflow?: string;
 }
 
-function getStoredOfficerUser(): { department?: string; role?: string } {
-  const storedUser = localStorage.getItem("officerUser");
-  if (storedUser) {
-    try {
-      return JSON.parse(storedUser);
-    } catch {
-      // ignore parse error
-    }
-  }
-  return {};
-}
-
 export default function ServiceCatalogManager() {
   const [isSideNavExpanded, setIsSideNavExpanded] = useState(false);
   const [services, setServices] = useState<ServiceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Department Admins only manage the service category that belongs to their own department.
-  const [currentUser] = useState(getStoredOfficerUser);
-  const isDepartmentAdmin = (currentUser.role || "").toLowerCase().includes("admin") && !!currentUser.department;
-  const scopedCategory = currentUser.department ? getCategoryForDepartment(currentUser.department) : null;
+  // Use centralised role helpers from utils/currentUser.
+  // canManageServices → System Admin only: create/edit/delete services & templates.
+  // isDeptAdmin → Department Admin: read-only catalog, manage own officers only.
+  const [currentUser] = useState(() => getStoredUser() ?? {});
+  const canWrite = canManageServices(currentUser);          // System Admin only
+  const deptAdmin = isDeptAdmin(currentUser);                // Department Admin
+  const scopedCategory = deptAdmin && currentUser.department
+    ? getCategoryForDepartment(currentUser.department)
+    : null;
+  const deptSlug = currentUser?.department ? getDepartmentSlug(currentUser.department) : null;
   const overviewHref = getAdminOverviewHref(currentUser);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [currentServiceId, setCurrentServiceId] = useState<string | null>(null);
   const [formData, setFormData] = useState<{
     serviceId: string;
@@ -100,7 +97,7 @@ export default function ServiceCatalogManager() {
   }>({
     serviceId: "",
     name: "",
-    category: isDepartmentAdmin && scopedCategory ? scopedCategory : "Commerce",
+    category: scopedCategory ?? "Commerce",
     status: "Draft",
     totalStages: 1,
     workflowDepartments: [currentUser.department || "Civil Department"],
@@ -154,13 +151,14 @@ export default function ServiceCatalogManager() {
   };
 
   const openCreateModal = () => {
+    if (!canWrite) return; // guard
     setIsEditMode(false);
     setCurrentServiceId(null);
     const defaultDept = currentUser.department || "Civil Department";
     setFormData({
       serviceId: generateNextServiceId(),
       name: "",
-      category: isDepartmentAdmin && scopedCategory ? scopedCategory : "Commerce",
+      category: scopedCategory ?? "Commerce",
       status: "Draft",
       totalStages: 1,
       workflowDepartments: [defaultDept],
@@ -199,32 +197,49 @@ export default function ServiceCatalogManager() {
   };
 
   const handleSaveService = async () => {
+    setSaveError(null);
+    if (!formData.name.trim()) {
+      setSaveError("Procedure Name is required.");
+      return;
+    }
     try {
       const method = isEditMode ? "PUT" : "POST";
       const endpoint = isEditMode
         ? `http://localhost:5119/api/services/${currentServiceId}`
         : "http://localhost:5119/api/services";
 
+      // WorkflowDepartments is stored as a JSON string in the backend model,
+      // so serialize the array before sending.
+      const payload = {
+        ...(isEditMode ? { id: parseInt(currentServiceId!) } : {}),
+        serviceId: formData.serviceId,
+        name: formData.name,
+        category: formData.category,
+        status: formData.status,
+        totalStages: formData.totalStages,
+        workflowDepartments: JSON.stringify(formData.workflowDepartments),
+        eligibilityRules: [],
+        documentRequirements: [],
+        feeSchedules: [],
+      };
+
       const response = await fetch(endpoint, {
         method: method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...(isEditMode ? { id: parseInt(currentServiceId!) } : {}),
-          ...formData,
-          eligibilityRules: [],
-          documentRequirements: [],
-          feeSchedules: [],
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
         fetchServices();
         setIsModalOpen(false);
+        setSaveError(null);
       } else {
-        console.error("Failed to save service");
+        const errText = await response.text();
+        setSaveError(`Failed to save service. Server responded: ${response.status}. ${errText}`);
       }
     } catch (error) {
       console.error("Error saving service:", error);
+      setSaveError("Network error – could not reach the server. Is the backend running?");
     }
   };
 
@@ -251,10 +266,11 @@ export default function ServiceCatalogManager() {
     }
   };
 
-  // Filter out retired services so they don't clutter the active catalog view, plus apply search query
+  // Filter out retired services so they don't clutter the active catalog view, plus apply search query.
+  // Department Admins see only services scoped to their department category (read-only).
   const filteredServices = services
     .filter((service) => service.status !== "Retired")
-    .filter((service) => !isDepartmentAdmin || !scopedCategory || service.category === scopedCategory)
+    .filter((service) => !deptAdmin || !scopedCategory || service.category === scopedCategory)
     .filter(
       (service) =>
         service.serviceId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -327,18 +343,42 @@ export default function ServiceCatalogManager() {
             <SideNavLink renderIcon={Dashboard} href={overviewHref}>
               Overview
             </SideNavLink>
+
+            {deptAdmin && deptSlug && (
+              <>
+                <SideNavLink
+                  renderIcon={Document}
+                  href={`/admin/${deptSlug}/dashboard?view=verifications`}
+                >
+                  Department Verifications
+                </SideNavLink>
+                <SideNavLink
+                  renderIcon={Money}
+                  href={`/admin/${deptSlug}/dashboard?view=financial`}
+                >
+                  Financial Verifications
+                </SideNavLink>
+              </>
+            )}
+
             <SideNavLink renderIcon={Catalog} href="/admin/services" isActive>
-              Service Catalog
+              {canWrite ? "Service Catalog" : "Service Catalog (View)"}
             </SideNavLink>
-            <SideNavLink renderIcon={Rule} href="/admin/services/rules">
-              Eligibility Rules
-            </SideNavLink>
-            <SideNavLink renderIcon={Categories} href="/admin/services/config">
-              Service Configuration
-            </SideNavLink>
-            <SideNavLink renderIcon={Rule} href="/admin/services/simulator">
-              Eligibility Simulator
-            </SideNavLink>
+
+            {canWrite && (
+              <>
+                <SideNavLink renderIcon={Rule} href="/admin/services/rules">
+                  Eligibility Rules
+                </SideNavLink>
+                <SideNavLink renderIcon={Categories} href="/admin/services/config">
+                  Service Configuration
+                </SideNavLink>
+                <SideNavLink renderIcon={Rule} href="/admin/services/simulator">
+                  Eligibility Simulator
+                </SideNavLink>
+              </>
+            )}
+
             <SideNavLink
               renderIcon={UserMultiple}
               href="/admin/manage-officers"
@@ -348,9 +388,11 @@ export default function ServiceCatalogManager() {
             <SideNavLink renderIcon={Security} href="/admin/audit-logs">
               Audit Logs
             </SideNavLink>
-            <SideNavLink renderIcon={Settings} href="/admin/system-settings">
-              System Settings
-            </SideNavLink>
+            {canWrite && (
+              <SideNavLink renderIcon={Settings} href="/admin/system-settings">
+                System Settings
+              </SideNavLink>
+            )}
             <div style={{ marginTop: "auto", borderTop: "1px solid #393939" }}>
               <SideNavLink renderIcon={Logout} onClick={handleLogout} style={{ cursor: 'pointer' }}>
                 Sign Out
@@ -373,7 +415,7 @@ export default function ServiceCatalogManager() {
           }}
         >
           <div>
-            {isDepartmentAdmin && (
+            {deptAdmin && (
               <Tag type="blue" style={{ marginBottom: "0.5rem" }}>
                 {currentUser.department}
               </Tag>
@@ -382,14 +424,30 @@ export default function ServiceCatalogManager() {
               Service Catalog
             </h1>
             <p style={{ color: "#525252", marginTop: "0.5rem" }}>
-              {isDepartmentAdmin
-                ? `Manage procedures and services for the ${currentUser.department}.`
-                : "Manage departmental procedures and maintain available registry services."}
+              {deptAdmin
+                ? `Viewing services for the ${currentUser.department}. Service creation and configuration is managed by the System Administrator.`
+                : "Create and manage departmental procedures and registry services."}
             </p>
+            {deptAdmin && (
+              <div style={{
+                marginTop: "0.75rem",
+                padding: "0.625rem 1rem",
+                backgroundColor: "#edf5ff",
+                border: "1px solid #a6c8ff",
+                borderLeft: "4px solid #0f62fe",
+                fontSize: "0.8125rem",
+                color: "#0043ce",
+                borderRadius: "2px"
+              }}>
+                🔒 Read-only view. Only System Administrators can create, edit, or configure services and form templates.
+              </div>
+            )}
           </div>
-          <Button size="md" onClick={openCreateModal}>
-            + New Service
-          </Button>
+          {canWrite && (
+            <Button size="md" onClick={openCreateModal}>
+              + New Service
+            </Button>
+          )}
         </div>
 
         <Modal
@@ -427,17 +485,29 @@ export default function ServiceCatalogManager() {
             <Select
               id="category"
               labelText="Category"
-              helperText={isDepartmentAdmin ? "Locked to your department's category." : undefined}
+              helperText="Select the service category."
               value={formData.category}
               onChange={(e) =>
                 setFormData({ ...formData, category: e.target.value })
               }
-              disabled={isDepartmentAdmin}
             >
               {DEPARTMENTS.map((dept) => (
                 <SelectItem key={dept.category} value={dept.category} text={dept.category} />
               ))}
             </Select>
+            {saveError && (
+              <div style={{
+                padding: '0.75rem 1rem',
+                backgroundColor: '#fff1f1',
+                border: '1px solid #da1e28',
+                borderLeft: '4px solid #da1e28',
+                color: '#da1e28',
+                fontSize: '0.875rem',
+                marginTop: '0.5rem'
+              }}>
+                ⚠ {saveError}
+              </div>
+            )}
             <Select
               id="status"
               labelText="Status"
@@ -522,30 +592,38 @@ export default function ServiceCatalogManager() {
                                       alignItems: "center",
                                     }}
                                   >
-                                    <Button
-                                      size="sm"
-                                      kind="tertiary"
-                                      renderIcon={Edit}
-                                      iconDescription="Edit"
-                                      hasIconOnly
-                                      onClick={() => {
-                                        const serviceToEdit = services.find(
-                                          (s) => s.id === row.id,
-                                        );
-                                        if (serviceToEdit)
-                                          openEditModal(serviceToEdit);
-                                      }}
-                                    />
-                                    <Button
-                                      size="sm"
-                                      kind="danger--ghost"
-                                      renderIcon={TrashCan}
-                                      iconDescription="Delete"
-                                      hasIconOnly
-                                      onClick={() =>
-                                        handleDeleteService(row.id)
-                                      }
-                                    />
+                                    {canWrite ? (
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          kind="tertiary"
+                                          renderIcon={Edit}
+                                          iconDescription="Edit"
+                                          hasIconOnly
+                                          onClick={() => {
+                                            const serviceToEdit = services.find(
+                                              (s) => s.id === row.id,
+                                            );
+                                            if (serviceToEdit)
+                                              openEditModal(serviceToEdit);
+                                          }}
+                                        />
+                                        <Button
+                                          size="sm"
+                                          kind="danger--ghost"
+                                          renderIcon={TrashCan}
+                                          iconDescription="Delete"
+                                          hasIconOnly
+                                          onClick={() =>
+                                            handleDeleteService(row.id)
+                                          }
+                                        />
+                                      </>
+                                    ) : (
+                                      <span style={{ fontSize: "0.75rem", color: "#8d8d8d", fontStyle: "italic" }}>
+                                        View only
+                                      </span>
+                                    )}
                                   </div>
                                 </TableCell>
                               );

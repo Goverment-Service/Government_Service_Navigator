@@ -125,9 +125,6 @@ export default function EditOfficerModal({ isOpen, onClose, onSuccess, officer }
             setFormData((prev) => ({
               ...prev,
               department: nextDepartment,
-              role: nextDepartment === "Finance Department" || prev.role !== "Finance Officer"
-                ? prev.role
-                : "Verifying Officer",
             }));
           }}
           disabled={isSubmitting || isDepartmentAdmin}
@@ -140,18 +137,16 @@ export default function EditOfficerModal({ isOpen, onClose, onSuccess, officer }
         <Select
           id="edit-role"
           labelText="Role Designation"
-          helperText={isDepartmentAdmin ? "Department Admins can only assign Verifying Officer or Auditor." : undefined}
+          helperText={isDepartmentAdmin ? "Assign Verifying Officer, Finance Officer, or Auditor." : undefined}
           value={formData.role}
           onChange={(e) => setFormData({ ...formData, role: e.target.value })}
           disabled={isSubmitting}
         >
           <SelectItem value="Verifying Officer" text="Verifying Officer" />
+          <SelectItem value="Finance Officer" text="Finance Officer" />
+          <SelectItem value="Auditor" text="Auditor" />
           {!isDepartmentAdmin && (
             <SelectItem value="Department Admin" text="Department Admin" />
-          )}
-          <SelectItem value="Auditor" text="Auditor" />
-          {formData.department === "Finance Department" && (
-            <SelectItem value="Finance Officer" text="Finance Officer" />
           )}
         </Select>
       </Stack>

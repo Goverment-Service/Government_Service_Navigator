@@ -6,10 +6,11 @@ export interface DepartmentOption {
 }
 
 export const DEPARTMENTS: DepartmentOption[] = [
+  { label: "Department of Immigration & Emigration", slug: "immigration", category: "Immigration" },
+  { label: "Department of Motor Traffic", slug: "motor-traffic", category: "Transport" },
   { label: "Police Department", slug: "police", category: "Police" },
-  { label: "Finance Department", slug: "finance", category: "Commerce" },
-  { label: "Transport Department", slug: "transport", category: "Transport" },
-  { label: "Civil Department", slug: "civil", category: "Civil" },
+  { label: "Department of Registration of Persons", slug: "registration-of-persons", category: "Civil" },
+  { label: "Divisional Secretariat", slug: "divisional-secretariat", category: "Public Administration" },
 ];
 
 export function getDepartmentSlug(department: string): string | null {

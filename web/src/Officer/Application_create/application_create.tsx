@@ -31,9 +31,12 @@ import {
 } from '@carbon/icons-react';
 import CurrentUserBadge from "../../components/CurrentUserBadge";
 import TemplateBuilder from "./TemplateBuilder";
+import { getStoredUser, getAdminOverviewHref, canManageServices } from "../../utils/currentUser";
 
 export default function ApplicationCreate() {
-  const isAdmin = window.location.pathname.startsWith("/admin") || new URLSearchParams(window.location.search).has("serviceId");
+  const [currentUser] = useState(getStoredUser);
+  const isSysAdmin = canManageServices(currentUser);
+  const overviewHref = getAdminOverviewHref(currentUser);
   const [isSideNavExpanded, setIsSideNavExpanded] = useState(false);
 
   const handleLogout = async () => {
@@ -51,11 +54,11 @@ export default function ApplicationCreate() {
     } finally {
       localStorage.removeItem("officerToken");
       localStorage.removeItem("officerUser");
-      window.location.href = isAdmin ? "/admin/login" : "/officer/login";
+      window.location.href = isSysAdmin ? "/admin/login" : "/officer/login";
     }
   };
 
-  if (!isAdmin) {
+  if (!isSysAdmin) {
     return (
       <HeaderContainer
         render={({ isSideNavExpanded: navExpanded, onClickSideNavExpand }) => (
@@ -98,12 +101,12 @@ export default function ApplicationCreate() {
               <InlineNotification
                 kind="warning"
                 title="Template Builder Restricted to System Administrators"
-                subtitle="Form templates are configured centrally by Administrators during Service Catalog workflow setup. Verification Officers only review applications in their assigned queue."
+                subtitle="Form templates and multi-department workflow stages are configured centrally by System Administrators. Department staff and operational officers do not configure form templates."
                 lowContrast
               />
               <div style={{ marginTop: '1.5rem' }}>
-                <Button onClick={() => window.location.href = "/officer/dashboard"}>
-                  Return to Application Queue
+                <Button onClick={() => window.location.href = overviewHref}>
+                  Return to Dashboard
                 </Button>
               </div>
             </main>

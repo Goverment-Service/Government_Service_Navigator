@@ -326,9 +326,21 @@ CREATE INDEX IF NOT EXISTS ""IX_CitizenNotifications_CitizenNic"" ON ""CitizenNo
 ALTER TABLE ""ApplicationSubmissions"" ADD COLUMN IF NOT EXISTS ""CurrentStage"" integer NOT NULL DEFAULT 1;
 ALTER TABLE ""ApplicationSubmissions"" ADD COLUMN IF NOT EXISTS ""MaxStages"" integer NOT NULL DEFAULT 1;
 ALTER TABLE ""ApplicationSubmissions"" ADD COLUMN IF NOT EXISTS ""StageStatus"" text NOT NULL DEFAULT 'PendingReview';
+ALTER TABLE ""ApplicationSubmissions"" ADD COLUMN IF NOT EXISTS ""CurrentDepartment"" text NULL;
+ALTER TABLE ""ApplicationSubmissions"" ADD COLUMN IF NOT EXISTS ""DepartmentHistoryJson"" text NULL;
+
 ALTER TABLE ""VerificationTasks"" ADD COLUMN IF NOT EXISTS ""CurrentStage"" integer NOT NULL DEFAULT 1;
 ALTER TABLE ""VerificationTasks"" ADD COLUMN IF NOT EXISTS ""MaxStages"" integer NOT NULL DEFAULT 1;
 ALTER TABLE ""VerificationTasks"" ADD COLUMN IF NOT EXISTS ""CitizenNic"" text NULL;
+ALTER TABLE ""VerificationTasks"" ADD COLUMN IF NOT EXISTS ""Department"" text NULL;
+ALTER TABLE ""VerificationTasks"" ADD COLUMN IF NOT EXISTS ""StageNumber"" integer NOT NULL DEFAULT 1;
+
+ALTER TABLE ""Templates"" ADD COLUMN IF NOT EXISTS ""Department"" text NULL;
+ALTER TABLE ""Templates"" ADD COLUMN IF NOT EXISTS ""StageOrder"" integer NOT NULL DEFAULT 1;
+ALTER TABLE ""Templates"" ADD COLUMN IF NOT EXISTS ""StageDescription"" text NULL;
+
+ALTER TABLE ""ServiceProcedures"" ADD COLUMN IF NOT EXISTS ""TotalStages"" integer NOT NULL DEFAULT 1;
+ALTER TABLE ""ServiceProcedures"" ADD COLUMN IF NOT EXISTS ""WorkflowDepartments"" text NULL;
 ");
 
         // Seed mock VerificationTasks if empty so the UI has something to show!

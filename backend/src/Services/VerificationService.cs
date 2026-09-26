@@ -29,7 +29,9 @@ namespace Government_Service_Navigator.Backend.Services
                     CreatedDate = DateTime.UtcNow,
                     CitizenNic = request.CitizenNic,
                     CurrentStage = submission?.CurrentStage ?? 1,
-                    MaxStages = submission?.MaxStages ?? 1
+                    MaxStages = submission?.MaxStages ?? 1,
+                    Department = request.Department ?? submission?.CurrentDepartment,
+                    StageNumber = request.StageNumber > 0 ? request.StageNumber : (submission?.CurrentStage ?? 1)
                 };
 
                 _context.VerificationTasks.Add(task);
@@ -204,20 +206,30 @@ namespace Government_Service_Navigator.Backend.Services
                 .ToListAsync();
         }
 
-        public async Task<List<VerificationTask>> GetPendingTasksAsync()
+        public async Task<List<VerificationTask>> GetPendingTasksAsync(string? department = null)
         {
-            return await _context.VerificationTasks
-                .Where(t => t.Status == "Pending" || t.Status == "Revised" || t.Status == "Revision Requested")
-                .OrderBy(t => t.CreatedDate)
-                .ToListAsync();
+            var query = _context.VerificationTasks
+                .Where(t => t.Status == "Pending" || t.Status == "Revised" || t.Status == "Revision Requested");
+
+            if (!string.IsNullOrEmpty(department))
+            {
+                query = query.Where(t => t.Department == department || t.Department == null);
+            }
+
+            return await query.OrderBy(t => t.CreatedDate).ToListAsync();
         }
 
-        public async Task<List<VerificationTask>> GetVerifiedTasksAsync()
+        public async Task<List<VerificationTask>> GetVerifiedTasksAsync(string? department = null)
         {
-            return await _context.VerificationTasks
-                .Where(t => t.Status == "Approved" || t.Status == "Rejected")
-                .OrderByDescending(t => t.CreatedDate)
-                .ToListAsync();
+            var query = _context.VerificationTasks
+                .Where(t => t.Status == "Approved" || t.Status == "Rejected");
+
+            if (!string.IsNullOrEmpty(department))
+            {
+                query = query.Where(t => t.Department == department || t.Department == null);
+            }
+
+            return await query.OrderByDescending(t => t.CreatedDate).ToListAsync();
         }
 
         public async Task<List<VerificationTask>> GetTasksForCitizenAsync(string citizenNic)

@@ -22,5 +22,11 @@ namespace Government_Service_Navigator.Backend.Models.Entities
         public int MaxStages { get; set; } = 1;
         public string StageStatus { get; set; } = "PendingReview"; // "PendingReview", "StageApproved", "Completed", "ActionRequired"
 
+        // The specific department currently assigned to review the active stage
+        public string? CurrentDepartment { get; set; }
+
+        // History of multi-department reviews and stage transitions
+        public string? DepartmentHistoryJson { get; set; }
+
     }
 }

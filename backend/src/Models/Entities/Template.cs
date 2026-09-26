@@ -26,6 +26,16 @@ namespace Government_Service_Navigator.Backend.Models.Entities
         public int? ServiceProcedureId {get;set;}
         public ServiceProcedure? ServiceProcedure {get;set;}
 
+        // Department this specific form belongs to (e.g., "Department of Registration of Persons", "Department of Immigration & Emigration")
+        [MaxLength(150)]
+        public string? Department { get; set; }
+
+        // Sequential stage in the service workflow (e.g., 1 for Initial Intake, 2 for Secondary Inter-Departmental Endorsement)
+        public int StageOrder { get; set; } = 1;
+
+        [MaxLength(300)]
+        public string? StageDescription { get; set; }
+
         public ICollection<FormField> Fields {get;set;} = new List<FormField>();
     }
 }

@@ -147,5 +147,19 @@ public async Task<IActionResult> CreateService([FromBody] ServiceProcedure servi
             return NoContent();
         }
 
+        // Configure multi-department stages and workflow for a service
+        [HttpPut("{id}/workflow")]
+        public async Task<IActionResult> UpdateWorkflow(int id, [FromBody] UpdateWorkflowRequest request)
+        {
+            var updated = await _catalogService.UpdateWorkflowAsync(id, request.TotalStages, request.WorkflowDepartments);
+            if (updated == null) return NotFound("Service procedure not found.");
+            return Ok(updated);
+        }
+    }
+
+    public class UpdateWorkflowRequest
+    {
+        public int TotalStages { get; set; } = 1;
+        public List<string> WorkflowDepartments { get; set; } = new();
     }
 }

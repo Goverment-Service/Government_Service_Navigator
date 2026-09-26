@@ -49,20 +49,69 @@ namespace Government_Service_Navigator.Backend.Controllers
         }
 
         // Active application template linked to the service, or 404 if the admin hasn't built one.
-        [HttpGet("form/{serviceProcedureId}")]
-        public async Task<IActionResult> GetForm(int serviceProcedureId)
+        [HttpGet("form/{serviceProcedureId:int}")]
+        public async Task<IActionResult> GetForm(int serviceProcedureId, [FromQuery] int stage = 1)
         {
-            var template = await _context.Templates
+            var query = _context.Templates
                 .Include(t => t.Fields.OrderBy(f => f.OrderIndex))
-                .Where(t => t.ServiceProcedureId == serviceProcedureId && t.Status == "Active")
+                .Where(t => t.ServiceProcedureId == serviceProcedureId && t.Status == "Active");
+
+            var template = await query
+                .Where(t => t.StageOrder == stage)
                 .OrderByDescending(t => t.CreatedAt)
-                .FirstOrDefaultAsync();
+                .FirstOrDefaultAsync()
+                ?? await query.OrderBy(t => t.StageOrder).FirstOrDefaultAsync();
 
             if (template == null) return NotFound("No application form is available for this service yet.");
 
             var service = await _context.ServiceProcedures.FindAsync(serviceProcedureId);
-            var (department, email) = await ResolveDepartmentAsync(service?.Category);
-            return Ok(new { template, department = new { name = department, email } });
+            var deptName = !string.IsNullOrEmpty(template.Department) ? template.Department : null;
+            var (resolvedDept, email) = await ResolveDepartmentAsync(deptName ?? service?.Category);
+            return Ok(new
+            {
+                template,
+                stage = template.StageOrder,
+                totalStages = service?.TotalStages ?? 1,
+                department = new { name = deptName ?? resolvedDept, email }
+            });
+        }
+
+        // Returns all configured workflow stages and application forms for a service
+        [HttpGet("stages/{serviceProcedureId:int}")]
+        public async Task<IActionResult> GetStages(int serviceProcedureId)
+        {
+            var service = await _context.ServiceProcedures.FindAsync(serviceProcedureId);
+            if (service == null) return NotFound("Service not found.");
+
+            var templates = await _context.Templates
+                .Where(t => t.ServiceProcedureId == serviceProcedureId && t.Status == "Active")
+                .OrderBy(t => t.StageOrder)
+                .Select(t => new
+                {
+                    t.Id,
+                    t.FormName,
+                    t.SubTitle,
+                    t.Department,
+                    t.StageOrder,
+                    t.StageDescription
+                })
+                .ToListAsync();
+
+            List<string> workflowDepts = new();
+            if (!string.IsNullOrEmpty(service.WorkflowDepartments))
+            {
+                try { workflowDepts = JsonSerializer.Deserialize<List<string>>(service.WorkflowDepartments) ?? new(); }
+                catch { }
+            }
+
+            return Ok(new
+            {
+                serviceId = service.Id,
+                serviceName = service.Name,
+                totalStages = service.TotalStages,
+                workflowDepartments = workflowDepts,
+                stageForms = templates
+            });
         }
 
         // The department handling a service category, and the email of its active Department Admin.
@@ -141,6 +190,9 @@ namespace Government_Service_Navigator.Backend.Controllers
             foreach (var (label, id) in request.Documents)
                 request.Answers[label] = documents[id].FileName;
 
+            string? targetDept = null;
+            int stageOrder = 1;
+
             if (request.TemplateId.HasValue)
             {
                 var template = await _context.Templates
@@ -148,6 +200,9 @@ namespace Government_Service_Navigator.Backend.Controllers
                     .FirstOrDefaultAsync(t => t.Id == request.TemplateId.Value
                                               && t.ServiceProcedureId == request.ServiceProcedureId);
                 if (template == null) return BadRequest("Form does not belong to this service.");
+
+                targetDept = template.Department;
+                stageOrder = template.StageOrder;
 
                 var missing = template.Fields
                     .Where(f => f.IsRequired && !DisplayOnlyTypes.Contains(f.Type))
@@ -159,12 +214,14 @@ namespace Government_Service_Navigator.Backend.Controllers
             }
 
             // Footer values are set server-side so the client can't alter which department receives it.
-            var (department, departmentEmail) = await ResolveDepartmentAsync(service.Category);
-            request.Answers[PresentedByKey] = department;
+            var (defaultDept, departmentEmail) = await ResolveDepartmentAsync(service.Category);
+            var finalDept = targetDept ?? defaultDept;
+            request.Answers[PresentedByKey] = finalDept;
             request.Answers[EmailKey] = departmentEmail;
 
             var fee = await _feeTool.CalculateAsync(service.Id);
-            var maxStages = fee.TotalAmount > 0 ? 3 : 2;
+            var statutoryStages = fee.TotalAmount > 0 ? 3 : 2;
+            var maxStages = Math.Max(service.TotalStages, statutoryStages);
 
             var submission = new ApplicationSubmission
             {
@@ -174,8 +231,9 @@ namespace Government_Service_Navigator.Backend.Controllers
                 UserEmail = User.FindFirstValue(ClaimTypes.Email) ?? string.Empty,
                 FormDataJson = JsonSerializer.Serialize(request.Answers),
                 SubmittedAt = DateTime.UtcNow,
-                CurrentStage = 1,
+                CurrentStage = stageOrder,
                 MaxStages = maxStages,
+                CurrentDepartment = finalDept,
                 StageStatus = "PendingReview"
             };
 
@@ -267,7 +325,9 @@ namespace Government_Service_Navigator.Backend.Controllers
             var task = await _verificationService.CreateTaskAsync(new CreateTaskRequest
             {
                 ApplicationId = submission.Id,
-                CitizenNic = nic
+                CitizenNic = nic,
+                Department = submission.CurrentDepartment,
+                StageNumber = submission.CurrentStage
             }, User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Citizen");
             if (checks != null && checks.Count > 0)
             {
@@ -310,5 +370,83 @@ namespace Government_Service_Navigator.Backend.Controllers
             feeItems = fee.LineItems.Select(i => new { i.FeeType, i.Amount }),
             userEmail = submission.UserEmail
         };
+
+        // Submits the next sequential stage application form (e.g. Stage 2 for Department B)
+        [HttpPost("submit-stage")]
+        public async Task<IActionResult> SubmitStage([FromBody] SubmitStageRequest request)
+        {
+            var nic = User.FindFirstValue("nicNumber");
+            if (string.IsNullOrWhiteSpace(nic)) return Forbid();
+
+            var submission = await _context.ApplicationSubmissions
+                .Include(s => s.ServiceProcedure)
+                .FirstOrDefaultAsync(s => s.Id == request.ApplicationId && s.CitizenNic == nic);
+            if (submission == null) return NotFound("Application not found.");
+
+            var template = await _context.Templates
+                .Include(t => t.Fields)
+                .FirstOrDefaultAsync(t => t.Id == request.TemplateId && t.ServiceProcedureId == submission.ServiceProcedureId);
+            if (template == null) return BadRequest("Form template does not belong to this service.");
+
+            // Uploaded documents: must belong to the caller and not already attached
+            var documentIds = request.Documents.Values.Distinct().ToList();
+            var documents = await _context.SubmissionDocuments
+                .Where(d => documentIds.Contains(d.Id) && d.UploaderNic == nic && d.ApplicationId == null)
+                .ToDictionaryAsync(d => d.Id);
+
+            foreach (var (label, id) in request.Documents)
+            {
+                if (documents.TryGetValue(id, out var doc))
+                {
+                    request.Answers[label] = doc.FileName;
+                    doc.ApplicationId = submission.Id;
+                    doc.FieldLabel = label;
+                }
+            }
+
+            // Merge answers into existing form data
+            Dictionary<string, string> currentAnswers = new();
+            try { currentAnswers = JsonSerializer.Deserialize<Dictionary<string, string>>(submission.FormDataJson) ?? new(); }
+            catch { }
+
+            foreach (var kvp in request.Answers)
+            {
+                currentAnswers[$"[Stage {template.StageOrder}] {kvp.Key}"] = kvp.Value;
+            }
+
+            submission.FormDataJson = JsonSerializer.Serialize(currentAnswers);
+            submission.CurrentStage = template.StageOrder;
+            submission.CurrentDepartment = template.Department;
+            submission.StageStatus = "PendingReview";
+
+            // Enqueue new verification task for the new department!
+            var task = await _verificationService.CreateTaskAsync(new CreateTaskRequest
+            {
+                ApplicationId = submission.Id,
+                CitizenNic = nic,
+                Department = template.Department,
+                StageNumber = template.StageOrder
+            }, User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Citizen");
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                applicationId = submission.Id,
+                taskId = task.Id,
+                currentStage = submission.CurrentStage,
+                department = template.Department,
+                status = "PendingReview",
+                message = $"Stage {template.StageOrder} application submitted for verification by {template.Department}."
+            });
+        }
+    }
+
+    public class SubmitStageRequest
+    {
+        public int ApplicationId { get; set; }
+        public Guid TemplateId { get; set; }
+        public Dictionary<string, string> Answers { get; set; } = new();
+        public Dictionary<string, Guid> Documents { get; set; } = new();
     }
 }

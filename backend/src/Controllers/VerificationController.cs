@@ -40,7 +40,13 @@ namespace Government_Service_Navigator.Backend.Controllers
             var appIds = tasks.Select(t => t.ApplicationId).ToList();
             var submissions = await _context.ApplicationSubmissions
                 .Where(s => appIds.Contains(s.Id))
-                .Select(s => new { s.Id, s.CitizenNic, ServiceName = s.ServiceProcedure!.Name, s.ServiceProcedure.Category })
+                .Select(s => new {
+                    s.Id,
+                    s.CitizenNic,
+                    ServiceName = s.ServiceProcedure!.Name,
+                    s.ServiceProcedure.Category,
+                    s.CurrentDepartment
+                })
                 .ToDictionaryAsync(s => s.Id);
 
             var nics = submissions.Values.Select(s => s.CitizenNic)
@@ -66,6 +72,8 @@ namespace Government_Service_Navigator.Backend.Controllers
                     t.CreatedDate,
                     t.CurrentStage,
                     t.MaxStages,
+                    Department = t.Department ?? s?.CurrentDepartment,
+                    t.StageNumber,
                     ReferenceNumber = $"APP-{t.ApplicationId}",
                     CitizenNic = nic,
                     CitizenName = nic != null && names.TryGetValue(nic, out var name) ? name : null,
@@ -96,12 +104,15 @@ namespace Government_Service_Navigator.Backend.Controllers
                 .Select(s => new
                 {
                     s.Id,
+                    s.ServiceProcedureId,
                     s.ServiceProcedure!.Name,
                     s.ServiceProcedure.Category,
                     Amount = s.ServiceProcedure.FeeSchedules.OrderByDescending(f => f.EffectiveDate).Select(f => (double?)f.Amount).FirstOrDefault() ?? 0.0,
                     s.CurrentStage,
                     s.MaxStages,
                     s.StageStatus,
+                    s.CurrentDepartment,
+                    WorkflowDepartments = s.ServiceProcedure.WorkflowDepartments,
                     s.UserEmail
                 })
                 .ToDictionaryAsync(s => s.Id);
@@ -139,6 +150,10 @@ namespace Government_Service_Navigator.Backend.Controllers
                     ReferenceNumber = $"APP-{t.ApplicationId}",
                     ServiceName = s?.Name,
                     Category = s?.Category,
+                    Department = t.Department ?? s?.CurrentDepartment,
+                    CurrentDepartment = s?.CurrentDepartment,
+                    WorkflowDepartments = s?.WorkflowDepartments,
+                    ServiceProcedureId = s?.ServiceProcedureId ?? 0,
                     CurrentStage = t.CurrentStage > 0 ? t.CurrentStage : (s?.CurrentStage ?? 1),
                     MaxStages = t.MaxStages > 0 ? t.MaxStages : (s?.MaxStages ?? 1),
                     StageStatus = !string.IsNullOrEmpty(s?.StageStatus) ? s.StageStatus : (t.Status == "Approved" ? "Completed" : "PendingReview"),
@@ -164,7 +179,10 @@ namespace Government_Service_Navigator.Backend.Controllers
         [HttpGet("tasks/pending")]
         public async Task<IActionResult> GetPendingTasks()
         {
-            var tasks = await _verificationService.GetPendingTasksAsync();
+            var role = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+            var dept = User.FindFirstValue("department");
+            var deptScope = role.Contains("System Admin", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(dept) ? null : dept;
+            var tasks = await _verificationService.GetPendingTasksAsync(deptScope);
             return Ok(await WithApplicationDetailsAsync(tasks));
         }
 
@@ -172,7 +190,10 @@ namespace Government_Service_Navigator.Backend.Controllers
         [HttpGet("tasks/verified")]
         public async Task<IActionResult> GetVerifiedTasks()
         {
-            var tasks = await _verificationService.GetVerifiedTasksAsync();
+            var role = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+            var dept = User.FindFirstValue("department");
+            var deptScope = role.Contains("System Admin", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(dept) ? null : dept;
+            var tasks = await _verificationService.GetVerifiedTasksAsync(deptScope);
             return Ok(await WithApplicationDetailsAsync(tasks));
         }
 
@@ -358,12 +379,32 @@ namespace Government_Service_Navigator.Backend.Controllers
             var officerId = GetCurrentOfficerId();
 
             // 1. Advance the stage
+            var prevStage = task.CurrentStage;
+            var prevDept = task.Department ?? submission.CurrentDepartment ?? "Verifying Department";
+
             if (task.CurrentStage < task.MaxStages)
             {
                 task.CurrentStage++;
-                task.Status = "Pending";
+                task.StageNumber = task.CurrentStage;
                 submission.CurrentStage = task.CurrentStage;
-                submission.StageStatus = "AwaitingFeePayment"; // Unlocks fee payment milestone for the citizen!
+
+                // Look for the template assigned to the next stage
+                var nextTemplate = await _context.Templates
+                    .Where(t => t.ServiceProcedureId == submission.ServiceProcedureId && t.StageOrder == task.CurrentStage && t.Status == "Active")
+                    .FirstOrDefaultAsync();
+
+                if (nextTemplate != null)
+                {
+                    task.Department = nextTemplate.Department;
+                    submission.CurrentDepartment = nextTemplate.Department;
+                    task.Status = "Pending";
+                    submission.StageStatus = $"Stage{task.CurrentStage}Unlocked";
+                }
+                else
+                {
+                    task.Status = "Pending";
+                    submission.StageStatus = "AwaitingFeePayment"; // Unlocks fee payment milestone for the citizen!
+                }
             }
             else
             {
@@ -376,26 +417,30 @@ namespace Government_Service_Navigator.Backend.Controllers
             _context.AuditLogs.Add(new AuditLog
             {
                 ApplicationId = submission.Id,
-                Action = $"Stage {task.CurrentStage - 1} Milestone Approved",
+                Action = $"Stage {prevStage} Milestone Approved by {prevDept}",
                 PerformedBy = officerId,
                 Timestamp = DateTime.UtcNow,
-                OldValues = $"Stage: {task.CurrentStage - 1}",
-                NewValues = $"Stage: {task.CurrentStage}, Note: {request.Notes}"
+                OldValues = $"Stage: {prevStage}, Dept: {prevDept}",
+                NewValues = $"Stage: {task.CurrentStage}, NextDept: {submission.CurrentDepartment}, Note: {request.Notes}"
             });
 
             // 3. Trigger citizen notification
             var notificationService = HttpContext.RequestServices.GetService<INotificationService>();
             if (notificationService != null && !string.IsNullOrEmpty(submission.UserEmail))
             {
+                var nextNotice = !string.IsNullOrEmpty(submission.CurrentDepartment)
+                    ? $"Please open the app to submit the Stage {task.CurrentStage} form for {submission.CurrentDepartment}."
+                    : $"Please open the app to complete Stage {task.CurrentStage}.";
+
                 await notificationService.SendEmailAsync(
                     submission.UserEmail,
-                    $"Stage {task.CurrentStage - 1} Approved!",
-                    $"Your Stage {task.CurrentStage - 1} documents were verified. Please open the app to complete Stage {task.CurrentStage}."
+                    $"Stage {prevStage} Approved by {prevDept}!",
+                    $"Your Stage {prevStage} application has been verified and approved by {prevDept}. {nextNotice}"
                 );
             }
 
             await _context.SaveChangesAsync();
-            return Ok(new { currentStage = task.CurrentStage, maxStages = task.MaxStages, status = task.Status });
+            return Ok(new { currentStage = task.CurrentStage, maxStages = task.MaxStages, status = task.Status, currentDepartment = submission.CurrentDepartment });
         }
 
         public class ApproveStageRequest

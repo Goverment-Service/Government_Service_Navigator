@@ -192,6 +192,10 @@ class ApplicationItemModel {
   final String stageStatus;
   final double amount;
   final String? userEmail;
+  final String? department;
+  final String? currentDepartment;
+  final List<String>? workflowDepartments;
+  final int serviceProcedureId;
 
   ApplicationItemModel({
     required this.applicationId,
@@ -209,6 +213,10 @@ class ApplicationItemModel {
     this.stageStatus = 'PendingReview',
     this.amount = 0.0,
     this.userEmail,
+    this.department,
+    this.currentDepartment,
+    this.workflowDepartments,
+    this.serviceProcedureId = 0,
   });
 
   ApplicationItemModel copyWith({
@@ -220,6 +228,10 @@ class ApplicationItemModel {
     String? stageStatus,
     double? amount,
     String? userEmail,
+    String? department,
+    String? currentDepartment,
+    List<String>? workflowDepartments,
+    int? serviceProcedureId,
   }) {
     return ApplicationItemModel(
       applicationId: applicationId,
@@ -237,6 +249,10 @@ class ApplicationItemModel {
       stageStatus: stageStatus ?? this.stageStatus,
       amount: amount ?? this.amount,
       userEmail: userEmail ?? this.userEmail,
+      department: department ?? this.department,
+      currentDepartment: currentDepartment ?? this.currentDepartment,
+      workflowDepartments: workflowDepartments ?? this.workflowDepartments,
+      serviceProcedureId: serviceProcedureId ?? this.serviceProcedureId,
     );
   }
 }

@@ -7,6 +7,10 @@ class ServiceRoadmapTracker extends StatelessWidget {
   final int maxStages;
   final String stageStatus;
   final VoidCallback? onActionTap;
+  final List<String>? stageDepartments;
+  final String? currentDepartment;
+  final VoidCallback? onFillStageFormTap;
+  final String? fillStageFormButtonText;
 
   const ServiceRoadmapTracker({
     super.key,
@@ -14,9 +18,22 @@ class ServiceRoadmapTracker extends StatelessWidget {
     required this.maxStages,
     required this.stageStatus,
     this.onActionTap,
+    this.stageDepartments,
+    this.currentDepartment,
+    this.onFillStageFormTap,
+    this.fillStageFormButtonText,
   });
 
   List<String> get _defaultStageNames {
+    if (stageDepartments != null && stageDepartments!.isNotEmpty) {
+      return List.generate(maxStages, (i) {
+        if (i < stageDepartments!.length) {
+          final dept = stageDepartments![i];
+          return 'Stage ${i + 1}: $dept Review';
+        }
+        return 'Stage ${i + 1}: Department Review';
+      });
+    }
     if (maxStages == 3) {
       return [
         'Document Review',
@@ -25,8 +42,8 @@ class ServiceRoadmapTracker extends StatelessWidget {
       ];
     } else if (maxStages == 2) {
       return [
-        'Document Review',
-        'Fulfillment & Collection',
+        'Initial Verification',
+        'Departmental Approval',
       ];
     }
     return [
@@ -120,6 +137,31 @@ class ServiceRoadmapTracker extends StatelessWidget {
               ),
             ),
           ],
+          if (stageStatus == 'StageApproved' && onFillStageFormTap != null) ...[
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: CupertinoButton(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                color: AppColors.success,
+                borderRadius: BorderRadius.circular(12),
+                onPressed: onFillStageFormTap,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(CupertinoIcons.doc_text_fill, size: 16, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Text(
+                      fillStageFormButtonText ?? 'Fill Stage $currentStage Form Now',
+                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Colors.white),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(CupertinoIcons.arrow_right, size: 14, color: Colors.white),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -152,17 +194,33 @@ class ServiceRoadmapTracker extends StatelessWidget {
 
     final isTappable = isCurrent && onActionTap != null;
 
+    final String? assignedDept = (stageDepartments != null && stageNumber - 1 < stageDepartments!.length)
+        ? stageDepartments![stageNumber - 1]
+        : null;
+
     final String statusSubtitle;
     if (isPassed) {
-      statusSubtitle = 'Approved by Verification Officer';
+      statusSubtitle = assignedDept != null
+          ? 'Approved by $assignedDept Officer'
+          : 'Approved by Verification Officer';
     } else if (isCurrent) {
-      statusSubtitle = stageStatus == 'AwaitingFeePayment'
-          ? 'Active / In-Progress • Tap to complete payment'
-          : 'Active / In-Progress • Under official verification';
+      if (stageStatus == 'AwaitingFeePayment') {
+        statusSubtitle = 'Active / In-Progress • Tap to complete payment';
+      } else if (stageStatus == 'StageApproved') {
+        statusSubtitle = assignedDept != null
+            ? 'Unlocked! Ready for $assignedDept form submission'
+            : 'Unlocked! Ready for next stage submission';
+      } else {
+        statusSubtitle = assignedDept != null
+            ? 'Active • Under review by $assignedDept'
+            : 'Active / In-Progress • Under official verification';
+      }
     } else {
-      statusSubtitle = stageNumber == 3
-          ? 'Locked until payment verified'
-          : 'Locked until prior stage completed';
+      statusSubtitle = assignedDept != null
+          ? 'Locked until prior stage completed • $assignedDept'
+          : (stageNumber == 3
+              ? 'Locked until payment verified'
+              : 'Locked until prior stage completed');
     }
 
     return InkWell(

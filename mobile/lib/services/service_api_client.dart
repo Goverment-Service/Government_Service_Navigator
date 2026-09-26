@@ -49,9 +49,14 @@ class ServiceApiClient {
       };
 
   /// Admin-built application form for a service, or null if none is published yet.
-  static Future<Map<String, dynamic>?> fetchApplicationForm(int serviceId, String token) async {
+  static Future<Map<String, dynamic>?> fetchApplicationForm(
+    int serviceId,
+    String token, {
+    int? stage,
+  }) async {
+    final query = stage != null ? '?stage=$stage' : '';
     final response = await http.get(
-      Uri.parse('${AppConfig.baseUrl}/applications/form/$serviceId'),
+      Uri.parse('${AppConfig.baseUrl}/applications/form/$serviceId$query'),
       headers: _authHeaders(token),
     );
     if (response.statusCode == 200) return jsonDecode(response.body);
@@ -109,6 +114,34 @@ class ServiceApiClient {
       if (body is Map && body['missingFields'] is List) {
         message = '$message ${(body['missingFields'] as List).join(', ')}';
       }
+    } catch (_) {}
+    throw Exception(message);
+  }
+
+  /// Submits a subsequent stage application form (e.g. Stage 2 for Department B).
+  static Future<Map<String, dynamic>> submitStageApplication({
+    required int applicationId,
+    required String templateId,
+    required Map<String, String> answers,
+    Map<String, String> documents = const {},
+    required String token,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${AppConfig.baseUrl}/applications/submit-stage'),
+      headers: _authHeaders(token),
+      body: jsonEncode({
+        'applicationId': applicationId,
+        'templateId': templateId,
+        'answers': answers,
+        'documents': documents,
+      }),
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body);
+
+    String message = 'Failed to submit stage application';
+    try {
+      final body = jsonDecode(response.body);
+      if (body is Map && body['message'] != null) message = body['message'].toString();
     } catch (_) {}
     throw Exception(message);
   }

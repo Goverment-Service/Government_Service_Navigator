@@ -15,11 +15,15 @@ import 'payments/payment_screen.dart';
 class ApplicationFormScreen extends ConsumerStatefulWidget {
   final int serviceId;
   final String serviceName;
+  final int? stageNumber;
+  final int? applicationId;
 
   const ApplicationFormScreen({
     super.key,
     required this.serviceId,
     required this.serviceName,
+    this.stageNumber,
+    this.applicationId,
   });
 
   @override
@@ -59,28 +63,85 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
   /// Table fields: label -> rows -> one controller per column.
   final Map<String, List<List<TextEditingController>>> _tableRows = {};
 
+  Map<String, dynamic>? _stageFormResponse;
+  bool _isLoadingStageForm = false;
+  String? _stageFormError;
+
+  bool get _isStageMode => widget.stageNumber != null && widget.stageNumber! > 1;
+
   @override
   void initState() {
     super.initState();
-    // Prefill the footer from the department once the form has loaded
-    ref.listenManual(applicationFormDataProvider(widget.serviceId), (previous, next) {
-      final department = next.value?.department;
-      if (previous?.value != null || next.value == null) return;
-      _controllerFor(_presentedByKey).text = department?['name']?.toString() ?? '';
-      _controllerFor(_emailKey).text = department?['email']?.toString() ?? '';
-    }, fireImmediately: true);
+    if (_isStageMode) {
+      _loadStageForm();
+    } else {
+      // Prefill the footer from the department once the form has loaded
+      ref.listenManual(applicationFormDataProvider(widget.serviceId), (previous, next) {
+        final department = next.value?.department;
+        if (previous?.value != null || next.value == null) return;
+        _controllerFor(_presentedByKey).text = department?['name']?.toString() ?? '';
+        _controllerFor(_emailKey).text = department?['email']?.toString() ?? '';
+      }, fireImmediately: true);
+    }
+  }
+
+  Future<void> _loadStageForm() async {
+    setState(() {
+      _isLoadingStageForm = true;
+      _stageFormError = null;
+    });
+    try {
+      final token = ref.read(authTokenProvider);
+      final form = await ServiceApiClient.fetchApplicationForm(
+        widget.serviceId,
+        token,
+        stage: widget.stageNumber,
+      );
+      if (form != null) {
+        setState(() {
+          _stageFormResponse = form;
+          _isLoadingStageForm = false;
+        });
+        final department = form['department'] as Map<String, dynamic>?;
+        _controllerFor(_presentedByKey).text = department?['name']?.toString() ?? '';
+        _controllerFor(_emailKey).text = department?['email']?.toString() ?? '';
+      } else {
+        setState(() {
+          _isLoadingStageForm = false;
+          _stageFormError = 'Stage ${widget.stageNumber} form is not yet published.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoadingStageForm = false;
+        _stageFormError = 'Could not load Stage ${widget.stageNumber} form.';
+      });
+    }
   }
 
   // Loaded form data. Read (not watched) so these are safe in callbacks; [build] watches.
   AsyncValue<ApplicationFormData> get _formState => ref.read(applicationFormDataProvider(widget.serviceId));
-  bool get _isLoading => _formState.isLoading;
-  String? get _loadError => _formState.hasError ? 'Could not load the application form.' : null;
-  Map<String, dynamic>? get _template => _formState.value?.template;
-  List<Map<String, dynamic>> get _fields => _formState.value?.fields ?? const [];
+  bool get _isLoading => _isStageMode ? _isLoadingStageForm : _formState.isLoading;
+  String? get _loadError => _isStageMode
+      ? _stageFormError
+      : (_formState.hasError ? 'Could not load the application form.' : null);
+  Map<String, dynamic>? get _template => _isStageMode
+      ? (_stageFormResponse?['template'] as Map<String, dynamic>?)
+      : _formState.value?.template;
+  List<Map<String, dynamic>> get _fields {
+    if (_isStageMode) {
+      final fields = (_template?['fields'] as List? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .toList()
+        ..sort((a, b) => ((a['orderIndex'] ?? 0) as int).compareTo((b['orderIndex'] ?? 0) as int));
+      return fields;
+    }
+    return _formState.value?.fields ?? const [];
+  }
 
   /// The service's required documents from the catalog, each uploaded like a file field.
-  List<RequiredDocument> get _requiredDocs => _formState.value?.requiredDocs ?? const [];
-  bool get _hasFee => _formState.value?.hasFee ?? false;
+  List<RequiredDocument> get _requiredDocs => _isStageMode ? const [] : (_formState.value?.requiredDocs ?? const []);
+  bool get _hasFee => _isStageMode ? false : (_formState.value?.hasFee ?? false);
 
   @override
   void dispose() {
@@ -159,13 +220,24 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      final result = await ServiceApiClient.submitApplication(
-        serviceId: widget.serviceId,
-        templateId: _template?['id']?.toString(),
-        answers: _collectAnswers(),
-        documents: {for (final e in _documents.entries) e.key: e.value.id},
-        token: ref.read(authTokenProvider),
-      );
+      final Map<String, dynamic> result;
+      if (_isStageMode && widget.applicationId != null) {
+        result = await ServiceApiClient.submitStageApplication(
+          applicationId: widget.applicationId!,
+          templateId: _template?['id']?.toString() ?? '',
+          answers: _collectAnswers(),
+          documents: {for (final e in _documents.entries) e.key: e.value.id},
+          token: ref.read(authTokenProvider),
+        );
+      } else {
+        result = await ServiceApiClient.submitApplication(
+          serviceId: widget.serviceId,
+          templateId: _template?['id']?.toString(),
+          answers: _collectAnswers(),
+          documents: {for (final e in _documents.entries) e.key: e.value.id},
+          token: ref.read(authTokenProvider),
+        );
+      }
       if (!mounted) return;
       ref.invalidate(myApplicationsProvider);
       if (result['paymentRequired'] == true) {
@@ -969,6 +1041,9 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
   }
 
   Widget _buildSuccess() {
+    final msg = _submitted?['message']?.toString();
+    final refNum = _submitted?['referenceNumber']?.toString() ?? 'APP-${widget.applicationId ?? widget.serviceId}';
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -977,18 +1052,27 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
           children: [
             const Icon(CupertinoIcons.check_mark_circled_solid, size: 72, color: AppColors.success),
             const SizedBox(height: 16),
-            const Text('Application Submitted',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.dark)),
+            Text(
+              _isStageMode ? 'Stage ${widget.stageNumber} Form Submitted' : 'Application Submitted',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.dark),
+            ),
             const SizedBox(height: 8),
             Text(
-              'Reference: ${_submitted!['referenceNumber']}\n'
-              'You can track its progress in the Applications tab.',
+              msg != null
+                  ? '$msg\nTrack ongoing status in the Applications tab.'
+                  : 'Reference: $refNum\nYou can track its progress in the Applications tab.',
               textAlign: TextAlign.center,
               style: const TextStyle(color: AppColors.secondaryLabel, height: 1.4),
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+              onPressed: () {
+                if (_isStageMode) {
+                  Navigator.of(context).pop(true);
+                } else {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                }
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,

@@ -643,15 +643,35 @@ class _ApplicationsTabState extends ConsumerState<ApplicationsTab> {
                       child: Text(
                         app.stageStatus == 'AwaitingFeePayment'
                             ? 'Fee Payment Required'
-                            : (app.stageStatus == 'Completed' ? 'All Milestones Cleared' : 'In Review'),
+                            : (app.stageStatus == 'StageApproved'
+                                ? 'Stage ${app.currentStage} Ready • ${app.currentDepartment ?? 'Next Dept'}'
+                                : (app.stageStatus == 'Completed'
+                                    ? 'All Milestones Cleared'
+                                    : (app.currentDepartment != null
+                                        ? 'Reviewing: ${app.currentDepartment}'
+                                        : 'In Review'))),
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight: app.stageStatus == 'AwaitingFeePayment' ? FontWeight.w700 : FontWeight.w500,
-                          color: app.stageStatus == 'AwaitingFeePayment' ? AppColors.warning : AppColors.dark,
+                          fontWeight: (app.stageStatus == 'AwaitingFeePayment' || app.stageStatus == 'StageApproved') ? FontWeight.w700 : FontWeight.w500,
+                          color: app.stageStatus == 'AwaitingFeePayment'
+                              ? AppColors.warning
+                              : (app.stageStatus == 'StageApproved' ? AppColors.success : AppColors.dark),
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (app.stageStatus == 'StageApproved')
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        color: AppColors.success,
+                        borderRadius: BorderRadius.circular(8),
+                        onPressed: () => Navigator.of(context).push(
+                          CupertinoPageRoute(
+                            builder: (context) => VerificationDetailScreen(application: app),
+                          ),
+                        ),
+                        child: const Text('Fill Form', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
                     if (app.stageStatus == 'AwaitingFeePayment')
                       CupertinoButton(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

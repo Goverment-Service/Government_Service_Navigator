@@ -32,9 +32,6 @@ import {
   UserAvatar,
   Save,
   Security,
-  Add,
-  Catalog
-,
   CheckmarkOutline,
   DataStructured
 } from '@carbon/icons-react';
@@ -133,12 +130,6 @@ export default function Profile() {
                 </SideNavLink>
                 <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes">
                   Rejection Codes
-                </SideNavLink>
-<SideNavLink renderIcon={Catalog} href="/officer/applications">
-                  All Applications
-                </SideNavLink>
-                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">
-                  New Application
                 </SideNavLink>
                 <SideNavLink renderIcon={Document} href="/officer/verified-records">
                   Verified Records

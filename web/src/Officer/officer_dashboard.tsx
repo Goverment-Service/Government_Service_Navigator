@@ -35,8 +35,6 @@ import {
   Notification,
   Warning,
   CheckmarkOutline,
-  Add,
-  Catalog,
   DataStructured
 } from "@carbon/icons-react";
 
@@ -205,13 +203,6 @@ export default function OfficerDashboard() {
                 </SideNavLink>
                 <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes">
                   Rejection Codes
-                </SideNavLink>
-<SideNavLink renderIcon={Catalog} href="/officer/applications">
-                  All Applications
-                </SideNavLink>
-                {/* Updated: Navigates to the new page instead of opening a modal */}
-                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">
-                  New Application
                 </SideNavLink>
                 <SideNavLink renderIcon={Document} href="/officer/verified-records">
                   Verified Records

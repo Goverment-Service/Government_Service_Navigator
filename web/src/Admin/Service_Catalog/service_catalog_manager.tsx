@@ -47,6 +47,7 @@ const headers = [
   { key: "serviceId", header: "Service ID" },
   { key: "name", header: "Procedure Name" },
   { key: "category", header: "Category" },
+  { key: "workflow", header: "Workflow & Stages" },
   { key: "status", header: "Status" },
   { key: "actions", header: "Actions" },
 ];
@@ -57,6 +58,9 @@ interface ServiceRecord {
   name: string;
   category: string;
   status: string;
+  totalStages?: number;
+  workflowDepartments?: string[] | string;
+  workflow?: string;
 }
 
 function getStoredOfficerUser(): { department?: string; role?: string } {
@@ -86,11 +90,20 @@ export default function ServiceCatalogManager() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentServiceId, setCurrentServiceId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    serviceId: string;
+    name: string;
+    category: string;
+    status: string;
+    totalStages: number;
+    workflowDepartments: string[];
+  }>({
     serviceId: "",
     name: "",
     category: isDepartmentAdmin && scopedCategory ? scopedCategory : "Commerce",
     status: "Draft",
+    totalStages: 1,
+    workflowDepartments: [currentUser.department || "Civil Department"],
   });
 
   const fetchServices = () => {
@@ -98,10 +111,24 @@ export default function ServiceCatalogManager() {
       .then((res) => res.json())
       .then((data) => {
         const formattedData = data.map(
-          (item: Omit<ServiceRecord, "id"> & { id: number }) => ({
-            ...item,
-            id: item.id.toString(),
-          }),
+          (item: Omit<ServiceRecord, "id"> & { id: number; totalStages?: number; workflowDepartments?: string[] | string }) => {
+            let depts: string[] = [];
+            if (Array.isArray(item.workflowDepartments)) {
+              depts = item.workflowDepartments;
+            } else if (typeof item.workflowDepartments === "string") {
+              try {
+                depts = JSON.parse(item.workflowDepartments);
+              } catch (_) {}
+            }
+            const stages = item.totalStages && item.totalStages > 0 ? item.totalStages : 1;
+            return {
+              ...item,
+              id: item.id.toString(),
+              totalStages: stages,
+              workflowDepartments: depts,
+              workflow: `${stages} Stage${stages > 1 ? "s" : ""}`,
+            };
+          },
         );
         setServices(formattedData);
         setIsLoading(false);
@@ -129,11 +156,14 @@ export default function ServiceCatalogManager() {
   const openCreateModal = () => {
     setIsEditMode(false);
     setCurrentServiceId(null);
+    const defaultDept = currentUser.department || "Civil Department";
     setFormData({
       serviceId: generateNextServiceId(),
       name: "",
       category: isDepartmentAdmin && scopedCategory ? scopedCategory : "Commerce",
       status: "Draft",
+      totalStages: 1,
+      workflowDepartments: [defaultDept],
     });
     setIsModalOpen(true);
   };
@@ -141,11 +171,29 @@ export default function ServiceCatalogManager() {
   const openEditModal = (service: ServiceRecord) => {
     setIsEditMode(true);
     setCurrentServiceId(service.id);
+    let parsedDepts: string[] = [];
+    if (Array.isArray(service.workflowDepartments)) {
+      parsedDepts = service.workflowDepartments;
+    } else if (typeof service.workflowDepartments === "string") {
+      try {
+        parsedDepts = JSON.parse(service.workflowDepartments);
+      } catch (_) {}
+    }
+    const stages = service.totalStages && service.totalStages > 0 ? service.totalStages : 1;
+    if (parsedDepts.length === 0) {
+      parsedDepts = [currentUser.department || "Civil Department"];
+    }
+    while (parsedDepts.length < stages) {
+      parsedDepts.push("Civil Department");
+    }
+
     setFormData({
       serviceId: service.serviceId,
       name: service.name,
       category: service.category,
       status: service.status,
+      totalStages: stages,
+      workflowDepartments: parsedDepts.slice(0, stages),
     });
     setIsModalOpen(true);
   };

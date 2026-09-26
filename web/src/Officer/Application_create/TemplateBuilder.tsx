@@ -10,7 +10,7 @@ import {
   Tag,
   InlineNotification,
 } from "@carbon/react";
-import { TrashCan, UpToTop, DownToBottom } from "@carbon/icons-react";
+import { TrashCan, UpToTop, DownToBottom, ArrowLeft } from "@carbon/icons-react";
 import { getStoredUser } from "../../utils/currentUser";
 import { getCategoryForDepartment } from "../../constants/departments";
 
@@ -71,6 +71,11 @@ export default function TemplateBuilder() {
   const [subTitle, setSubTitle] = useState("");
   const [lawText, setLawText] = useState("");
   
+  // Multi-department sequential stage configuration
+  const [department, setDepartment] = useState<string>("Civil Department");
+  const [stageOrder, setStageOrder] = useState<number>(1);
+  const [stageDescription, setStageDescription] = useState<string>("");
+  
   const [customFields, setCustomFields] = useState<FormField[]>([]);
   
   const [newFieldLabel, setNewFieldLabel] = useState("");
@@ -91,6 +96,12 @@ export default function TemplateBuilder() {
   const [linkedServiceId, setLinkedServiceId] = useState<string>("");
   const [linkedServiceDetail, setLinkedServiceDetail] = useState<ServiceDetail | null>(null);
   const [isLoadingServiceDetail, setIsLoadingServiceDetail] = useState(false);
+
+  useEffect(() => {
+    if (currentUser?.department) {
+      setDepartment(currentUser.department);
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     fetch("http://localhost:5119/api/services")
@@ -131,6 +142,9 @@ export default function TemplateBuilder() {
         setSubTitle(data.subTitle || "");
         setLawText(data.lawText || "");
         setLinkedServiceId(data.serviceProcedureId ? data.serviceProcedureId.toString() : "");
+        if (data.department) setDepartment(data.department);
+        if (data.stageOrder) setStageOrder(data.stageOrder);
+        if (data.stageDescription) setStageDescription(data.stageDescription);
         if (data.fields) {
           setCustomFields(data.fields.map((f: { id?: string; label: string; type: FieldType; options?: string; isRequired?: boolean }) => ({
             id: f.id || Date.now().toString() + Math.random(),
@@ -149,6 +163,14 @@ export default function TemplateBuilder() {
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
     const id = queryParams.get("id");
+    const serviceId = queryParams.get("serviceId");
+    const stage = queryParams.get("stage");
+    const dept = queryParams.get("department");
+
+    if (serviceId) setLinkedServiceId(serviceId);
+    if (stage) setStageOrder(parseInt(stage, 10) || 1);
+    if (dept) setDepartment(dept);
+
     if (id) {
       const load = async () => {
         setTemplateId(id);
@@ -168,6 +190,9 @@ export default function TemplateBuilder() {
         subTitle: subTitle,
         lawText: lawText,
         serviceProcedureId: linkedServiceId ? Number(linkedServiceId) : null,
+        department: department || currentUser?.department || null,
+        stageOrder: Number(stageOrder) || 1,
+        stageDescription: stageDescription || null,
         fields: customFields.map(f => ({
           label: f.label,
           type: f.type,
@@ -194,8 +219,13 @@ export default function TemplateBuilder() {
         throw new Error("Failed to save template");
       }
 
-      alert("Template Saved Successfully!");
-      window.location.href = "/officer/applications";
+      alert(`Stage ${stageOrder} Form Template Saved Successfully!`);
+      const isAdminContext = window.location.pathname.startsWith("/admin") || Boolean(new URLSearchParams(window.location.search).get("serviceId"));
+      if (isAdminContext) {
+        window.location.href = "/admin/services/config";
+      } else {
+        window.location.href = "/officer/dashboard";
+      }
     } catch (error) {
       console.error(error);
       alert("Error saving template. Please check console.");
@@ -326,8 +356,33 @@ export default function TemplateBuilder() {
     (srv) => !scopedCategory || srv.category === scopedCategory || srv.id.toString() === linkedServiceId
   );
 
+  const queryParams = new URLSearchParams(window.location.search);
+  const isWorkflowLocked = Boolean(
+    queryParams.get("serviceId") || 
+    queryParams.get("stage") ||
+    window.location.pathname.startsWith("/admin")
+  );
+
   return (
     <main className="gsn-shell-main">
+      {isWorkflowLocked && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <Button
+            kind="ghost"
+            size="sm"
+            renderIcon={ArrowLeft}
+            onClick={() => window.location.href = "/admin/services/config"}
+            style={{ color: '#0f62fe' }}
+          >
+            Back to Service Workflow Configuration
+          </Button>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <Tag type="blue" size="md">ADMIN SERVICE DESIGNER</Tag>
+            <Tag type="teal" size="md">STAGE {stageOrder}</Tag>
+          </div>
+        </div>
+      )}
+
       <div style={{ marginBottom: '2.5rem' }}>
         <h1 style={{ fontSize: '2rem', fontWeight: 400, color: '#161616' }}>Advanced Template Builder</h1>
         <p style={{ color: '#525252', marginTop: '0.5rem' }}>Design highly customizable application forms matching official government layouts.</p>
@@ -358,18 +413,90 @@ export default function TemplateBuilder() {
               onChange={(e) => setLawText(e.target.value)}
             />
 
-            <Select
-              id="linkedService"
-              labelText="Linked Service Catalog Entry (Optional)"
-              helperText="Ties this template to a service so its eligibility rules and required documents/fees show below."
-              value={linkedServiceId}
-              onChange={(e) => setLinkedServiceId(e.target.value)}
-            >
-              <SelectItem value="" text="None" />
-              {visibleServices.map((srv) => (
-                <SelectItem key={srv.id} value={srv.id.toString()} text={`${srv.serviceId} - ${srv.name}`} />
-              ))}
-            </Select>
+            {isWorkflowLocked ? (
+              <div style={{
+                padding: '1.25rem',
+                backgroundColor: '#edf5ff',
+                border: '1px solid #a6c8ff',
+                borderLeft: '5px solid #0f62fe',
+                borderRadius: '4px',
+                marginTop: '0.5rem',
+                marginBottom: '0.5rem'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#0f62fe', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Workflow Stage Assignment (Locked)
+                  </span>
+                  <Tag type="blue" size="sm">Stage {stageOrder}</Tag>
+                </div>
+
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#525252', textTransform: 'uppercase', fontWeight: 600 }}>Assigned Department</div>
+                  <div style={{ fontSize: '1rem', fontWeight: 600, color: '#161616', marginTop: '2px' }}>{department}</div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: '#525252', textTransform: 'uppercase', fontWeight: 600 }}>Linked Service Procedure</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#161616', marginTop: '2px' }}>
+                    {linkedServiceDetail ? `${linkedServiceDetail.serviceId} - ${linkedServiceDetail.name}` : (services.find(s => s.id.toString() === linkedServiceId)?.name || (linkedServiceId ? `Service #${linkedServiceId}` : 'None'))}
+                  </div>
+                </div>
+
+                <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.75rem', color: '#525252', fontStyle: 'italic', borderTop: '1px dashed #c6c6c6', paddingTop: '0.5rem' }}>
+                  Assigned and locked by Service Workflow Configuration. Applications at this stage route directly to {department} verification officers.
+                </p>
+              </div>
+            ) : (
+              <>
+                <Select
+                  id="department"
+                  labelText="Assigned Department"
+                  helperText="The government department whose officers will verify this form stage."
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                >
+                  <SelectItem value="Civil Department" text="Civil Department" />
+                  <SelectItem value="Police Department" text="Police Department" />
+                  <SelectItem value="Finance Department" text="Finance Department" />
+                  <SelectItem value="Transport Department" text="Transport Department" />
+                  <SelectItem value="Department of Registration of Persons" text="Department of Registration of Persons" />
+                  <SelectItem value="Department of Immigration & Emigration" text="Department of Immigration & Emigration" />
+                  <SelectItem value="Department of Motor Traffic" text="Department of Motor Traffic" />
+                  <SelectItem value="Divisional Secretariat" text="Divisional Secretariat" />
+                </Select>
+
+                <TextInput
+                  id="stageOrder"
+                  type="number"
+                  min={1}
+                  labelText="Sequential Workflow Stage Number"
+                  helperText="Enter the sequential stage number this form belongs to (e.g. 1, 2, 3, 4, 5...)."
+                  value={stageOrder.toString()}
+                  onChange={(e) => setStageOrder(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                />
+
+                <Select
+                  id="linkedService"
+                  labelText="Linked Service Catalog Entry (Optional)"
+                  helperText="Ties this template to a service so its eligibility rules and required documents/fees show below."
+                  value={linkedServiceId}
+                  onChange={(e) => setLinkedServiceId(e.target.value)}
+                >
+                  <SelectItem value="" text="None" />
+                  {visibleServices.map((srv) => (
+                    <SelectItem key={srv.id} value={srv.id.toString()} text={`${srv.serviceId} - ${srv.name}`} />
+                  ))}
+                </Select>
+              </>
+            )}
+
+            <TextInput
+              id="stageDescription"
+              labelText="Stage Instructions for Citizens"
+              placeholder="e.g. Identity and address verification by Civil Department"
+              value={stageDescription}
+              onChange={(e) => setStageDescription(e.target.value)}
+            />
 
             {linkedServiceId && (
               <div style={{ padding: '1rem', backgroundColor: '#f4f4f4', borderLeft: '4px solid #24a148' }}>
@@ -515,6 +642,21 @@ export default function TemplateBuilder() {
           </div>
           
           <div className="p-4 sm:p-8 lg:p-12" style={{ backgroundColor: '#fff', border: '1px solid #ccc', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
+
+            {/* Stage & Department Banner */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 1rem', backgroundColor: '#edf5ff', border: '1px solid #a6c8ff', borderRadius: '4px', marginBottom: '2rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <Tag type="blue">Stage {stageOrder}</Tag>
+                <span style={{ fontWeight: 600, color: '#0043ce', fontSize: '0.875rem' }}>
+                  {department}
+                </span>
+              </div>
+              {stageDescription && (
+                <span style={{ fontSize: '0.8rem', color: '#525252', fontStyle: 'italic' }}>
+                  {stageDescription}
+                </span>
+              )}
+            </div>
 
             {/* Form Header matching Government Style */}
             <div style={{ textAlign: 'center', marginBottom: '3rem', fontFamily: 'Arial, sans-serif' }}>

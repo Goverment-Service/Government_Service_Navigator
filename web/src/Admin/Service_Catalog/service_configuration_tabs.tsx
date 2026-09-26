@@ -91,6 +91,17 @@ interface FeeSchedule {
   effectiveDate: string;
 }
 
+const AVAILABLE_DEPARTMENTS = [
+  "Civil Department",
+  "Police Department",
+  "Finance Department",
+  "Transport Department",
+  "Department of Registration of Persons",
+  "Department of Immigration & Emigration",
+  "Department of Motor Traffic",
+  "Divisional Secretariat",
+];
+
 export default function ServiceConfigurationTabs() {
   const [isSideNavExpanded, setIsSideNavExpanded] = useState(false);
   const [currentUser] = useState(getStoredUser);
@@ -110,6 +121,22 @@ export default function ServiceConfigurationTabs() {
     title: string;
     subtitle: string;
   } | null>(null);
+
+  // Multi-Department Sequential Workflow State
+  const [totalStages, setTotalStages] = useState<number>(1);
+  const [workflowType, setWorkflowType] = useState<"single" | "multiple">("single");
+  const [workflowDepartments, setWorkflowDepartments] = useState<string[]>(["Civil Department"]);
+  const [stageTemplates, setStageTemplates] = useState<Array<{
+    id: string;
+    formName: string;
+    subTitle?: string;
+    department?: string;
+    stageOrder: number;
+    stageDescription?: string;
+    status: string;
+  }>>([]);
+  const [isSavingWorkflow, setIsSavingWorkflow] = useState(false);
+  const [, setIsLoadingWorkflow] = useState(false);
 
   // Modal State for Adding/Editing Documents
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
@@ -138,6 +165,64 @@ export default function ServiceConfigurationTabs() {
   const [policyText, setPolicyText] = useState("");
   const [policyFile, setPolicyFile] = useState<File | null>(null);
   const [isUploadingKnowledge, setIsUploadingKnowledge] = useState(false);
+
+  const fetchTemplatesForService = async (svcId: string) => {
+    if (!svcId) return;
+    try {
+      setIsLoadingWorkflow(true);
+      const res = await fetch(`http://localhost:5119/api/templates/by-service/${svcId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setStageTemplates(data || []);
+      }
+    } catch (e) {
+      console.error("Error fetching templates for service:", e);
+    } finally {
+      setIsLoadingWorkflow(false);
+    }
+  };
+
+  const handleSaveWorkflow = async () => {
+    if (!selectedServiceId) return;
+    try {
+      setIsSavingWorkflow(true);
+      const depts = [...workflowDepartments];
+      while (depts.length < totalStages) {
+        depts.push("Civil Department");
+      }
+      const trimmedDepts = depts.slice(0, totalStages);
+
+      const res = await fetch(`http://localhost:5119/api/services/${selectedServiceId}/workflow`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          totalStages: totalStages,
+          workflowDepartments: trimmedDepts,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to save workflow");
+      }
+
+      setWorkflowDepartments(trimmedDepts);
+      setNotification({
+        type: "success",
+        title: "Workflow Configuration Saved",
+        subtitle: `Configured ${totalStages} sequential verification stage(s) across departments.`,
+      });
+      fetchTemplatesForService(selectedServiceId);
+    } catch (e) {
+      console.error(e);
+      setNotification({
+        type: "error",
+        title: "Save Failed",
+        subtitle: "Could not save workflow configuration. Check server connection.",
+      });
+    } finally {
+      setIsSavingWorkflow(false);
+    }
+  };
 
   const fetchKnowledge = async (svcId: string) => {
     if (!svcId) return;
@@ -303,6 +388,22 @@ export default function ServiceConfigurationTabs() {
         setDocuments(formattedDocs);
         setFees(formattedFees);
         fetchKnowledge(selectedServiceId);
+
+        // Load multi-department workflow stages
+        const srvStages = data.totalStages || 1;
+        setTotalStages(srvStages);
+        setWorkflowType(srvStages > 1 ? "multiple" : "single");
+        let srvDepts: string[] = [];
+        if (Array.isArray(data.workflowDepartments)) {
+          srvDepts = data.workflowDepartments;
+        } else if (typeof data.workflowDepartments === "string") {
+          try { srvDepts = JSON.parse(data.workflowDepartments); } catch {}
+        }
+        if (!srvDepts || srvDepts.length === 0) {
+          srvDepts = ["Civil Department"];
+        }
+        setWorkflowDepartments(srvDepts);
+        fetchTemplatesForService(selectedServiceId);
       } catch (error) {
         console.error("Error fetching service config:", error);
       } finally {
@@ -693,6 +794,7 @@ export default function ServiceConfigurationTabs() {
               <Tab>Required Documents</Tab>
               <Tab>Fee Schedule</Tab>
               <Tab>Official Policy & AI Knowledge Base</Tab>
+              <Tab>Department Workflow & Stages</Tab>
             </TabList>
             <TabPanels>
               {/* Documents Tab */}
@@ -1103,6 +1205,199 @@ export default function ServiceConfigurationTabs() {
                       ))}
                     </div>
                   )}
+                </div>
+              </TabPanel>
+
+              {/* Tab 4: Multi-Department Workflow & Stages */}
+              <TabPanel style={{ padding: "2rem 0", backgroundColor: "transparent" }}>
+                <Tile style={{ marginBottom: "2rem", backgroundColor: "#fff", borderLeft: "4px solid #0f62fe" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+                    <div>
+                      <h4 style={{ margin: "0 0 0.5rem 0", fontWeight: 600, fontSize: "1.25rem" }}>
+                        Multi-Department Verification Workflow
+                      </h4>
+                      <p style={{ margin: 0, color: "#525252", fontSize: "0.875rem", maxWidth: "680px" }}>
+                        Configure sequential verification stages across different Sri Lankan ministries and departments. 
+                        Applications progress sequentially: an officer in Stage 1 verifies initial credentials before Stage 2 is unlocked 
+                        for the subsequent department.
+                      </p>
+                    </div>
+                    <Button 
+                      kind="primary" 
+                      size="md" 
+                      onClick={handleSaveWorkflow} 
+                      disabled={isSavingWorkflow}
+                    >
+                      {isSavingWorkflow ? "Saving Workflow..." : "Save Workflow Configuration"}
+                    </Button>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "1.5rem", marginTop: "1.5rem", paddingTop: "1.5rem", borderTop: "1px solid #e0e0e0" }}>
+                    <div>
+                      <Select
+                        id="workflow-type-select"
+                        labelText="Workflow Structure"
+                        helperText="Choose whether this service requires a single stage or multiple sequential stages."
+                        value={workflowType}
+                        onChange={(e) => {
+                          const type = e.target.value as "single" | "multiple";
+                          setWorkflowType(type);
+                          if (type === "single") {
+                            setTotalStages(1);
+                            setWorkflowDepartments((prev) => [prev[0] || "Civil Department"]);
+                          } else {
+                            const newTotal = totalStages > 1 ? totalStages : 2;
+                            setTotalStages(newTotal);
+                            const updated = [...workflowDepartments];
+                            while (updated.length < newTotal) {
+                              updated.push(AVAILABLE_DEPARTMENTS[updated.length % AVAILABLE_DEPARTMENTS.length] || "Civil Department");
+                            }
+                            setWorkflowDepartments(updated.slice(0, newTotal));
+                          }
+                        }}
+                      >
+                        <SelectItem value="single" text="Single Stage (One Department Review)" />
+                        <SelectItem value="multiple" text="Multiple Stages (Sequential Department Workflow)" />
+                      </Select>
+                    </div>
+
+                    {workflowType === "multiple" && (
+                      <div>
+                        <TextInput
+                          id="totalStages-input"
+                          type="number"
+                          min={2}
+                          max={50}
+                          labelText="Number of Stages"
+                          helperText="Enter the total number of sequential verification stages."
+                          value={totalStages.toString()}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            const newTotal = isNaN(val) ? 2 : Math.max(2, val);
+                            setTotalStages(newTotal);
+                            const updated = [...workflowDepartments];
+                            while (updated.length < newTotal) {
+                              updated.push(AVAILABLE_DEPARTMENTS[updated.length % AVAILABLE_DEPARTMENTS.length] || "Civil Department");
+                            }
+                            setWorkflowDepartments(updated.slice(0, newTotal));
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                      <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#525252", textTransform: "uppercase" }}>
+                        Workflow Architecture Summary
+                      </span>
+                      <div style={{ marginTop: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                        {Array.from({ length: totalStages }).map((_, idx) => (
+                          <div key={idx} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <Tag type="blue">Stage {idx + 1}: {workflowDepartments[idx] || "Unassigned"}</Tag>
+                            {idx < totalStages - 1 && <span style={{ color: "#8d8d8d", fontWeight: "bold" }}>➔</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </Tile>
+
+                {/* Sequential Stage Cards */}
+                <h4 style={{ margin: "0 0 1rem 0", fontWeight: 600, fontSize: "1.1rem" }}>
+                  Department Assignment & Application Forms Per Stage
+                </h4>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                  {Array.from({ length: totalStages }).map((_, idx) => {
+                    const stageNum = idx + 1;
+                    const stageDept = workflowDepartments[idx] || "Civil Department";
+                    const templateForStage = stageTemplates.find((t) => t.stageOrder === stageNum);
+
+                    return (
+                      <Tile 
+                        key={stageNum} 
+                        style={{ 
+                          padding: "1.5rem", 
+                          backgroundColor: "#fff", 
+                          border: templateForStage ? "1px solid #e0e0e0" : "1px dashed #da1e28",
+                          borderRadius: "4px"
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+                          <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
+                              <Tag type="blue" size="md">STAGE {stageNum}</Tag>
+                              <Tag type={templateForStage ? "green" : "red"}>
+                                {templateForStage ? "Form Linked" : "Missing Application Form"}
+                              </Tag>
+                              <span style={{ fontSize: "0.85rem", color: "#525252", fontWeight: 600 }}>
+                                Handled by: {stageDept}
+                              </span>
+                            </div>
+
+                            <p style={{ margin: 0, color: "#161616", fontWeight: 500, fontSize: "1rem" }}>
+                              {templateForStage 
+                                ? `${templateForStage.formName} - ${templateForStage.subTitle || "Stage Application Form"}`
+                                : `Stage ${stageNum} Officer Verification Gate`
+                              }
+                            </p>
+                            {templateForStage?.stageDescription && (
+                              <p style={{ margin: "0.25rem 0 0 0", color: "#525252", fontSize: "0.85rem", fontStyle: "italic" }}>
+                                Instructions: {templateForStage.stageDescription}
+                              </p>
+                            )}
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                            {templateForStage ? (
+                              <Button
+                                kind="tertiary"
+                                size="sm"
+                                href={`/admin/services/builder?id=${templateForStage.id}&serviceId=${selectedServiceId}&stage=${stageNum}&department=${encodeURIComponent(stageDept)}`}
+                              >
+                                Edit Stage Form in Builder
+                              </Button>
+                            ) : (
+                              <Button
+                                kind="primary"
+                                size="sm"
+                                href={`/admin/services/builder?serviceId=${selectedServiceId}&stage=${stageNum}&department=${encodeURIComponent(stageDept)}`}
+                              >
+                                + Build Stage {stageNum} Form
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Stage Department Selector */}
+                        <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: "1px solid #f4f4f4", display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                          <div style={{ minWidth: "320px", flex: 1 }}>
+                            <Select
+                              id={`stage-dept-${stageNum}`}
+                              labelText={`Assigned Department for Stage ${stageNum}`}
+                              value={stageDept}
+                              onChange={(e) => {
+                                const updated = [...workflowDepartments];
+                                updated[idx] = e.target.value;
+                                setWorkflowDepartments(updated);
+                              }}
+                            >
+                              <SelectItem value="Civil Department" text="Civil Department" />
+                              <SelectItem value="Police Department" text="Police Department" />
+                              <SelectItem value="Finance Department" text="Finance Department" />
+                              <SelectItem value="Transport Department" text="Transport Department" />
+                              <SelectItem value="Department of Registration of Persons" text="Department of Registration of Persons" />
+                              <SelectItem value="Department of Immigration & Emigration" text="Department of Immigration & Emigration" />
+                              <SelectItem value="Department of Motor Traffic" text="Department of Motor Traffic" />
+                              <SelectItem value="Divisional Secretariat" text="Divisional Secretariat" />
+                            </Select>
+                          </div>
+                          <div style={{ fontSize: "0.8rem", color: "#525252", maxWidth: "420px" }}>
+                            Officers belonging to <strong>{stageDept}</strong> will automatically receive incoming applications at Stage {stageNum} in their queue.
+                          </div>
+                        </div>
+                      </Tile>
+                    );
+                  })}
                 </div>
               </TabPanel>
             </TabPanels>

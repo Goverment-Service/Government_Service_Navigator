@@ -36,14 +36,12 @@ import {
   CheckmarkOutline,
   CloseOutline,
   Dashboard,
-  Catalog,
   DataStructured,
   Download,
   Document,
   Time,
   User,
   Logout,
-  Add,
   Notification
 } from '@carbon/icons-react';
 
@@ -235,12 +233,6 @@ export default function VerifiedRecords() {
                 </SideNavLink>
                 <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes">
                   Rejection Codes
-                </SideNavLink>
-                <SideNavLink renderIcon={Catalog} href="/officer/applications">
-                  All Applications
-                </SideNavLink>
-                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">
-                  New Application
                 </SideNavLink>
                 {/* Active state moved to Verified Records[cite: 6] */}
                 <SideNavLink renderIcon={Document} href="/officer/verified-records" isActive>

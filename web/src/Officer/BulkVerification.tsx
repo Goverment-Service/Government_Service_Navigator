@@ -36,10 +36,9 @@ import {
   User,
   Logout,
   Notification,
-  Catalog,
-  Add,
-  CheckmarkOutline
-, DataStructured } from "@carbon/icons-react";
+  CheckmarkOutline,
+  DataStructured
+} from "@carbon/icons-react";
 
 interface VerificationTaskItem {
   id: number;
@@ -162,12 +161,6 @@ export default function BulkVerification() {
                 </SideNavLink>
                 <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes" isActive={window.location.pathname.includes('rejection-codes')}>
                   Rejection Codes
-                </SideNavLink>
-                <SideNavLink renderIcon={Catalog} href="/officer/applications" isActive={window.location.pathname.includes('applications')}>
-                  All Applications
-                </SideNavLink>
-                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create" isActive={window.location.pathname.includes('application_create')}>
-                  New Application
                 </SideNavLink>
                 <SideNavLink renderIcon={Document} href="/officer/verified-records" isActive={window.location.pathname.includes('verified-records')}>
                   Verified Records

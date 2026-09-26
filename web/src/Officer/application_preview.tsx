@@ -14,7 +14,7 @@ import {
   Checkbox,
   FileUploader
 } from "@carbon/react";
-import { Dashboard, Document, Time, User, Logout, ArrowLeft, Catalog, Add ,
+import { Dashboard, Document, Time, User, Logout, ArrowLeft,
   CheckmarkOutline,
   DataStructured
 } from '@carbon/icons-react';
@@ -201,8 +201,6 @@ export default function ApplicationPreview() {
                 <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes">
                   Rejection Codes
                 </SideNavLink>
-<SideNavLink renderIcon={Catalog} href="/officer/applications" isActive>All Applications</SideNavLink>
-            <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create">New Application</SideNavLink>
             <SideNavLink renderIcon={Document} href="/officer/verified-records">Verified Records</SideNavLink>
             <SideNavLink renderIcon={Time} href="/officer/pending-reviews">Pending Reviews</SideNavLink>
             <SideNavLink renderIcon={User} href="/officer/profile">My Profile</SideNavLink>

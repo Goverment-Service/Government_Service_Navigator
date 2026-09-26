@@ -58,6 +58,14 @@ export default function App() {
           path="/admin/services/config"
           element={<ServiceConfigurationTabs />}
         />
+        <Route
+          path="/admin/services/builder"
+          element={<ApplicationCreate />}
+        />
+        <Route
+          path="/officer/builder"
+          element={<ApplicationCreate />}
+        />
 
         <Route
           path="/admin/services/simulator"

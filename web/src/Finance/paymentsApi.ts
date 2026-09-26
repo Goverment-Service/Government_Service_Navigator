@@ -40,6 +40,23 @@ export interface InstallmentPlanResponse {
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 
+export interface BackendPayment {
+  id: number;
+  applicationId: number;
+  amount: number;
+  currency: string;
+  method: string;
+  status: string;
+  manualSlipUrl: string | null;
+  userEmail: string;
+  createdDate: string;
+}
+
+// GET /api/payments/pending-slips (Live Backend)
+export function getPendingSlips(): Promise<BackendPayment[]> {
+  return apiFetch<BackendPayment[]>("/api/payments/pending-slips");
+}
+
 // GET /api/payments/{id}/ledger
 export function getPaymentLedger(paymentId: number): Promise<PaymentLedger> {
   return apiFetch(`/api/payments/${paymentId}/ledger`);

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Grid,
   Column,
@@ -28,7 +28,6 @@ import { Hourglass, CheckmarkOutline, MisuseOutline, Money } from "@carbon/icons
 import FinanceShell from "./finance_shell";
 import {
   loadPayments,
-  verifyPayment,
   PAYMENT_METHOD_LABELS,
   type Payment,
   type PaymentMethod,
@@ -36,6 +35,7 @@ import {
 } from "./financeData";
 import { getDisplayName, getStoredUser } from "../utils/currentUser";
 import { formatCurrency, formatDate, formatDateTime } from "./format";
+import { getPendingSlips, verifyPayment as verifyPaymentApi } from "./paymentsApi";
 
 const METHOD_FILTERS: { key: "All" | PaymentMethod; label: string }[] = [
   { key: "All", label: "All Methods" },
@@ -75,6 +75,35 @@ export default function FinanceDashboard() {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [notes, setNotes] = useState("");
   const [banner, setBanner] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+
+  // Load live pending manual slips from the backend
+  useEffect(() => {
+    getPendingSlips()
+      .then((backendSlips) => {
+        if (backendSlips && backendSlips.length > 0) {
+          const mapped: Payment[] = backendSlips.map((b) => ({
+            id: b.id,
+            applicationId: `APP-${b.applicationId}`,
+            userId: b.userEmail || "citizen@gov.lk",
+            method: b.method === "Online" ? "OnlinePay" : "OnlineBankTransfer",
+            amount: b.amount,
+            status: b.status === "Paid" ? "Verified" : b.status === "Failed" ? "Rejected" : "Pending",
+            submittedAt: b.createdDate,
+            slipFileName: b.manualSlipUrl ? b.manualSlipUrl.split("/").pop() || "bank_deposit_slip.pdf" : "bank_deposit_slip.pdf",
+            slipUploadedAt: b.createdDate,
+          }));
+
+          setPayments((prev) => {
+            const existingIds = new Set(prev.map((p) => p.id));
+            const fresh = mapped.filter((m) => !existingIds.has(m.id));
+            return [...fresh, ...prev];
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not load backend pending slips:", err);
+      });
+  }, []);
 
   const stats = useMemo(() => {
     const pending = payments.filter((p) => p.status === "Pending").length;
@@ -132,10 +161,30 @@ export default function FinanceDashboard() {
     setNotes("");
   }
 
-  function handleDecision(decision: "Verified" | "Rejected") {
+  async function handleDecision(decision: "Verified" | "Rejected") {
     if (!selectedPayment) return;
     const officerName = getDisplayName(getStoredUser());
-    const updated = verifyPayment(selectedPayment.id, decision, notes, officerName);
+    const isApproved = decision === "Verified";
+
+    // Call live backend endpoint
+    try {
+      await verifyPaymentApi(selectedPayment.id, isApproved, notes);
+    } catch (err) {
+      console.warn("Backend verify API returned notice:", err);
+    }
+
+    const updated = payments.map((p) =>
+      p.id === selectedPayment.id
+        ? {
+            ...p,
+            status: decision,
+            verifiedAt: new Date().toISOString(),
+            verifiedByOfficerName: officerName,
+            verificationNotes: notes,
+          }
+        : p
+    );
+
     setPayments(updated);
     setSelectedPayment(updated.find((p) => p.id === selectedPayment.id) || null);
     setBanner({

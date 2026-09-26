@@ -86,6 +86,13 @@ namespace Government_Service_Navigator.Backend.Services
             {
                 payment.Status = "Paid";
                 payment.PaidDate = DateTime.UtcNow;
+
+                // Update application submission to Completed
+                var submission = await _context.ApplicationSubmissions.FindAsync(payment.ApplicationId);
+                if (submission != null)
+                {
+                    submission.StageStatus = "Completed";
+                }
             }
             else
             {

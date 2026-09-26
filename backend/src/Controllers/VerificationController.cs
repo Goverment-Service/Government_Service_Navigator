@@ -342,9 +342,9 @@ namespace Government_Service_Navigator.Backend.Controllers
             if (task.CurrentStage < task.MaxStages)
             {
                 task.CurrentStage++;
-                task.Status = "Pending"; // Next stage is now pending citizen action or next review
+                task.Status = "Pending";
                 submission.CurrentStage = task.CurrentStage;
-                submission.StageStatus = "StageApproved"; // Unlocks the next form for the citizen!
+                submission.StageStatus = "AwaitingFeePayment"; // Unlocks fee payment milestone for the citizen!
             }
             else
             {

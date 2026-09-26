@@ -1,7 +1,9 @@
+using Government_Service_Navigator.Backend.Data.Context;
 using Government_Service_Navigator.Backend.DTOs.Requests;
 using Government_Service_Navigator.Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Government_Service_Navigator.Backend.Controllers
 {
@@ -9,11 +11,15 @@ namespace Government_Service_Navigator.Backend.Controllers
     [Route("api/payments")]
     public class PaymentsController : ControllerBase
     {
-        private readonly IPaymentService _paymentService;
+        private const string FinanceRoles = "Finance Officer,Department Admin,Admin,System Admin";
 
-        public PaymentsController(IPaymentService paymentService)
+        private readonly IPaymentService _paymentService;
+        private readonly AppDbContext _context;
+
+        public PaymentsController(IPaymentService paymentService, AppDbContext context)
         {
             _paymentService = paymentService;
+            _context = context;
         }
 
         // Citizen uploads a bank transfer / cash deposit slip.
@@ -47,9 +53,22 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(payments);
         }
 
+        // Finance Officer: list all pending manual bank transfer slips awaiting verification
+        [HttpGet("pending-slips")]
+        [Authorize(Roles = FinanceRoles)]
+        public async Task<IActionResult> GetPendingSlips()
+        {
+            var pending = await _context.Payments
+                .Where(p => p.Status == "PendingVerification")
+                .OrderByDescending(p => p.CreatedDate)
+                .ToListAsync();
+            return Ok(pending);
+        }
+
+
         // Finance Officer verifies/rejects a manual payment slip.
         [HttpPost("{id}/verify")]
-        [Authorize]
+        [Authorize(Roles = FinanceRoles)]
         public async Task<IActionResult> Verify(int id, [FromBody] VerifyManualPaymentDto dto)
         {
             try

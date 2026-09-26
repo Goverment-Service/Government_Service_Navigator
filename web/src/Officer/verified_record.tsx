@@ -42,7 +42,8 @@ import {
   Time,
   User,
   Logout,
-  Notification
+  Notification,
+  Security
 } from '@carbon/icons-react';
 
 // Table Data for Verified Records
@@ -240,6 +241,9 @@ export default function VerifiedRecords() {
                 </SideNavLink>
                 <SideNavLink renderIcon={Time} href="/officer/pending-reviews">
                   Pending Reviews
+                </SideNavLink>
+                <SideNavLink renderIcon={Security} href="/officer/audit-logs">
+                  Audit Logs
                 </SideNavLink>
                 <SideNavLink renderIcon={User} href="/officer/profile">
                   My Profile

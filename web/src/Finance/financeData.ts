@@ -18,6 +18,7 @@ export interface Payment {
   paymentDate?: string; // ISO date
   slipFileName?: string;
   slipUploadedAt?: string;
+  manualSlipUrl?: string;
 
   // Online Pay details
   gatewayName?: string;

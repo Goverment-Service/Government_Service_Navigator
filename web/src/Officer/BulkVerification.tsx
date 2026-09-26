@@ -37,7 +37,8 @@ import {
   Logout,
   Notification,
   CheckmarkOutline,
-  DataStructured
+  DataStructured,
+  Security
 } from "@carbon/icons-react";
 
 interface VerificationTaskItem {
@@ -167,6 +168,9 @@ export default function BulkVerification() {
                 </SideNavLink>
                 <SideNavLink renderIcon={Time} href="/officer/pending-reviews" isActive={window.location.pathname.includes('pending-reviews')}>
                   Pending Reviews
+                </SideNavLink>
+                <SideNavLink renderIcon={Security} href="/officer/audit-logs" isActive={window.location.pathname.includes('audit-logs')}>
+                  Audit Logs
                 </SideNavLink>
                 <SideNavLink renderIcon={User} href="/officer/profile" isActive={window.location.pathname.includes('profile')}>
                   My Profile

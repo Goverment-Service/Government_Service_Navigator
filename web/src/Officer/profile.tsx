@@ -137,6 +137,9 @@ export default function Profile() {
                 <SideNavLink renderIcon={Time} href="/officer/pending-reviews">
                   Pending Reviews
                 </SideNavLink>
+                <SideNavLink renderIcon={Security} href="/officer/audit-logs">
+                  Audit Logs
+                </SideNavLink>
                 {/* Active state moved to My Profile */}
                 <SideNavLink renderIcon={User} href="/officer/profile" isActive>
                   My Profile

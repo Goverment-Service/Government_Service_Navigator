@@ -24,7 +24,12 @@ import {
   Search,
   Button,
   Loading,
-  HeaderMenuButton
+  HeaderMenuButton,
+  Modal,
+  Select,
+  SelectItem,
+  TextArea,
+  InlineNotification
 } from "@carbon/react";
 import {
   Dashboard,
@@ -35,7 +40,9 @@ import {
   Notification,
   Warning,
   CheckmarkOutline,
-  DataStructured
+  DataStructured,
+  TrashCan,
+  Security
 } from "@carbon/icons-react";
 
 const headers = [
@@ -91,10 +98,55 @@ export default function OfficerDashboard() {
   const [rows, setRows] = useState<QueueRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<OfficerStats | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [targetRow, setTargetRow] = useState<QueueRow | null>(null);
+  const [deleteReason, setDeleteReason] = useState("Not required for review");
+  const [deleteNotes, setDeleteNotes] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [notification, setNotification] = useState<{ kind: "success" | "error"; title: string; subtitle: string } | null>(null);
+
+  const openDeleteModal = (row: QueueRow) => {
+    setTargetRow(row);
+    setDeleteReason("Not required for review");
+    setDeleteNotes("");
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!targetRow) return;
+    setIsDeleting(true);
+    const token = localStorage.getItem("officerToken");
+    const fullReason = deleteNotes.trim() ? `${deleteReason}: ${deleteNotes.trim()}` : deleteReason;
+    try {
+      const response = await fetch(`http://localhost:5119/api/Verification/tasks/${targetRow.id}?reason=${encodeURIComponent(fullReason)}`, {
+        method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      });
+      if (response.ok) {
+        setRows(prev => prev.filter(r => r.id !== targetRow.id));
+        setDeleteModalOpen(false);
+        setNotification({
+          kind: "success",
+          title: "Application Deleted & Audit Logged",
+          subtitle: `Application ${targetRow.appId} was deleted from the queue and recorded in the audit section.`
+        });
+      } else {
+        const err = await response.json().catch(() => ({}));
+        alert(err.message || "Failed to delete application.");
+      }
+    } catch (e) {
+      console.error("Delete failed", e);
+      alert("An error occurred while deleting the application.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("officerToken");
-    const authHeaders = { Authorization: `Bearer ${token}` };
+    const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
     const fetchQueue = async () => {
       try {
@@ -210,6 +262,9 @@ export default function OfficerDashboard() {
                 <SideNavLink renderIcon={Time} href="/officer/pending-reviews">
                   Pending Reviews
                 </SideNavLink>
+                <SideNavLink renderIcon={Security} href="/officer/audit-logs">
+                  Audit Logs
+                </SideNavLink>
                 <SideNavLink renderIcon={User} href="/officer/profile">
                   My Profile
                 </SideNavLink>
@@ -300,6 +355,7 @@ export default function OfficerDashboard() {
                     title="Active Verification Queue"
                     description="Pending verification tasks waiting for departmental review and timestamping."
                   >
+                    <div style={{ overflowX: 'auto', width: '100%' }}>
                     <Table {...getTableProps()}>
                       <TableHead>
                         <TableRow>
@@ -338,14 +394,26 @@ export default function OfficerDashboard() {
                                   );
                                 }
                                 if (cell.info.header === 'actions') {
+                                  const queueRow = rows.find(r => r.id === row.id);
                                   return (
                                     <TableCell key={cell.id} style={{ padding: '0.5rem', textAlign: 'right' }}>
-                                      <Button
-                                        size="sm"
-                                        onClick={() => window.location.href = `/officer/verification-workspace/${row.id}`}
-                                      >
-                                        Review
-                                      </Button>
+                                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                        <Button
+                                          size="sm"
+                                          onClick={() => window.location.href = `/officer/verification-workspace/${row.id}`}
+                                        >
+                                          Review
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          kind="danger--ghost"
+                                          renderIcon={TrashCan}
+                                          hasIconOnly
+                                          iconDescription="Delete application (not needed for review)"
+                                          tooltipPosition="left"
+                                          onClick={() => queueRow && openDeleteModal(queueRow)}
+                                        />
+                                      </div>
                                     </TableCell>
                                   );
                                 }
@@ -356,10 +424,61 @@ export default function OfficerDashboard() {
                         )}
                       </TableBody>
                     </Table>
+                    </div>
                   </TableContainer>
                 )}
               </DataTable>
             )}
+
+            {/* Notification Banner */}
+            {notification && (
+              <div style={{ marginTop: '1.5rem' }}>
+                <InlineNotification
+                  kind={notification.kind}
+                  title={notification.title}
+                  subtitle={notification.subtitle}
+                  onClose={() => setNotification(null)}
+                />
+              </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+              open={deleteModalOpen}
+              modalHeading="Delete Verification Application"
+              primaryButtonText={isDeleting ? "Deleting..." : "Delete Application"}
+              secondaryButtonText="Cancel"
+              danger
+              onRequestClose={() => setDeleteModalOpen(false)}
+              onRequestSubmit={handleDeleteConfirm}
+              primaryButtonDisabled={isDeleting}
+            >
+              <p style={{ marginBottom: '1rem', color: '#525252' }}>
+                Are you sure you want to delete application <strong>{targetRow?.appId}</strong>?
+                This application will be removed from your queue, and an official audit entry will record that you deleted it.
+              </p>
+              <Select
+                id="dashboard-delete-reason-select"
+                labelText="Reason for Deletion (Recorded in Audit Section)"
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                style={{ marginBottom: '1rem' }}
+              >
+                <SelectItem value="Not required for review" text="Not required for review" />
+                <SelectItem value="Duplicate application submitted" text="Duplicate application submitted" />
+                <SelectItem value="Invalid or test application" text="Invalid or test application" />
+                <SelectItem value="Citizen requested cancellation" text="Citizen requested cancellation" />
+                <SelectItem value="Other (specified in notes)" text="Other (specified in notes)" />
+              </Select>
+              <TextArea
+                id="dashboard-delete-notes"
+                labelText="Officer Remarks / Justification (Logged to Audit Trail)"
+                placeholder="Explain why this application does not need review..."
+                rows={3}
+                value={deleteNotes}
+                onChange={(e) => setDeleteNotes(e.target.value)}
+              />
+            </Modal>
 
           </main>
         </>

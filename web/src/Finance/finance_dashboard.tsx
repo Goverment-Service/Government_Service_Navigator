@@ -24,7 +24,7 @@ import {
   TextArea,
   InlineNotification,
 } from "@carbon/react";
-import { Hourglass, CheckmarkOutline, MisuseOutline, Money } from "@carbon/icons-react";
+import { Hourglass, CheckmarkOutline, MisuseOutline, Money, Launch } from "@carbon/icons-react";
 import FinanceShell from "./finance_shell";
 import {
   loadPayments,
@@ -91,6 +91,7 @@ export default function FinanceDashboard() {
             submittedAt: b.createdDate,
             slipFileName: b.manualSlipUrl ? b.manualSlipUrl.split("/").pop() || "bank_deposit_slip.pdf" : "bank_deposit_slip.pdf",
             slipUploadedAt: b.createdDate,
+            manualSlipUrl: b.manualSlipUrl,
           }));
 
           setPayments((prev) => {
@@ -417,24 +418,41 @@ export default function FinanceDashboard() {
 
                 <div style={{ marginTop: '0.5rem' }}>
                   <p style={{ fontSize: '0.75rem', color: '#525252', marginBottom: '0.5rem' }}>Payment Slip</p>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                      border: '1px dashed #8d8d8d',
-                      borderRadius: '4px',
-                      padding: '0.75rem',
-                      backgroundColor: '#f4f4f4',
-                    }}
-                  >
-                    <Money size={24} />
-                    <div>
-                      <p style={{ fontWeight: 500 }}>{selectedPayment.slipFileName || "No slip attached"}</p>
-                      <p style={{ fontSize: '0.75rem', color: '#525252' }}>
-                        Uploaded {formatDateTime(selectedPayment.slipUploadedAt)}
-                      </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        border: '1px dashed #8d8d8d',
+                        borderRadius: '4px',
+                        padding: '0.75rem',
+                        backgroundColor: '#f4f4f4',
+                        flex: 1,
+                        minWidth: '220px',
+                      }}
+                    >
+                      <Money size={24} />
+                      <div style={{ overflow: 'hidden' }}>
+                        <p style={{ fontWeight: 500, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                          {selectedPayment.slipFileName || "No slip attached"}
+                        </p>
+                        <p style={{ fontSize: '0.75rem', color: '#525252' }}>
+                          Uploaded {formatDateTime(selectedPayment.slipUploadedAt)}
+                        </p>
+                      </div>
                     </div>
+                    {selectedPayment.manualSlipUrl && (
+                      <Button
+                        size="sm"
+                        kind="tertiary"
+                        renderIcon={Launch}
+                        href={selectedPayment.manualSlipUrl}
+                        target="_blank"
+                      >
+                        View Slip
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>

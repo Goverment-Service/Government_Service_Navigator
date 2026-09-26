@@ -15,13 +15,24 @@ import {
   InlineNotification,
   Tag,
   Pagination,
-  Toggle
+  Toggle,
+  Modal
 } from "@carbon/react";
-import { Checkmark, Close, Document, ChevronLeft, ArrowRight, Warning, Money } from "@carbon/icons-react";
+import { Checkmark, Close, Document, ChevronLeft, ArrowRight, Warning, Money, TrashCan, Launch } from "@carbon/icons-react";
 import AgentDraftPanel from "./AgentDraftPanel";
 import DocumentPreview from "./DocumentPreview";
 import { getAgentDraft, generateAgentDraft, type AgentDraftView } from "./agentDraftApi";
 import { ApiError } from "../utils/api";
+
+interface PaymentDetail {
+  hasPayment: boolean;
+  amount: number;
+  status: string;
+  isVerified: boolean;
+  method?: string;
+  slipUrl?: string | null;
+  paidDate?: string | null;
+}
 
 interface TaskDetail {
   task: {
@@ -39,6 +50,7 @@ interface TaskDetail {
   userEmail?: string | null;
   answers: Record<string, string>;
   documents?: UploadedDocument[];
+  payment?: PaymentDetail | null;
 }
 
 interface UploadedDocument {
@@ -66,6 +78,10 @@ export default function VerificationWorkspace() {
   const [reasonId, setReasonId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("Not required for review");
+  const [deleteNotes, setDeleteNotes] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
   const [rejectionReasons, setRejectionReasons] = useState<{id: number, code: string, description: string}[]>([]);
   const [detail, setDetail] = useState<TaskDetail | null>(null);
   const [detailError, setDetailError] = useState("");
@@ -245,6 +261,33 @@ export default function VerificationWorkspace() {
     }
   };
 
+  const handleDeleteApplication = async () => {
+    if (!taskId) return;
+    setIsDeleting(true);
+    const token = localStorage.getItem("officerToken");
+    const fullReason = deleteNotes.trim() ? `${deleteReason}: ${deleteNotes.trim()}` : deleteReason;
+    try {
+      const response = await fetch(`http://localhost:5119/api/Verification/tasks/${taskId}?reason=${encodeURIComponent(fullReason)}`, {
+        method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      });
+      if (response.ok) {
+        setSubmitStatus("success");
+        setTimeout(() => navigate('/officer/pending-reviews'), 1200);
+      } else {
+        const err = await response.json().catch(() => ({}));
+        alert(err.message || "Failed to delete application.");
+      }
+    } catch (e) {
+      console.error("Delete failed", e);
+      alert("An error occurred while deleting the application.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <HeaderContainer
       render={() => (
@@ -253,9 +296,26 @@ export default function VerificationWorkspace() {
             <HeaderName href="#" prefix="GSN">
               Workspace
             </HeaderName>
-            <HeaderGlobalBar>
-               <Button kind="ghost" size="sm" renderIcon={ChevronLeft} onClick={() => navigate('/officer/pending-reviews')}>
-                 Back to Queue
+            <HeaderGlobalBar style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', paddingRight: '0.5rem' }}>
+               <Button
+                 kind="danger--ghost"
+                 size="sm"
+                 renderIcon={TrashCan}
+                 onClick={() => setDeleteModalOpen(true)}
+                 style={{ whiteSpace: 'nowrap' }}
+               >
+                 <span className="hidden sm:inline">Delete Application</span>
+                 <span className="sm:hidden">Delete</span>
+               </Button>
+               <Button 
+                 kind="ghost" 
+                 size="sm" 
+                 renderIcon={ChevronLeft} 
+                 onClick={() => navigate('/officer/pending-reviews')}
+                 style={{ whiteSpace: 'nowrap' }}
+               >
+                 <span className="hidden sm:inline">Back to Queue</span>
+                 <span className="sm:hidden">Back</span>
                </Button>
             </HeaderGlobalBar>
           </Header>
@@ -350,36 +410,80 @@ export default function VerificationWorkspace() {
                 )}
 
                 {/* Statutory Payment Status Banner (Synchronized with Finance Officer Audit) */}
-                <div
-                  style={{
-                    backgroundColor: '#ffffff',
-                    border: '1px solid #e0e0e0',
-                    borderLeft: '4px solid #198038',
-                    padding: '0.75rem 1rem',
-                    borderRadius: '2px',
-                    marginBottom: '1.5rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '0.5rem',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Money size={20} color="#198038" />
-                    <div>
-                      <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#161616' }}>
-                        Statutory Fee Clearance
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: '#525252' }}>
-                        Audited by Department Finance Officer • Verified against Bank Deposit Slip
+                {detail?.payment && (
+                  <div
+                    style={{
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e0e0e0',
+                      borderLeft: detail.payment.isVerified
+                        ? '4px solid #198038'
+                        : detail.payment.status === 'PendingVerification'
+                        ? '4px solid #f1c21b'
+                        : '4px solid #0f62fe',
+                      padding: '0.75rem 1rem',
+                      borderRadius: '2px',
+                      marginBottom: '1.5rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Money
+                        size={20}
+                        color={
+                          detail.payment.isVerified
+                            ? '#198038'
+                            : detail.payment.status === 'PendingVerification'
+                            ? '#b28600'
+                            : '#0f62fe'
+                        }
+                      />
+                      <div>
+                        <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#161616' }}>
+                          Statutory Fee Clearance (LKR {detail.payment.amount?.toLocaleString()})
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#525252' }}>
+                          {detail.payment.isVerified
+                            ? 'Audited by Department Finance Officer • Verified against Bank Deposit Slip'
+                            : detail.payment.status === 'PendingVerification'
+                            ? 'Bank deposit slip uploaded • Awaiting review by Department Finance Officer'
+                            : 'Statutory fee payment pending by citizen for this stage'}
+                        </div>
                       </div>
                     </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {detail.payment.slipUrl && (
+                        <Button
+                          size="sm"
+                          kind="ghost"
+                          renderIcon={Launch}
+                          href={detail.payment.slipUrl}
+                          target="_blank"
+                        >
+                          View Deposit Slip
+                        </Button>
+                      )}
+                      <Tag
+                        type={
+                          detail.payment.isVerified
+                            ? 'green'
+                            : detail.payment.status === 'PendingVerification'
+                            ? 'warm-gray'
+                            : 'blue'
+                        }
+                      >
+                        {detail.payment.isVerified
+                          ? 'Payment Cleared & Verified'
+                          : detail.payment.status === 'PendingVerification'
+                          ? 'Pending Finance Verification'
+                          : 'Payment Pending'}
+                      </Tag>
+                    </div>
                   </div>
-                  <Tag type="green">
-                    Payment Cleared & Verified
-                  </Tag>
-                </div>
+                )}
 
                 {/* Citizen's submitted form answers */}
                 <div style={{ backgroundColor: '#fff', padding: '1rem', border: '1px solid #e0e0e0', marginBottom: '2rem' }}>
@@ -413,30 +517,36 @@ export default function VerificationWorkspace() {
                 <div style={{ backgroundColor: '#fff', padding: '1.5rem', border: '1px solid #e0e0e0' }}>
                    <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Record Decision</h3>
                    
-                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.5rem' }}>
                       <Button 
-                         kind={decision === "Approved" ? "primary" : "ghost"} 
+                         kind={decision === "Approved" ? "primary" : "tertiary"} 
+                         size="md"
                          renderIcon={Checkmark} 
                          onClick={() => handleDecision("Approved")}
                          disabled={isSubmitting}
+                         style={{ flex: '1 1 auto', minWidth: '160px', justifyContent: 'center' }}
                       >
                          {(detail?.task.maxStages ?? 1) > (detail?.task.currentStage ?? 1)
                            ? `Approve Stage ${detail?.task.currentStage ?? 1} & Advance`
                            : "Approve"}
                       </Button>
                       <Button 
-                         kind={decision === "Revision Requested" ? "primary" : "ghost"} 
+                         kind={decision === "Revision Requested" ? "primary" : "tertiary"} 
+                         size="md"
                          renderIcon={Warning} 
                          onClick={() => handleDecision("Revision Requested")}
                          disabled={isSubmitting}
+                         style={{ flex: '1 1 auto', minWidth: '150px', justifyContent: 'center' }}
                       >
                          Request Revision
                       </Button>
                       <Button 
-                         kind={decision === "Rejected" ? "danger" : "danger--ghost"} 
+                         kind={decision === "Rejected" ? "danger" : "danger--tertiary"} 
+                         size="md"
                          renderIcon={Close} 
                          onClick={() => handleDecision("Rejected")}
                          disabled={isSubmitting}
+                         style={{ flex: '1 1 auto', minWidth: '100px', justifyContent: 'center' }}
                       >
                          Reject
                       </Button>
@@ -482,9 +592,63 @@ export default function VerificationWorkspace() {
                    {submitStatus === "error" && (
                      <InlineNotification kind="error" title="Error" subtitle="Failed to save decision. Try again." hideCloseButton style={{ marginTop: '1rem' }} />
                    )}
+
+                   <div style={{ marginTop: '2rem', paddingTop: '1.25rem', borderTop: '1px solid #e0e0e0' }}>
+                     <p style={{ fontSize: '0.8rem', color: '#525252', marginBottom: '0.75rem' }}>
+                       Application does not need review? (e.g. duplicate, invalid, or test submission):
+                     </p>
+                     <Button
+                       kind="danger--tertiary"
+                       size="sm"
+                       renderIcon={TrashCan}
+                       onClick={() => setDeleteModalOpen(true)}
+                       disabled={isSubmitting || isDeleting}
+                       style={{ width: '100%' }}
+                     >
+                       Delete Application (Audit Logged)
+                     </Button>
+                   </div>
                 </div>
               </Column>
             </Grid>
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+              open={deleteModalOpen}
+              modalHeading="Delete Verification Application"
+              primaryButtonText={isDeleting ? "Deleting..." : "Delete Application"}
+              secondaryButtonText="Cancel"
+              danger
+              onRequestClose={() => setDeleteModalOpen(false)}
+              onRequestSubmit={handleDeleteApplication}
+              primaryButtonDisabled={isDeleting}
+            >
+              <p style={{ marginBottom: '1rem', color: '#525252' }}>
+                Are you sure you want to delete application <strong>{detail?.task.referenceNumber}</strong> ({detail?.task.citizenName || detail?.task.citizenNic})?
+                This application will be removed from the verification queue and marked as deleted. An official audit entry will record that you deleted it.
+              </p>
+              <Select
+                id="workspace-delete-reason-select"
+                labelText="Reason for Deletion (Recorded in Audit Section)"
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                style={{ marginBottom: '1rem' }}
+              >
+                <SelectItem value="Not required for review" text="Not required for review" />
+                <SelectItem value="Duplicate application submitted" text="Duplicate application submitted" />
+                <SelectItem value="Invalid or test application" text="Invalid or test application" />
+                <SelectItem value="Citizen requested cancellation" text="Citizen requested cancellation" />
+                <SelectItem value="Other (specified in notes)" text="Other (specified in notes)" />
+              </Select>
+              <TextArea
+                id="workspace-delete-notes"
+                labelText="Officer Remarks / Justification (Logged to Audit Trail)"
+                placeholder="Explain why this application does not need review..."
+                rows={3}
+                value={deleteNotes}
+                onChange={(e) => setDeleteNotes(e.target.value)}
+              />
+            </Modal>
           </main>
         </>
       )}

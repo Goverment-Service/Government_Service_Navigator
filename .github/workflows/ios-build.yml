@@ -1,0 +1,68 @@
+name: Build iOS
+
+on:
+  push:
+    branches: [ "main", "Front-Dev", "Testing" ]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/ios-build.yml"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/ios-build.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build IPA (unsigned)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+
+      - name: Show Flutter version
+        run: flutter --version
+
+      - name: Install dependencies
+        run: flutter pub get
+
+
+      - name: Generate Riverpod code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      # No Podfile is committed; `flutter build ios` generates ios/Podfile and
+      # runs `pod install` itself, so only the iOS engine artifacts are fetched here.
+      - name: Precache iOS artifacts
+        run: flutter precache --ios
+
+      - name: Build iOS app (no codesign)
+        run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }}
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p build/ios/ipa/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+          cd build/ios/ipa
+          zip -qr app-release-unsigned.ipa Payload
+          rm -rf Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa-${{ github.run_number }}
+          path: mobile/build/ios/ipa/app-release-unsigned.ipa
+          retention-days: 14

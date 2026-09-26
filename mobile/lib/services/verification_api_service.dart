@@ -65,6 +65,11 @@ class VerificationApiService {
       applicantName: json['applicantName']?.toString(),
       verificationTask: task,
       installmentPlan: InstallmentSummary.fromJson(json['installmentPlan']),
+      currentStage: (json['currentStage'] as num?)?.toInt() ?? 1,
+      maxStages: (json['maxStages'] as num?)?.toInt() ?? 1,
+      stageStatus: json['stageStatus']?.toString() ?? (task.status == 'Approved' ? 'Completed' : 'PendingReview'),
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      userEmail: json['userEmail']?.toString(),
     );
   }
 

@@ -89,11 +89,21 @@ namespace Government_Service_Navigator.Backend.Controllers
 
             var tasks = await _verificationService.GetTasksForCitizenAsync(nic);
 
-            // Attach the service name/department from the citizen's submissions so the app can label each entry.
+            // Attach the service name/department and stage metadata from the citizen's submissions so the app can label each entry.
             var appIds = tasks.Select(t => t.ApplicationId).ToList();
             var services = await _context.ApplicationSubmissions
                 .Where(s => appIds.Contains(s.Id) && s.CitizenNic == nic)
-                .Select(s => new { s.Id, s.ServiceProcedure!.Name, s.ServiceProcedure.Category })
+                .Select(s => new
+                {
+                    s.Id,
+                    s.ServiceProcedure!.Name,
+                    s.ServiceProcedure.Category,
+                    Amount = s.ServiceProcedure.FeeSchedules.OrderByDescending(f => f.EffectiveDate).Select(f => (double?)f.Amount).FirstOrDefault() ?? 0.0,
+                    s.CurrentStage,
+                    s.MaxStages,
+                    s.StageStatus,
+                    s.UserEmail
+                })
                 .ToDictionaryAsync(s => s.Id);
 
             // Latest installment plan per application, so the app can open its schedule from the application card
@@ -117,27 +127,36 @@ namespace Government_Service_Navigator.Backend.Controllers
                 .GroupBy(p => p.ApplicationId)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.Id).First());
 
-            return Ok(tasks.Select(t => new
+            return Ok(tasks.Select(t =>
             {
-                t.Id,
-                t.ApplicationId,
-                t.Status,
-                t.CreatedDate,
-                ReferenceNumber = $"APP-{t.ApplicationId}",
-                ServiceName = services.TryGetValue(t.ApplicationId, out var s) ? s.Name : null,
-                Category = s?.Category,
-                InstallmentPlan = planByApp.TryGetValue(t.ApplicationId, out var plan)
-                    ? new
-                    {
-                        PlanId = plan.Id,
-                        plan.Status,
-                        plan.NumberOfInstallments,
-                        plan.PaidCount,
-                        NextAmount = plan.Next?.Amount,
-                        NextDueDate = plan.Next?.DueDate,
-                        NextStatus = plan.Next?.Status
-                    }
-                    : null
+                var s = services.TryGetValue(t.ApplicationId, out var sub) ? sub : null;
+                return new
+                {
+                    t.Id,
+                    t.ApplicationId,
+                    t.Status,
+                    t.CreatedDate,
+                    ReferenceNumber = $"APP-{t.ApplicationId}",
+                    ServiceName = s?.Name,
+                    Category = s?.Category,
+                    CurrentStage = t.CurrentStage > 0 ? t.CurrentStage : (s?.CurrentStage ?? 1),
+                    MaxStages = t.MaxStages > 0 ? t.MaxStages : (s?.MaxStages ?? 1),
+                    StageStatus = !string.IsNullOrEmpty(s?.StageStatus) ? s.StageStatus : (t.Status == "Approved" ? "Completed" : "PendingReview"),
+                    Amount = s?.Amount ?? 0.0,
+                    UserEmail = s?.UserEmail ?? string.Empty,
+                    InstallmentPlan = planByApp.TryGetValue(t.ApplicationId, out var plan)
+                        ? new
+                        {
+                            PlanId = plan.Id,
+                            plan.Status,
+                            plan.NumberOfInstallments,
+                            plan.PaidCount,
+                            NextAmount = plan.Next?.Amount,
+                            NextDueDate = plan.Next?.DueDate,
+                            NextStatus = plan.Next?.Status
+                        }
+                        : null
+                };
             }));
         }
 

@@ -21,12 +21,15 @@ namespace Government_Service_Navigator.Backend.Services
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+                var submission = await _context.ApplicationSubmissions.FindAsync(request.ApplicationId);
                 var task = new VerificationTask
                 {
                     ApplicationId = request.ApplicationId,
                     Status = "Pending",
                     CreatedDate = DateTime.UtcNow,
-                    CitizenNic = request.CitizenNic
+                    CitizenNic = request.CitizenNic,
+                    CurrentStage = submission?.CurrentStage ?? 1,
+                    MaxStages = submission?.MaxStages ?? 1
                 };
 
                 _context.VerificationTasks.Add(task);

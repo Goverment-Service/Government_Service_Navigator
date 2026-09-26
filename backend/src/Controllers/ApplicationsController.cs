@@ -163,6 +163,9 @@ namespace Government_Service_Navigator.Backend.Controllers
             request.Answers[PresentedByKey] = department;
             request.Answers[EmailKey] = departmentEmail;
 
+            var fee = await _feeTool.CalculateAsync(service.Id);
+            var maxStages = fee.TotalAmount > 0 ? 3 : 2;
+
             var submission = new ApplicationSubmission
             {
                 ServiceProcedureId = service.Id,
@@ -170,7 +173,10 @@ namespace Government_Service_Navigator.Backend.Controllers
                 CitizenNic = nic,
                 UserEmail = User.FindFirstValue(ClaimTypes.Email) ?? string.Empty,
                 FormDataJson = JsonSerializer.Serialize(request.Answers),
-                SubmittedAt = DateTime.UtcNow
+                SubmittedAt = DateTime.UtcNow,
+                CurrentStage = 1,
+                MaxStages = maxStages,
+                StageStatus = "PendingReview"
             };
 
             // 1. Build Draft Application for Agent 4
@@ -209,7 +215,6 @@ namespace Government_Service_Navigator.Backend.Controllers
             if (documents.Count > 0) await _context.SaveChangesAsync();
 
             // Services with a fee: the application stays out of the officer queue until it is paid (see Finalize)
-            var fee = await _feeTool.CalculateAsync(service.Id);
             if (fee.TotalAmount > 0)
                 return Ok(PaymentRequiredResponse(submission, service.Name, fee));
 

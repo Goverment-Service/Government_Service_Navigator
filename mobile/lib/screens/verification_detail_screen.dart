@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/application_providers.dart';
 import '../services/verification_api_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/service_roadmap_tracker.dart';
+import 'payments/payment_screen.dart';
 
 class VerificationDetailScreen extends ConsumerStatefulWidget {
   /// The application as it looked in the list; newer data from [myApplicationsProvider] wins.
@@ -133,6 +135,29 @@ class _VerificationDetailScreenState extends ConsumerState<VerificationDetailScr
               _buildDigitalVerificationPass(),
               const SizedBox(height: 20),
             ],
+
+            // 3.5. Multi-Stage Service Roadmap Tracker
+            ServiceRoadmapTracker(
+              currentStage: _app.currentStage,
+              maxStages: _app.maxStages,
+              stageStatus: _app.stageStatus,
+              onActionTap: _app.stageStatus == 'AwaitingFeePayment'
+                  ? () async {
+                      await Navigator.of(context).push(
+                        CupertinoPageRoute(
+                          builder: (_) => PaymentScreen(
+                            applicationId: _app.applicationId.toString(),
+                            amount: _app.amount > 0 ? _app.amount : 2500.0,
+                            userEmail: _app.userEmail,
+                            popOnPaid: true,
+                          ),
+                        ),
+                      );
+                      if (mounted) await _refresh();
+                    }
+                  : null,
+            ),
+            const SizedBox(height: 20),
 
             // 4. Verification Progress Stepper
             _buildVerificationProgressCard(),

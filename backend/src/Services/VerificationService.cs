@@ -18,10 +18,35 @@ namespace Government_Service_Navigator.Backend.Services
 
         public async Task<VerificationTask> CreateTaskAsync(CreateTaskRequest request, string agentId)
         {
+            if (request.ApplicationId <= 0)
+            {
+                throw new ArgumentException("Cannot create verification task with invalid ApplicationId <= 0");
+            }
+
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var submission = await _context.ApplicationSubmissions.FindAsync(request.ApplicationId);
+
+                var targetStage = request.StageNumber > 0 ? request.StageNumber : (submission?.CurrentStage ?? 1);
+                var targetDept = request.Department ?? submission?.CurrentDepartment;
+
+                // Deduplicate: If an active task already exists for this application and stage, update and reuse it
+                var existingTask = await _context.VerificationTasks
+                    .FirstOrDefaultAsync(t => t.ApplicationId == request.ApplicationId && (t.StageNumber == targetStage || t.Status == "Pending"));
+
+                if (existingTask != null)
+                {
+                    existingTask.Department = targetDept ?? existingTask.Department;
+                    existingTask.StageNumber = targetStage;
+                    existingTask.CurrentStage = submission?.CurrentStage ?? existingTask.CurrentStage;
+                    existingTask.MaxStages = submission?.MaxStages ?? existingTask.MaxStages;
+                    existingTask.Status = "Pending";
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    return existingTask;
+                }
+
                 var task = new VerificationTask
                 {
                     ApplicationId = request.ApplicationId,
@@ -30,8 +55,8 @@ namespace Government_Service_Navigator.Backend.Services
                     CitizenNic = request.CitizenNic,
                     CurrentStage = submission?.CurrentStage ?? 1,
                     MaxStages = submission?.MaxStages ?? 1,
-                    Department = request.Department ?? submission?.CurrentDepartment,
-                    StageNumber = request.StageNumber > 0 ? request.StageNumber : (submission?.CurrentStage ?? 1)
+                    Department = targetDept,
+                    StageNumber = targetStage
                 };
 
                 _context.VerificationTasks.Add(task);
@@ -109,7 +134,7 @@ namespace Government_Service_Navigator.Backend.Services
             }
         }
 
-        public async Task<bool> DeleteTaskAsync(int taskId, string officerId)
+        public async Task<bool> DeleteTaskAsync(int taskId, string officerId, string? reason = null)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -118,20 +143,45 @@ namespace Government_Service_Navigator.Backend.Services
                 if (task == null) return false;
 
                 int appId = task.ApplicationId;
-                _context.VerificationTasks.Remove(task);
+                var submission = await _context.ApplicationSubmissions
+                    .Include(s => s.ServiceProcedure)
+                    .FirstOrDefaultAsync(s => s.Id == appId);
 
+                var serviceName = submission?.ServiceProcedure?.Name ?? "General Service";
+                var citizenNic = submission?.CitizenNic ?? task.CitizenNic ?? "N/A";
+                var effectiveReason = string.IsNullOrWhiteSpace(reason)
+                    ? "Application not required for review (dismissed by officer)"
+                    : reason.Trim();
+
+                // 1. Record in Audit Section with officer identity and reason
                 var auditLog = new AuditLog
                 {
                     ApplicationId = appId,
-                    Action = "Task Deleted",
+                    Action = "Application Deleted",
                     PerformedBy = officerId,
                     Timestamp = DateTime.UtcNow,
-                    OldValues = $"TaskId: {taskId}",
-                    NewValues = ""
+                    OldValues = $"TaskId: {taskId}, Status: {task.Status}, Service: {serviceName}, Citizen: {citizenNic}, Stage: {task.CurrentStage}/{task.MaxStages}",
+                    NewValues = $"Deleted by verifying officer {officerId}. Reason: {effectiveReason}"
                 };
 
                 _context.AuditLogs.Add(auditLog);
-                
+
+                // 2. Remove related reviews and compliance checks for this task
+                var reviews = await _context.OfficerReviews.Where(r => r.TaskId == taskId).ToListAsync();
+                if (reviews.Any()) _context.OfficerReviews.RemoveRange(reviews);
+
+                var checks = await _context.ComplianceChecks.Where(c => c.TaskId == taskId).ToListAsync();
+                if (checks.Any()) _context.ComplianceChecks.RemoveRange(checks);
+
+                // 3. Mark the application submission status as Deleted
+                if (submission != null)
+                {
+                    submission.StageStatus = "Deleted";
+                }
+
+                // 4. Remove verification task from queue
+                _context.VerificationTasks.Remove(task);
+
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
                 return true;
@@ -209,11 +259,15 @@ namespace Government_Service_Navigator.Backend.Services
         public async Task<List<VerificationTask>> GetPendingTasksAsync(string? department = null)
         {
             var query = _context.VerificationTasks
-                .Where(t => t.Status == "Pending" || t.Status == "Revised" || t.Status == "Revision Requested");
+                .Where(t => t.ApplicationId > 0 && (t.Status == "Pending" || t.Status == "Revised" || t.Status == "Revision Requested"));
 
             if (!string.IsNullOrEmpty(department))
             {
-                query = query.Where(t => t.Department == department || t.Department == null);
+                var deptAppIds = _context.ApplicationSubmissions
+                    .Where(s => s.CurrentDepartment == department)
+                    .Select(s => s.Id);
+
+                query = query.Where(t => t.Department == department || (t.Department == null && deptAppIds.Contains(t.ApplicationId)));
             }
 
             return await query.OrderBy(t => t.CreatedDate).ToListAsync();
@@ -222,11 +276,15 @@ namespace Government_Service_Navigator.Backend.Services
         public async Task<List<VerificationTask>> GetVerifiedTasksAsync(string? department = null)
         {
             var query = _context.VerificationTasks
-                .Where(t => t.Status == "Approved" || t.Status == "Rejected");
+                .Where(t => t.ApplicationId > 0 && (t.Status == "Approved" || t.Status == "Rejected"));
 
             if (!string.IsNullOrEmpty(department))
             {
-                query = query.Where(t => t.Department == department || t.Department == null);
+                var deptAppIds = _context.ApplicationSubmissions
+                    .Where(s => s.CurrentDepartment == department)
+                    .Select(s => s.Id);
+
+                query = query.Where(t => t.Department == department || (t.Department == null && deptAppIds.Contains(t.ApplicationId)));
             }
 
             return await query.OrderByDescending(t => t.CreatedDate).ToListAsync();

@@ -343,6 +343,15 @@ ALTER TABLE ""ServiceProcedures"" ADD COLUMN IF NOT EXISTS ""TotalStages"" integ
 ALTER TABLE ""ServiceProcedures"" ADD COLUMN IF NOT EXISTS ""WorkflowDepartments"" text NULL;
 ");
 
+        // Remove any orphan tasks with ApplicationId == 0 that may have been created by previous test runs
+        var zeroTasks = context.VerificationTasks.Where(t => t.ApplicationId == 0).ToList();
+        if (zeroTasks.Any())
+        {
+            context.VerificationTasks.RemoveRange(zeroTasks);
+            context.SaveChanges();
+            Console.WriteLine($"Cleaned up {zeroTasks.Count} invalid verification task(s) with ApplicationId 0.");
+        }
+
         // Seed mock VerificationTasks if empty so the UI has something to show!
         if (!context.VerificationTasks.Any())
         {

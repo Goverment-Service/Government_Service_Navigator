@@ -8,7 +8,7 @@ namespace Government_Service_Navigator.Backend.Services.Interfaces
     {
         Task<VerificationTask> CreateTaskAsync(CreateTaskRequest request, string agentId);
         Task<bool> RecordDecisionAsync(int taskId, VerificationDecisionRequest request, string officerId);
-        Task<bool> DeleteTaskAsync(int taskId, string officerId);
+        Task<bool> DeleteTaskAsync(int taskId, string officerId, string? reason = null);
         Task<bool> BulkVerifyAsync(BulkVerifyRequest request, string officerId);
         Task<List<AuditLog>> GetAuditLogsAsync(int applicationId);
         Task<List<AuditLog>> GetAllAuditLogsAsync();

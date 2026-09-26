@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Government_Service_Navigator.Backend.Data.Context;
 using Government_Service_Navigator.Backend.DTOs.Requests;
 using Government_Service_Navigator.Backend.Services.Interfaces;
@@ -58,8 +59,23 @@ namespace Government_Service_Navigator.Backend.Controllers
         [Authorize(Roles = FinanceRoles)]
         public async Task<IActionResult> GetPendingSlips()
         {
-            var pending = await _context.Payments
-                .Where(p => p.Status == "PendingVerification")
+            var role = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+            var dept = User.FindFirstValue("department") ?? User.FindFirst("department")?.Value;
+            var isSystemAdmin = role.Contains("System Admin", StringComparison.OrdinalIgnoreCase) || role == "Admin";
+
+            var query = _context.Payments
+                .Where(p => p.Status == "PendingVerification");
+
+            if (!isSystemAdmin && !string.IsNullOrEmpty(dept))
+            {
+                var appSubmissions = _context.ApplicationSubmissions
+                    .Where(s => s.CurrentDepartment == dept)
+                    .Select(s => s.Id);
+
+                query = query.Where(p => appSubmissions.Contains(p.ApplicationId));
+            }
+
+            var pending = await query
                 .OrderByDescending(p => p.CreatedDate)
                 .ToListAsync();
             return Ok(pending);
@@ -71,6 +87,23 @@ namespace Government_Service_Navigator.Backend.Controllers
         [Authorize(Roles = FinanceRoles)]
         public async Task<IActionResult> Verify(int id, [FromBody] VerifyManualPaymentDto dto)
         {
+            var role = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+            var dept = User.FindFirstValue("department") ?? User.FindFirst("department")?.Value;
+            var isSystemAdmin = role.Contains("System Admin", StringComparison.OrdinalIgnoreCase) || role == "Admin";
+
+            if (!isSystemAdmin && !string.IsNullOrEmpty(dept))
+            {
+                var paymentItem = await _context.Payments.FindAsync(id);
+                if (paymentItem != null)
+                {
+                    var submission = await _context.ApplicationSubmissions.FindAsync(paymentItem.ApplicationId);
+                    if (submission != null && !string.IsNullOrEmpty(submission.CurrentDepartment) && !string.Equals(submission.CurrentDepartment, dept, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return Forbid();
+                    }
+                }
+            }
+
             try
             {
                 var payment = await _paymentService.VerifyManualPaymentAsync(id, dto.Approved, dto.Note);

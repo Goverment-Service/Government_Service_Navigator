@@ -1,7 +1,10 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Government_Service_Navigator.Backend.Services.Interfaces;
 using Government_Service_Navigator.Backend.Models.Entities;
 using Government_Service_Navigator.Backend.DTOs;
+using Government_Service_Navigator.Backend.Data.Context;
 
 namespace Government_Service_Navigator.Backend.Controllers
 {
@@ -10,10 +13,12 @@ namespace Government_Service_Navigator.Backend.Controllers
     public class ServicesController : ControllerBase
     {
         private readonly IServiceCatalogService _catalogService;
+        private readonly AppDbContext _context;
 
-        public ServicesController(IServiceCatalogService catalogService)
+        public ServicesController(IServiceCatalogService catalogService, AppDbContext context)
         {
             _catalogService = catalogService;
+            _context = context;
         }
 
        // Admin adds a new service/procedure
@@ -145,6 +150,111 @@ public async Task<IActionResult> CreateService([FromBody] ServiceProcedure servi
             var success = await _catalogService.DeleteFeeScheduleAsync(feeId);
             if (!success) return NotFound("Fee schedule not found.");
             return NoContent();
+        }
+
+        // Fetch stage-specific documents, fees, and department for a procedure
+        [HttpGet("{id}/stage/{stageNumber:int}")]
+        public async Task<IActionResult> GetServiceStageDetails(int id, int stageNumber)
+        {
+            var service = await _catalogService.GetServiceByIdAsync(id);
+            if (service == null) return NotFound("Service not found.");
+
+            var template = await _context.Templates
+                .Include(t => t.Fields)
+                .Where(t => t.ServiceProcedureId == id && t.StageOrder == stageNumber && t.Status == "Active")
+                .OrderByDescending(t => t.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            var stageDocs = new List<object>();
+            var stageFees = new List<object>();
+
+            if (template != null)
+            {
+                var fileFields = template.Fields
+                    .Where(f => f.Type == "file" || f.Type == "document" || f.Type == "documentUpload")
+                    .OrderBy(f => f.OrderIndex)
+                    .ToList();
+
+                foreach (var f in fileFields)
+                {
+                    var catDoc = service.DocumentRequirements
+                        .FirstOrDefault(d => string.Equals(d.DocumentName.Trim(), f.Label.Trim(), StringComparison.OrdinalIgnoreCase) ||
+                                             d.DocumentName.Contains(f.Label, StringComparison.OrdinalIgnoreCase) ||
+                                             f.Label.Contains(d.DocumentName, StringComparison.OrdinalIgnoreCase) ||
+                                             (f.Label.Contains("birth", StringComparison.OrdinalIgnoreCase) && d.DocumentName.Contains("birth", StringComparison.OrdinalIgnoreCase)) ||
+                                             (f.Label.Contains("nic", StringComparison.OrdinalIgnoreCase) && d.DocumentName.Contains("nic", StringComparison.OrdinalIgnoreCase)) ||
+                                             (f.Label.Contains("photo", StringComparison.OrdinalIgnoreCase) && d.DocumentName.Contains("image", StringComparison.OrdinalIgnoreCase)) ||
+                                             (f.Label.Contains("image", StringComparison.OrdinalIgnoreCase) && d.DocumentName.Contains("image", StringComparison.OrdinalIgnoreCase)));
+
+                    stageDocs.Add(new
+                    {
+                        id = catDoc?.Id ?? 0,
+                        serviceProcedureId = id,
+                        documentName = catDoc?.DocumentName ?? f.Label,
+                        description = catDoc?.Description ?? "",
+                        isMandatory = catDoc?.IsMandatory ?? f.IsRequired
+                    });
+                }
+
+                var paymentField = template.Fields.FirstOrDefault(f => f.Type == "payment");
+                if (paymentField != null && !string.IsNullOrWhiteSpace(paymentField.Options))
+                {
+                    try
+                    {
+                        using var pDoc = JsonDocument.Parse(paymentField.Options);
+                        if (pDoc.RootElement.TryGetProperty("amount", out var amt) && amt.GetDecimal() > 0)
+                        {
+                            var stageAmt = amt.GetDecimal();
+                            string feeName = pDoc.RootElement.TryGetProperty("feeType", out var ft) && ft.GetString() is string s && !string.IsNullOrWhiteSpace(s)
+                                ? s
+                                : paymentField.Label;
+
+                            stageFees.Add(new
+                            {
+                                id = 0,
+                                serviceProcedureId = id,
+                                feeType = feeName,
+                                amount = stageAmt,
+                                effectiveDate = DateTime.UtcNow
+                            });
+                        }
+                    }
+                    catch { }
+                }
+            }
+            else if (stageNumber == 1)
+            {
+                // Fall back to catalog docs and fees for single-stage procedures
+                stageDocs.AddRange(service.DocumentRequirements.Select(d => new
+                {
+                    id = d.Id,
+                    serviceProcedureId = id,
+                    documentName = d.DocumentName,
+                    description = d.Description ?? "",
+                    isMandatory = d.IsMandatory
+                }));
+
+                stageFees.AddRange(service.FeeSchedules.Select(f => new
+                {
+                    id = f.Id,
+                    serviceProcedureId = id,
+                    feeType = f.FeeType,
+                    amount = f.Amount,
+                    effectiveDate = f.EffectiveDate
+                }));
+            }
+
+            return Ok(new
+            {
+                serviceId = service.Id,
+                serviceCode = service.ServiceId,
+                serviceName = service.Name,
+                stageNumber,
+                stageDepartment = template?.Department,
+                stageDescription = template?.StageDescription,
+                documentRequirements = stageDocs,
+                feeSchedules = stageFees
+            });
         }
 
         // Configure multi-department stages and workflow for a service

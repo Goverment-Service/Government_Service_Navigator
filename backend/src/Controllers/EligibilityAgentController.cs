@@ -45,7 +45,8 @@ public class EligibilityAgentController : ControllerBase
             ServiceName: query.ServiceName,
             ServiceId: query.ServiceId,
             Profile: profile,
-            PlanSummary: query.PlanSummary
+            PlanSummary: query.PlanSummary,
+            Stage: query.Stage
         );
 
         try
@@ -104,4 +105,5 @@ public class EligibilityAgentQueryDto
     public string? PlanSummary { get; set; }
     public int ApplicationId { get; set; }
     public string? CitizenNic { get; set; }
+    public int? Stage { get; set; }
 }

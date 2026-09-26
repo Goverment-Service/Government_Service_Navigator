@@ -21,14 +21,14 @@ namespace Government_Service_Navigator.AgenticAi.Tests
         private class StubFeeRepository : IFeeScheduleRepository
         {
             public List<FeeScheduleEntry> Fees { get; } = new();
-            public Task<List<FeeScheduleEntry>> GetFeeSchedulesAsync(int serviceProcedureId, CancellationToken cancellationToken = default)
+            public Task<List<FeeScheduleEntry>> GetFeeSchedulesAsync(int serviceProcedureId, int? stage = null, CancellationToken cancellationToken = default)
                 => Task.FromResult(Fees);
         }
 
         private class StubTemplateRepository : IApplicationTemplateRepository
         {
             public List<FormFieldDefinition> Fields { get; } = new();
-            public Task<List<FormFieldDefinition>> GetFormFieldsAsync(int serviceProcedureId, CancellationToken cancellationToken = default)
+            public Task<List<FormFieldDefinition>> GetFormFieldsAsync(int serviceProcedureId, int? stage = null, CancellationToken cancellationToken = default)
                 => Task.FromResult(Fields);
         }
 

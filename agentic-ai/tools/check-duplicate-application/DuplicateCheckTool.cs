@@ -17,30 +17,34 @@ namespace Government_Service_Navigator.AgenticAi.Tools.CheckDuplicateApplication
             _repository = repository;
         }
 
-        public async Task<DuplicateCheckOutcome> CheckAsync(string citizenNic, int serviceProcedureId)
+        public async Task<DuplicateCheckOutcome> CheckAsync(string citizenNic, int serviceProcedureId, int currentApplicationId = 0)
         {
             string key = $"{citizenNic.Trim().ToUpperInvariant()}_{serviceProcedureId}";
 
             // 1. Check in-memory fast registry
             if (ActiveApplicationRegistry.TryGetValue(key, out var existingRef))
             {
-                return new DuplicateCheckOutcome
+                bool isSameApp = currentApplicationId > 0 && existingRef.EndsWith($"-{currentApplicationId}");
+                if (!isSameApp)
                 {
-                    IsDuplicate = true,
-                    ExistingReference = existingRef,
-                    Message = $"DUP-001: Active application '{existingRef}' already exists for citizen '{citizenNic}' on service procedure #{serviceProcedureId}.",
-                    ComplianceCheck = new ComplianceCheckItem(
-                        "Anti-Fraud Duplicate Application Check", 
-                        false, 
-                        $"Duplicate active case found: {existingRef}."
-                    )
-                };
+                    return new DuplicateCheckOutcome
+                    {
+                        IsDuplicate = true,
+                        ExistingReference = existingRef,
+                        Message = $"DUP-001: Active application '{existingRef}' already exists for citizen '{citizenNic}' on service procedure #{serviceProcedureId}.",
+                        ComplianceCheck = new ComplianceCheckItem(
+                            "Anti-Fraud Duplicate Application Check", 
+                            false, 
+                            $"Duplicate active case found: {existingRef}."
+                        )
+                    };
+                }
             }
 
             // 2. Check Database via decoupled repository
             if (_repository != null)
             {
-                bool isDuplicate = await _repository.HasDuplicateAsync(citizenNic, serviceProcedureId);
+                bool isDuplicate = await _repository.HasDuplicateAsync(citizenNic, serviceProcedureId, currentApplicationId);
                 
                 if (isDuplicate)
                 {

@@ -4,6 +4,6 @@ namespace Government_Service_Navigator.AgenticAi.Tools.CheckDuplicateApplication
 {
     public interface IDuplicateApplicationRepository
     {
-        Task<bool> HasDuplicateAsync(string citizenNic, int serviceProcedureId);
+        Task<bool> HasDuplicateAsync(string citizenNic, int serviceProcedureId, int excludeApplicationId = 0);
     }
 }

@@ -88,7 +88,7 @@ public class ActionAgentController : ControllerBase
             };
 
             eligibility = await _eligibilityAgent.EvaluateEligibilityAsync(
-                new EligibilityPlanRequest(query.ServiceName, query.ServiceProcedureId, profile, query.PlanSummary));
+                new EligibilityPlanRequest(query.ServiceName, query.ServiceProcedureId, profile, query.PlanSummary, query.Stage));
         }
 
         return new ActionDraftRequest(
@@ -109,7 +109,8 @@ public class ActionAgentController : ControllerBase
             Eligibility: eligibility,
             ProvidedDocuments: providedDocuments,
             PreferredAppointmentDateUtc: query.PreferredAppointmentDateUtc,
-            ExpressProcessing: query.ExpressProcessing);
+            ExpressProcessing: query.ExpressProcessing,
+            Stage: query.Stage);
     }
 }
 
@@ -130,6 +131,7 @@ public class ActionAgentQueryDto
     public DateTime? PreferredAppointmentDateUtc { get; set; }
     public bool ExpressProcessing { get; set; }
     public string? PlanSummary { get; set; }
+    public int? Stage { get; set; }
 
     /// <summary>Optional Agent 2 output; when omitted, Agent 2 is invoked first.</summary>
     public EligibilityPlanResponse? Eligibility { get; set; }

@@ -11,7 +11,7 @@ public record FormFieldDefinition(string Label, string Type, bool IsRequired, in
 public interface IApplicationTemplateRepository
 {
     /// <summary>Returns the form fields of the active template linked to the service, or an empty list if none.</summary>
-    Task<List<FormFieldDefinition>> GetFormFieldsAsync(int serviceProcedureId, CancellationToken cancellationToken = default);
+    Task<List<FormFieldDefinition>> GetFormFieldsAsync(int serviceProcedureId, int? stage = null, CancellationToken cancellationToken = default);
 }
 
 public class ApplicantDetails
@@ -36,7 +36,7 @@ public class PrefillResult
 
 public interface IPrefillApplicationTool
 {
-    Task<PrefillResult> PrefillAsync(int serviceProcedureId, ApplicantDetails applicant, CancellationToken cancellationToken = default);
+    Task<PrefillResult> PrefillAsync(int serviceProcedureId, ApplicantDetails applicant, int? stage = null, CancellationToken cancellationToken = default);
 }
 
 public class PrefillApplicationTool : IPrefillApplicationTool
@@ -60,12 +60,12 @@ public class PrefillApplicationTool : IPrefillApplicationTool
         _repository = repository;
     }
 
-    public async Task<PrefillResult> PrefillAsync(int serviceProcedureId, ApplicantDetails applicant, CancellationToken cancellationToken = default)
+    public async Task<PrefillResult> PrefillAsync(int serviceProcedureId, ApplicantDetails applicant, int? stage = null, CancellationToken cancellationToken = default)
     {
         var result = new PrefillResult();
 
         var fields = _repository != null
-            ? await _repository.GetFormFieldsAsync(serviceProcedureId, cancellationToken)
+            ? await _repository.GetFormFieldsAsync(serviceProcedureId, stage, cancellationToken)
             : new List<FormFieldDefinition>();
 
         if (fields.Count == 0)

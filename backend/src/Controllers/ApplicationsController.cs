@@ -9,6 +9,8 @@ using Government_Service_Navigator.Backend.DTOs.Requests;
 using Government_Service_Navigator.Backend.Models.Entities;
 using Government_Service_Navigator.Backend.Services;
 using Government_Service_Navigator.Backend.Services.Interfaces;
+using Government_Service_Navigator.AgenticAi.Agents.ValidationSafety;
+using Government_Service_Navigator.AgenticAi.Schemas;
 
 namespace Government_Service_Navigator.Backend.Controllers
 {
@@ -36,12 +38,14 @@ namespace Government_Service_Navigator.Backend.Controllers
         private readonly AppDbContext _context;
         private readonly IVerificationService _verificationService;
         private readonly ICalculateFeeTool _feeTool;
+        private readonly IValidationSafetyAgent _safetyAgent;
 
-        public ApplicationsController(AppDbContext context, IVerificationService verificationService, ICalculateFeeTool feeTool)
+        public ApplicationsController(AppDbContext context, IVerificationService verificationService, ICalculateFeeTool feeTool, IValidationSafetyAgent safetyAgent)
         {
             _context = context;
             _verificationService = verificationService;
             _feeTool = feeTool;
+            _safetyAgent = safetyAgent;
         }
 
         // Active application template linked to the service, or 404 if the admin hasn't built one.
@@ -168,6 +172,32 @@ namespace Government_Service_Navigator.Backend.Controllers
                 FormDataJson = JsonSerializer.Serialize(request.Answers),
                 SubmittedAt = DateTime.UtcNow
             };
+
+            // 1. Build Draft Application for Agent 4
+            var draft = new DraftApplication
+            {
+                ApplicationId = 0, // will be set upon save
+                ServiceProcedureId = service.Id,
+                ServiceName = service.Name,
+                CitizenNic = nic,
+                CitizenName = User.FindFirstValue(ClaimTypes.Name) ?? nic,
+                FormFields = request.Answers,
+                AttachedDocumentNames = documents.Values.Select(d => d.FileName).ToList()
+            };
+
+            // 2. Run Agent 4 (Schema, Duplicates, Risk Scoring)
+            var validationResult = await _safetyAgent.ValidateAndEnqueueAsync(draft);
+
+            if (!validationResult.IsValid)
+            {
+                return BadRequest(new 
+                { 
+                    message = "Application safety validation failed.", 
+                    errors = validationResult.RejectionReasons,
+                    summary = validationResult.Summary
+                });
+            }
+
             _context.ApplicationSubmissions.Add(submission);
             await _context.SaveChangesAsync();
 
@@ -183,7 +213,7 @@ namespace Government_Service_Navigator.Backend.Controllers
             if (fee.TotalAmount > 0)
                 return Ok(PaymentRequiredResponse(submission, service.Name, fee));
 
-            return Ok(await SendToVerificationAsync(submission, service.Name, nic));
+            return Ok(await SendToVerificationAsync(submission, service.Name, nic, validationResult.ComplianceChecks));
         }
 
         // Called after paying: once Paid payments (or an installment plan with its first installment paid) cover
@@ -227,13 +257,27 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(await SendToVerificationAsync(submission, serviceName, nic));
         }
 
-        private async Task<object> SendToVerificationAsync(ApplicationSubmission submission, string serviceName, string nic)
+        private async Task<object> SendToVerificationAsync(ApplicationSubmission submission, string serviceName, string nic, List<ComplianceCheckItem>? checks = null)
         {
             var task = await _verificationService.CreateTaskAsync(new CreateTaskRequest
             {
                 ApplicationId = submission.Id,
                 CitizenNic = nic
             }, User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Citizen");
+            if (checks != null && checks.Count > 0)
+            {
+                foreach (var c in checks)
+                {
+                    _context.ComplianceChecks.Add(new ComplianceCheck
+                    {
+                        TaskId = task.Id,
+                        CheckType = c.CheckType,
+                        IsPassed = c.IsPassed,
+                        Details = c.Details
+                    });
+                }
+                await _context.SaveChangesAsync();
+            }
 
             return SubmittedResponse(submission, serviceName, task.Id);
         }

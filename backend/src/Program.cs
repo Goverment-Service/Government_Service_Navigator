@@ -14,6 +14,10 @@ using Npgsql;
 using Stripe;
 using Government_Service_Navigator.AgenticAi.Tools.CheckDuplicateApplication;
 using Government_Service_Navigator.AgenticAi.Agents.ValidationSafety;
+using Government_Service_Navigator.AgenticAi.Config;
+using Government_Service_Navigator.AgenticAi.Orchestration;
+using Government_Service_Navigator.AgenticAi.Tools.CheckDuplicateApplication;
+using Government_Service_Navigator.AgenticAi.Tools.ValidateSchema;
 using Government_Service_Navigator.AgenticAi.Agents.EligibilityDocumentAgent;
 using Government_Service_Navigator.AgenticAi.Agents.EligibilityDocumentAgent.Chunking;
 using Government_Service_Navigator.AgenticAi.Agents.EligibilityDocumentAgent.Retrieval;
@@ -123,6 +127,18 @@ builder.Services.AddScoped<IPrefillApplicationTool, PrefillApplicationTool>();
 builder.Services.AddScoped<IActionVectorRetriever, ActionVectorRetrieverService>();
 builder.Services.AddScoped<IActionToolAgent, ActionToolAgent>();
 builder.Services.AddScoped<IAgent3WorkflowOrchestrator, Agent3WorkflowOrchestrator>();
+// Agent 4: Validation & Safety Agent and Orchestrator
+builder.Services.AddScoped<ISchemaValidatorTool, SchemaValidatorTool>();
+builder.Services.AddScoped<IDuplicateCheckTool, DuplicateCheckTool>();
+builder.Services.AddScoped<IValidationSafetyAgent, ValidationSafetyAgent>();
+builder.Services.AddScoped<IValidationOrchestrator, ValidationOrchestrator>();
+builder.Services.AddSingleton(new ValidationSafetyConfig
+{
+    BlockDuplicateSubmissions = true,
+    MinimumLegalAge = 16,
+    EnableAdversarialDefense = true
+});
+
 builder.Services.AddScoped<IApplicationDraftingService, ApplicationDraftingService>();
 builder.Services.AddSingleton<IEmbeddingService, LocalEmbeddingService>();
 builder.Services.AddHostedService<InstallmentMonitorService>();

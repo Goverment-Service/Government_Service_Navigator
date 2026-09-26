@@ -1,0 +1,55 @@
+name: Build Linux App
+
+on:
+  push:
+    branches: [ "main", "Front-Dev", "Testing" ]
+    paths:
+      - "web/**"
+      - ".github/workflows/linux-build.yml"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "web/**"
+      - ".github/workflows/linux-build.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: linux-build.yml-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Linux (AppImage + tar.gz)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: "npm"
+          cache-dependency-path: "web/package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # tsc -b && vite build -> web/dist, which Electron serves via electron/main.cjs.
+      - name: Build web app
+        run: npm run build
+
+      - name: Package desktop app
+        run: npx electron-builder --linux --publish never
+
+      - name: Upload Linux build
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-app-${{ github.run_number }}
+          path: |
+            web/release/*.AppImage
+            web/release/*.tar.gz
+          retention-days: 14

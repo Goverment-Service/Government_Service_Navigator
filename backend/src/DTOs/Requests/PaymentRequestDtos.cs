@@ -21,4 +21,10 @@ namespace Government_Service_Navigator.Backend.DTOs.Requests
         public decimal Amount { get; set; }
         public string UserEmail { get; set; } = string.Empty;
     }
+
+    public class UpdatePaymentStatusDto
+    {
+        public string Status { get; set; } = string.Empty; // "Paid", "Verified", "Failed", "Rejected", "Pending", "PendingVerification"
+        public string? Note { get; set; }
+    }
 }

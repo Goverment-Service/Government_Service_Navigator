@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Government_Service_Navigator.Backend.Data.Context;
 using Government_Service_Navigator.Backend.DTOs.Requests;
+using Government_Service_Navigator.Backend.Models.Entities;
 using Government_Service_Navigator.Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -54,7 +55,7 @@ namespace Government_Service_Navigator.Backend.Controllers
             return Ok(payments);
         }
 
-        // Finance Officer: list all pending manual bank transfer slips awaiting verification
+        // Finance Officer: list all pending manual bank transfer slips awaiting verification with citizen details
         [HttpGet("pending-slips")]
         [Authorize(Roles = FinanceRoles)]
         public async Task<IActionResult> GetPendingSlips()
@@ -78,9 +79,122 @@ namespace Government_Service_Navigator.Backend.Controllers
             var pending = await query
                 .OrderByDescending(p => p.CreatedDate)
                 .ToListAsync();
-            return Ok(pending);
+
+            var appIds = pending.Select(p => p.ApplicationId).Distinct().ToList();
+            var submissions = await _context.ApplicationSubmissions
+                .Include(s => s.ServiceProcedure)
+                .Where(s => appIds.Contains(s.Id))
+                .ToDictionaryAsync(s => s.Id);
+
+            var nics = submissions.Values.Select(s => s.CitizenNic).Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList();
+            var users = await _context.Users
+                .Where(u => nics.Contains(u.NicNumber))
+                .ToDictionaryAsync(u => u.NicNumber, u => u.FullName);
+
+            var result = pending.Select(p =>
+            {
+                submissions.TryGetValue(p.ApplicationId, out var sub);
+                string citizenNic = sub?.CitizenNic ?? "";
+                string citizenName = (!string.IsNullOrEmpty(citizenNic) && users.TryGetValue(citizenNic, out var fullName))
+                    ? fullName
+                    : (!string.IsNullOrEmpty(citizenNic) ? citizenNic : "Citizen");
+
+                return new
+                {
+                    id = p.Id,
+                    applicationId = p.ApplicationId,
+                    referenceNumber = $"APP-{p.ApplicationId}",
+                    citizenNic = citizenNic,
+                    citizenName = citizenName,
+                    userEmail = !string.IsNullOrEmpty(p.UserEmail) ? p.UserEmail : (sub?.UserEmail ?? ""),
+                    serviceName = sub?.ServiceProcedure?.Name ?? "Government Service",
+                    stageNumber = sub?.CurrentStage ?? 1,
+                    department = sub?.CurrentDepartment ?? dept ?? "",
+                    method = p.Method,
+                    amount = p.Amount,
+                    status = p.Status,
+                    manualSlipUrl = p.ManualSlipUrl,
+                    referenceNumberOrId = !string.IsNullOrEmpty(p.StripePaymentIntentId)
+                        ? p.StripePaymentIntentId
+                        : (!string.IsNullOrEmpty(p.ManualSlipUrl) ? p.ManualSlipUrl.Split('/').LastOrDefault() : "N/A"),
+                    submittedAt = p.CreatedDate,
+                    createdDate = p.CreatedDate,
+                    paidDate = p.PaidDate
+                };
+            }).ToList();
+
+            return Ok(result);
         }
 
+        // Finance Officer: list all payments (Pending, Verified, Failed) for this department with citizen details
+        [HttpGet("department-payments")]
+        [Authorize(Roles = FinanceRoles)]
+        public async Task<IActionResult> GetDepartmentPayments()
+        {
+            var role = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+            var dept = User.FindFirstValue("department") ?? User.FindFirst("department")?.Value;
+            var isSystemAdmin = role.Contains("System Admin", StringComparison.OrdinalIgnoreCase) || role == "Admin";
+
+            var query = _context.Payments.AsQueryable();
+
+            if (!isSystemAdmin && !string.IsNullOrEmpty(dept))
+            {
+                var appSubmissions = _context.ApplicationSubmissions
+                    .Where(s => s.CurrentDepartment == dept)
+                    .Select(s => s.Id);
+
+                query = query.Where(p => appSubmissions.Contains(p.ApplicationId));
+            }
+
+            var payments = await query
+                .OrderByDescending(p => p.CreatedDate)
+                .ToListAsync();
+
+            var appIds = payments.Select(p => p.ApplicationId).Distinct().ToList();
+            var submissions = await _context.ApplicationSubmissions
+                .Include(s => s.ServiceProcedure)
+                .Where(s => appIds.Contains(s.Id))
+                .ToDictionaryAsync(s => s.Id);
+
+            var nics = submissions.Values.Select(s => s.CitizenNic).Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList();
+            var users = await _context.Users
+                .Where(u => nics.Contains(u.NicNumber))
+                .ToDictionaryAsync(u => u.NicNumber, u => u.FullName);
+
+            var result = payments.Select(p =>
+            {
+                submissions.TryGetValue(p.ApplicationId, out var sub);
+                string citizenNic = sub?.CitizenNic ?? "";
+                string citizenName = (!string.IsNullOrEmpty(citizenNic) && users.TryGetValue(citizenNic, out var fullName))
+                    ? fullName
+                    : (!string.IsNullOrEmpty(citizenNic) ? citizenNic : "Citizen");
+
+                return new
+                {
+                    id = p.Id,
+                    applicationId = p.ApplicationId,
+                    referenceNumber = $"APP-{p.ApplicationId}",
+                    citizenNic = citizenNic,
+                    citizenName = citizenName,
+                    userEmail = !string.IsNullOrEmpty(p.UserEmail) ? p.UserEmail : (sub?.UserEmail ?? ""),
+                    serviceName = sub?.ServiceProcedure?.Name ?? "Government Service",
+                    stageNumber = sub?.CurrentStage ?? 1,
+                    department = sub?.CurrentDepartment ?? dept ?? "",
+                    method = p.Method,
+                    amount = p.Amount,
+                    status = p.Status, // "PendingVerification", "Paid", "Failed"
+                    manualSlipUrl = p.ManualSlipUrl,
+                    referenceNumberOrId = !string.IsNullOrEmpty(p.StripePaymentIntentId)
+                        ? p.StripePaymentIntentId
+                        : (!string.IsNullOrEmpty(p.ManualSlipUrl) ? p.ManualSlipUrl.Split('/').LastOrDefault() : "N/A"),
+                    submittedAt = p.CreatedDate,
+                    createdDate = p.CreatedDate,
+                    paidDate = p.PaidDate
+                };
+            }).ToList();
+
+            return Ok(result);
+        }
 
         // Finance Officer verifies/rejects a manual payment slip.
         [HttpPost("{id}/verify")]
@@ -107,6 +221,51 @@ namespace Government_Service_Navigator.Backend.Controllers
             try
             {
                 var payment = await _paymentService.VerifyManualPaymentAsync(id, dto.Approved, dto.Note);
+
+                var officerId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.Identity?.Name ?? "Finance Officer";
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    ApplicationId = payment.ApplicationId,
+                    Action = dto.Approved ? "Payment Verified" : "Payment Rejected",
+                    PerformedBy = officerId,
+                    Timestamp = DateTime.UtcNow,
+                    OldValues = $"PaymentId: {payment.Id}, PreviousStatus: PendingVerification, Amount: {payment.Amount}",
+                    NewValues = $"Status: {payment.Status}, Decision: {(dto.Approved ? "Approved" : "Rejected")}, Notes: {dto.Note ?? (dto.Approved ? "Payment verified by Finance Officer" : "Payment rejected by Finance Officer")}"
+                });
+                await _context.SaveChangesAsync();
+
+                return Ok(payment);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        }
+
+        // Finance Officer updates/edits payment status (Paid, Failed, PendingVerification)
+        [HttpPut("{id}/status")]
+        [Authorize(Roles = FinanceRoles)]
+        public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdatePaymentStatusDto dto)
+        {
+            var role = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+            var dept = User.FindFirstValue("department") ?? User.FindFirst("department")?.Value;
+            var isSystemAdmin = role.Contains("System Admin", StringComparison.OrdinalIgnoreCase) || role == "Admin";
+
+            if (!isSystemAdmin && !string.IsNullOrEmpty(dept))
+            {
+                var paymentItem = await _context.Payments.FindAsync(id);
+                if (paymentItem != null)
+                {
+                    var submission = await _context.ApplicationSubmissions.FindAsync(paymentItem.ApplicationId);
+                    if (submission != null && !string.IsNullOrEmpty(submission.CurrentDepartment) && !string.Equals(submission.CurrentDepartment, dept, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return Forbid();
+                    }
+                }
+            }
+
+            try
+            {
+                var officerId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.Identity?.Name ?? "Finance Officer";
+                var payment = await _paymentService.UpdatePaymentStatusAsync(id, dto.Status, dto.Note, officerId);
                 return Ok(payment);
             }
             catch (KeyNotFoundException ex) { return NotFound(ex.Message); }

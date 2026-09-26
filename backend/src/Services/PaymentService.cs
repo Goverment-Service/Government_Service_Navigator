@@ -75,11 +75,6 @@ namespace Government_Service_Navigator.Backend.Services
                 throw new KeyNotFoundException($"Payment {id} not found.");
             }
 
-            if (payment.Status != "PendingVerification")
-            {
-                throw new InvalidOperationException("Only payments pending verification can be reviewed.");
-            }
-
             var oldStatus = payment.Status;
 
             if (approved)
@@ -111,6 +106,56 @@ namespace Government_Service_Navigator.Backend.Services
                 Timestamp = DateTime.UtcNow,
                 OldValues = $"Status={oldStatus}",
                 NewValues = $"PaymentId={payment.Id}, Status={payment.Status}"
+            });
+            await _context.SaveChangesAsync();
+
+            return payment;
+        }
+
+        public async Task<Payment> UpdatePaymentStatusAsync(int id, string status, string? note, string officerId)
+        {
+            var payment = await _context.Payments.FindAsync(id);
+            if (payment == null)
+            {
+                throw new KeyNotFoundException($"Payment {id} not found.");
+            }
+
+            var oldStatus = payment.Status;
+            string normalized = status.Trim().ToLowerInvariant() switch
+            {
+                "paid" or "verified" => "Paid",
+                "failed" or "rejected" => "Failed",
+                "pendingverification" or "pending" => "PendingVerification",
+                _ => status
+            };
+
+            payment.Status = normalized;
+            if (normalized == "Paid")
+            {
+                payment.PaidDate ??= DateTime.UtcNow;
+                var submission = await _context.ApplicationSubmissions.FindAsync(payment.ApplicationId);
+                if (submission != null)
+                {
+                    submission.StageStatus = "Completed";
+                }
+            }
+            else if (normalized == "PendingVerification")
+            {
+                payment.PaidDate = null;
+            }
+
+            await _context.SaveChangesAsync();
+
+            await _notificationService.NotifyPaymentStatusAsync(payment.UserEmail, payment.Id, payment.Status);
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ApplicationId = payment.ApplicationId,
+                Action = $"Payment Status Updated: {normalized}",
+                PerformedBy = officerId,
+                Timestamp = DateTime.UtcNow,
+                OldValues = $"PaymentId={payment.Id}, Status={oldStatus}",
+                NewValues = $"Status={payment.Status}, Note={note ?? "Status updated by officer"}"
             });
             await _context.SaveChangesAsync();
 

@@ -284,6 +284,7 @@ namespace Government_Service_Navigator.Backend.Controllers
                 {
                     paymentInfo = new
                     {
+                        id = payment.Id,
                         hasPayment = true,
                         amount = payment.Amount,
                         status = payment.Status, // "Paid", "PendingVerification", "Pending", "Failed"
@@ -297,6 +298,7 @@ namespace Government_Service_Navigator.Backend.Controllers
                 {
                     paymentInfo = new
                     {
+                        id = (int?)null,
                         hasPayment = true,
                         amount = stageFeeAmount,
                         status = "Pending",
@@ -311,6 +313,7 @@ namespace Government_Service_Navigator.Backend.Controllers
             {
                 paymentInfo = new
                 {
+                    id = payment.Id,
                     hasPayment = true,
                     amount = payment.Amount,
                     status = payment.Status,
@@ -416,6 +419,40 @@ namespace Government_Service_Navigator.Backend.Controllers
         [HttpPut("tasks/{id}/decision")]
         public async Task<IActionResult> RecordDecision(int id, [FromBody] VerificationDecisionRequest request)
         {
+            var task = await _context.VerificationTasks.FindAsync(id);
+            if (task == null) return NotFound("Task not found or update failed");
+
+            // Guard: If approving, ensure statutory fee for this stage is verified by Finance!
+            if (string.Equals(request.Status, "Approved", StringComparison.OrdinalIgnoreCase))
+            {
+                var submission = await _context.ApplicationSubmissions.FindAsync(task.ApplicationId);
+                if (submission != null)
+                {
+                    var currentStageNum = task.StageNumber > 0 ? task.StageNumber : task.CurrentStage;
+                    var template = await _context.Templates
+                        .Include(t => t.Fields)
+                        .FirstOrDefaultAsync(t => t.ServiceProcedureId == submission.ServiceProcedureId 
+                                               && t.StageOrder == currentStageNum 
+                                               && t.Status == "Active");
+                    var paymentField = template?.Fields.FirstOrDefault(f => f.Type == "payment");
+                    if (paymentField != null)
+                    {
+                        var payment = await _context.Payments
+                            .Where(p => p.ApplicationId == task.ApplicationId)
+                            .OrderByDescending(p => p.Id)
+                            .FirstOrDefaultAsync();
+
+                        if (payment == null || payment.Status != "Paid")
+                        {
+                            return BadRequest(new 
+                            { 
+                                message = $"Cannot complete Stage {currentStageNum} as verified: Statutory payment has not been verified by the Department Finance Officer." 
+                            });
+                        }
+                    }
+                }
+            }
+
             var result = await _verificationService.RecordDecisionAsync(id, request, GetCurrentOfficerId());
 
             if (!result) return NotFound("Task not found or update failed");
@@ -525,6 +562,30 @@ namespace Government_Service_Navigator.Backend.Controllers
 
             var submission = await _context.ApplicationSubmissions.FindAsync(task.ApplicationId);
             if (submission == null) return NotFound("Submission not found.");
+
+            // Guard: Ensure statutory fee for THIS stage is verified by Finance Officer!
+            var currentStageNum = task.StageNumber > 0 ? task.StageNumber : task.CurrentStage;
+            var template = await _context.Templates
+                .Include(t => t.Fields)
+                .FirstOrDefaultAsync(t => t.ServiceProcedureId == submission.ServiceProcedureId 
+                                       && t.StageOrder == currentStageNum 
+                                       && t.Status == "Active");
+            var paymentField = template?.Fields.FirstOrDefault(f => f.Type == "payment");
+            if (paymentField != null)
+            {
+                var payment = await _context.Payments
+                    .Where(p => p.ApplicationId == task.ApplicationId)
+                    .OrderByDescending(p => p.Id)
+                    .FirstOrDefaultAsync();
+
+                if (payment == null || payment.Status != "Paid")
+                {
+                    return BadRequest(new 
+                    { 
+                        message = $"Cannot approve Stage {currentStageNum} milestone: Statutory fee payment has not been verified by the Department Finance Officer." 
+                    });
+                }
+            }
 
             var officerId = GetCurrentOfficerId();
 

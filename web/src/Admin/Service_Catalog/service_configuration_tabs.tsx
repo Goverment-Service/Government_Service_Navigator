@@ -36,6 +36,7 @@ import {
   Checkbox,
   InlineNotification,
   Tile,
+  TextArea,
 } from "@carbon/react";
 import {
   Dashboard,
@@ -50,6 +51,8 @@ import {
   TrashCan,
   Edit,
   Add,
+  Upload,
+  Renew,
 } from "@carbon/icons-react";
 
 const docHeaders = [
@@ -103,7 +106,7 @@ export default function ServiceConfigurationTabs() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [notification, setNotification] = useState<{
-    type: "success" | "error";
+    type: "success" | "error" | "info" | "warning";
     title: string;
     subtitle: string;
   } | null>(null);
@@ -127,6 +130,124 @@ export default function ServiceConfigurationTabs() {
     amount: "",
     effectiveDate: new Date().toISOString().split("T")[0],
   });
+
+  // Knowledge Base State
+  const [knowledgeChunks, setKnowledgeChunks] = useState<Array<{ id: string; content: string; sourceCategory: string }>>([]);
+  const [knowledgeLoading, setKnowledgeLoading] = useState(false);
+  const [policyTitle, setPolicyTitle] = useState("");
+  const [policyText, setPolicyText] = useState("");
+  const [policyFile, setPolicyFile] = useState<File | null>(null);
+  const [isUploadingKnowledge, setIsUploadingKnowledge] = useState(false);
+
+  const fetchKnowledge = async (svcId: string) => {
+    if (!svcId) return;
+    try {
+      setKnowledgeLoading(true);
+      const res = await fetch(`http://localhost:5119/api/RagSetup/service-knowledge/${svcId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setKnowledgeChunks(data);
+      }
+    } catch (e) {
+      console.error("Error loading service knowledge:", e);
+    } finally {
+      setKnowledgeLoading(false);
+    }
+  };
+
+  const handleUploadPolicy = async () => {
+    if (!selectedServiceId || (!policyText.trim() && !policyFile)) {
+      setNotification({
+        type: "warning",
+        title: "Missing Content",
+        subtitle: "Please paste regulation text or choose a document file to vectorize.",
+      });
+      return;
+    }
+
+    try {
+      setIsUploadingKnowledge(true);
+      const formData = new FormData();
+      formData.append("serviceProcedureId", selectedServiceId);
+      formData.append("documentTitle", policyTitle || `${selectedServiceName} Official Regulation Document`);
+      if (policyText.trim()) formData.append("policyText", policyText);
+      if (policyFile) formData.append("file", policyFile);
+
+      const res = await fetch("http://localhost:5119/api/RagSetup/upload-policy", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setNotification({
+          type: "success",
+          title: "Vectorized Successfully",
+          subtitle: data.message || "Regulation document vectorized into Neon Vector DB!",
+        });
+        setPolicyTitle("");
+        setPolicyText("");
+        setPolicyFile(null);
+        await fetchKnowledge(selectedServiceId);
+      } else {
+        const err = await res.text();
+        setNotification({
+          type: "error",
+          title: "Upload Failed",
+          subtitle: err || "Failed to vectorize document.",
+        });
+      }
+    } catch (e) {
+      console.error(e);
+      setNotification({
+        type: "error",
+        title: "Network Error",
+        subtitle: "Could not connect to the vectorization engine.",
+      });
+    } finally {
+      setIsUploadingKnowledge(false);
+    }
+  };
+
+  const handleClearKnowledge = async () => {
+    if (!selectedServiceId) return;
+    try {
+      const res = await fetch(`http://localhost:5119/api/RagSetup/service-knowledge/${selectedServiceId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setNotification({
+          type: "info",
+          title: "Knowledge Reset",
+          subtitle: "Vector chunks cleared for this service.",
+        });
+        setKnowledgeChunks([]);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleIngestLocalDocs = async () => {
+    try {
+      setIsUploadingKnowledge(true);
+      const res = await fetch("http://localhost:5119/api/RagSetup/ingest-local-documents", {
+        method: "POST",
+      });
+      if (res.ok) {
+        setNotification({
+          type: "success",
+          title: "Sri Lankan Gazette Ingestion Complete",
+          subtitle: "All 5 authentic Sri Lankan government policy documents vectorized into Neon Vector DB!",
+        });
+        await fetchKnowledge(selectedServiceId);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsUploadingKnowledge(false);
+    }
+  };
 
   // 1. Fetch all services on mount
     useEffect(() => {
@@ -181,6 +302,7 @@ export default function ServiceConfigurationTabs() {
         );
         setDocuments(formattedDocs);
         setFees(formattedFees);
+        fetchKnowledge(selectedServiceId);
       } catch (error) {
         console.error("Error fetching service config:", error);
       } finally {
@@ -570,6 +692,7 @@ export default function ServiceConfigurationTabs() {
             <TabList aria-label="Configuration Tabs">
               <Tab>Required Documents</Tab>
               <Tab>Fee Schedule</Tab>
+              <Tab>Official Policy & AI Knowledge Base</Tab>
             </TabList>
             <TabPanels>
               {/* Documents Tab */}
@@ -831,6 +954,156 @@ export default function ServiceConfigurationTabs() {
                     </Button>
                   </>
                 )}
+              </TabPanel>
+
+              {/* Tab 3: Official Policy & AI Knowledge Base (Neon Vector DB) */}
+              <TabPanel style={{ padding: "1.5rem 0" }}>
+                <div style={{ marginBottom: "1.5rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+                    <div>
+                      <h4 style={{ margin: 0, fontWeight: 600, fontSize: "1.15rem" }}>
+                        Official Gazettes, Circulars & Dynamic Policy Ingestion
+                      </h4>
+                      <p style={{ margin: "0.4rem 0 0 0", color: "#525252", fontSize: "0.875rem", maxWidth: "800px" }}>
+                        Upload official government circulars, statutory gazettes, or departmental rules for <strong>{selectedServiceName}</strong>.
+                        The system parses the document, computes 768-dimensional semantic embeddings, and stores them in Neon PostgreSQL vector storage for real-time citizen AI guidance.
+                      </p>
+                    </div>
+                    <div style={{ display: "flex", gap: "0.75rem" }}>
+                      <Button
+                        kind="tertiary"
+                        size="md"
+                        renderIcon={Renew}
+                        disabled={isUploadingKnowledge}
+                        onClick={handleIngestLocalDocs}
+                      >
+                        Ingest Sri Lankan Gazettes
+                      </Button>
+                      {knowledgeChunks.length > 0 && (
+                        <Button
+                          kind="danger--ghost"
+                          size="md"
+                          renderIcon={TrashCan}
+                          disabled={isUploadingKnowledge}
+                          onClick={handleClearKnowledge}
+                        >
+                          Clear Service Knowledge
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Upload & Vectorization Form */}
+                <Tile style={{ marginBottom: "2rem", padding: "1.5rem", border: "1px solid #e0e0e0" }}>
+                  <h5 style={{ margin: "0 0 1rem 0", fontWeight: 600, fontSize: "1rem" }}>
+                    Ingest Official Circular or Regulatory Policy
+                  </h5>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+                    <TextInput
+                      id="policy-title-input"
+                      labelText="Document / Gazette Title"
+                      placeholder="e.g. Gazette Extraordinary No. 2341/14 - Revised Passport & Biometric Regulations"
+                      value={policyTitle}
+                      onChange={(e) => setPolicyTitle(e.target.value)}
+                    />
+
+                    <div>
+                      <label style={{ display: "block", fontSize: "0.75rem", color: "#525252", marginBottom: "0.35rem", fontWeight: 500 }}>
+                        Attach Gazette / Rule Document (.md, .txt, .pdf)
+                      </label>
+                      <input
+                        id="policy-file-input"
+                        type="file"
+                        accept=".md,.txt,.pdf"
+                        style={{
+                          padding: "0.5rem",
+                          border: "1px solid #8d8d8d",
+                          backgroundColor: "#f4f4f4",
+                          width: "100%",
+                          borderRadius: "4px"
+                        }}
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            setPolicyFile(e.target.files[0]);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <TextArea
+                      id="policy-text-input"
+                      labelText="Or Paste Official Policy Text / Legal Provisions directly"
+                      placeholder="Paste statutory rules, mandatory prerequisites, counter requirements, medical guidelines, or fee provisions here..."
+                      rows={5}
+                      value={policyText}
+                      onChange={(e) => setPolicyText(e.target.value)}
+                    />
+
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <Button
+                        kind="primary"
+                        renderIcon={Upload}
+                        disabled={isUploadingKnowledge || (!policyText.trim() && !policyFile)}
+                        onClick={handleUploadPolicy}
+                      >
+                        {isUploadingKnowledge ? "Vectorizing & Ingesting..." : "Vectorize & Ingest to Neon DB"}
+                      </Button>
+                    </div>
+                  </div>
+                </Tile>
+
+                {/* Active Knowledge Chunks Viewer */}
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                    <h5 style={{ margin: 0, fontWeight: 600, fontSize: "1rem" }}>
+                      Active Neon Vector Chunks
+                    </h5>
+                    <Tag type={knowledgeChunks.length > 0 ? "teal" : "gray"}>
+                      {knowledgeChunks.length} Chunks Indexed in Neon DB
+                    </Tag>
+                  </div>
+
+                  {knowledgeLoading ? (
+                    <div style={{ padding: "2rem", textAlign: "center" }}>
+                      <Loading description="Loading vectorized chunks from Neon DB..." withOverlay={false} small />
+                    </div>
+                  ) : knowledgeChunks.length === 0 ? (
+                    <Tile style={{ padding: "2rem", textAlign: "center", backgroundColor: "#f4f4f4", border: "1px dashed #8d8d8d" }}>
+                      <p style={{ margin: 0, color: "#525252", fontSize: "0.95rem" }}>
+                        No vector chunks indexed yet for <strong>{selectedServiceName}</strong>.
+                      </p>
+                      <p style={{ margin: "0.5rem 0 0 0", color: "#6f6f6f", fontSize: "0.85rem" }}>
+                        Click <strong>&quot;Ingest Sri Lankan Gazettes&quot;</strong> above or upload an official circular to populate authentic regulatory context for citizen AI assistance.
+                      </p>
+                    </Tile>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                      {knowledgeChunks.map((chunk, index) => (
+                        <Tile key={chunk.id || index} style={{ padding: "1.2rem", borderLeft: "4px solid #0f62fe", backgroundColor: "#ffffff" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
+                            <Tag type="blue">Chunk #{index + 1}</Tag>
+                            <span style={{ fontSize: "0.75rem", color: "#6f6f6f", fontFamily: "monospace" }}>
+                              Source: {chunk.sourceCategory || "Official Sri Lankan Policy Document"}
+                            </span>
+                          </div>
+                          <div style={{
+                            fontSize: "0.875rem",
+                            color: "#161616",
+                            whiteSpace: "pre-wrap",
+                            lineHeight: "1.5",
+                            backgroundColor: "#f4f4f4",
+                            padding: "0.85rem",
+                            borderRadius: "4px",
+                            fontFamily: "monospace"
+                          }}>
+                            {chunk.content}
+                          </div>
+                        </Tile>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </TabPanel>
             </TabPanels>
           </Tabs>

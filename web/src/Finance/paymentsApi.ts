@@ -43,18 +43,32 @@ export interface InstallmentPlanResponse {
 export interface BackendPayment {
   id: number;
   applicationId: number;
+  referenceNumber?: string;
+  citizenNic?: string;
+  citizenName?: string;
+  userEmail?: string;
+  serviceName?: string;
+  stageNumber?: number;
+  department?: string;
   amount: number;
-  currency: string;
+  currency?: string;
   method: string;
   status: string;
   manualSlipUrl: string | null;
-  userEmail: string;
+  referenceNumberOrId?: string;
+  submittedAt?: string;
   createdDate: string;
+  paidDate?: string | null;
 }
 
 // GET /api/payments/pending-slips (Live Backend)
 export function getPendingSlips(): Promise<BackendPayment[]> {
   return apiFetch<BackendPayment[]>("/api/payments/pending-slips");
+}
+
+// GET /api/payments/department-payments (Live Backend for all department payments)
+export function getDepartmentPayments(): Promise<BackendPayment[]> {
+  return apiFetch<BackendPayment[]>("/api/payments/department-payments");
 }
 
 // GET /api/payments/{id}/ledger
@@ -71,6 +85,18 @@ export function verifyPayment(
   return apiFetch(`/api/payments/${paymentId}/verify`, {
     method: "POST",
     body: JSON.stringify({ approved, note: note ?? null }),
+  });
+}
+
+// PUT /api/payments/{id}/status
+export function updatePaymentStatus(
+  paymentId: number,
+  status: "Paid" | "Failed" | "PendingVerification" | "Verified" | "Rejected" | "Pending",
+  note?: string
+): Promise<unknown> {
+  return apiFetch(`/api/payments/${paymentId}/status`, {
+    method: "PUT",
+    body: JSON.stringify({ status, note: note ?? null }),
   });
 }
 

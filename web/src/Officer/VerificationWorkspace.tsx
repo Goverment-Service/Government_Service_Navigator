@@ -18,13 +18,14 @@ import {
   Toggle,
   Modal
 } from "@carbon/react";
-import { Checkmark, Close, Document, ChevronLeft, ArrowRight, Warning, Money, TrashCan, Launch } from "@carbon/icons-react";
+import { Checkmark, Close, Document, ChevronLeft, ArrowRight, Warning, Money, TrashCan, Launch, Edit } from "@carbon/icons-react";
 import AgentDraftPanel from "./AgentDraftPanel";
 import DocumentPreview from "./DocumentPreview";
 import { getAgentDraft, generateAgentDraft, type AgentDraftView } from "./agentDraftApi";
 import { ApiError } from "../utils/api";
 
 interface PaymentDetail {
+  id?: number;
   hasPayment: boolean;
   amount: number;
   status: string;
@@ -85,6 +86,10 @@ export default function VerificationWorkspace() {
   const [rejectionReasons, setRejectionReasons] = useState<{id: number, code: string, description: string}[]>([]);
   const [detail, setDetail] = useState<TaskDetail | null>(null);
   const [detailError, setDetailError] = useState("");
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [editPaymentStatus, setEditPaymentStatus] = useState("Paid");
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
   const [agentDraft, setAgentDraft] = useState<AgentDraftView | null>(null);
   const [agentLoading, setAgentLoading] = useState(true);
   const [agentError, setAgentError] = useState("");
@@ -207,7 +212,49 @@ export default function VerificationWorkspace() {
     });
   };
 
+  const handleSavePaymentStatus = async () => {
+    if (!detail?.payment?.id) return;
+    setIsUpdatingPayment(true);
+    try {
+      const token = localStorage.getItem("officerToken");
+      const res = await fetch(`http://localhost:5119/api/payments/${detail.payment.id}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          status: editPaymentStatus,
+          note: paymentNotes || "Updated from Verification Workspace"
+        })
+      });
+      if (res.ok) {
+        const isCleared = editPaymentStatus === "Paid" || editPaymentStatus === "Verified";
+        setDetail(prev => prev ? {
+          ...prev,
+          payment: prev.payment ? {
+            ...prev.payment,
+            status: editPaymentStatus,
+            isVerified: isCleared
+          } : null
+        } : null);
+        setShowPaymentModal(false);
+      } else {
+        alert("Failed to update payment status.");
+      }
+    } catch (err) {
+      console.error("Failed to update payment status", err);
+      alert("Error updating payment status.");
+    } finally {
+      setIsUpdatingPayment(false);
+    }
+  };
+
   const handleDecision = async (status: string) => {
+    if (status === "Approved" && detail?.payment && !detail.payment.isVerified) {
+      alert("Cannot complete stage as verified: Statutory payment has not been verified by the Department Finance Officer.");
+      return;
+    }
     setDecision(status);
     if (status === "Approved") {
       await submitDecision(status);
@@ -215,6 +262,10 @@ export default function VerificationWorkspace() {
   };
 
   const submitDecision = async (status: string) => {
+    if (status === "Approved" && detail?.payment && !detail.payment.isVerified) {
+      alert("Cannot complete stage as verified: Statutory payment has not been verified by the Department Finance Officer.");
+      return;
+    }
     if ((status === "Rejected" || status === "Revision Requested") && (!comments && !reasonId)) {
       alert("Please provide a reason or comments for rejection/revision.");
       return;
@@ -413,44 +464,57 @@ export default function VerificationWorkspace() {
                 {detail?.payment && (
                   <div
                     style={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e0e0e0',
-                      borderLeft: detail.payment.isVerified
-                        ? '4px solid #198038'
+                      backgroundColor: detail.payment.isVerified
+                        ? '#f6fcf7'
                         : detail.payment.status === 'PendingVerification'
-                        ? '4px solid #f1c21b'
-                        : '4px solid #0f62fe',
-                      padding: '0.75rem 1rem',
-                      borderRadius: '2px',
+                        ? '#fcfbf6'
+                        : '#fff8f8',
+                      border: '1px solid',
+                      borderColor: detail.payment.isVerified
+                        ? '#a7f0ba'
+                        : detail.payment.status === 'PendingVerification'
+                        ? '#f1c21b'
+                        : '#ffb3b8',
+                      borderLeft: detail.payment.isVerified
+                        ? '5px solid #198038'
+                        : detail.payment.status === 'PendingVerification'
+                        ? '5px solid #f1c21b'
+                        : '5px solid #da1e28',
+                      padding: '0.875rem 1.125rem',
+                      borderRadius: '4px',
                       marginBottom: '1.5rem',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       flexWrap: 'wrap',
-                      gap: '0.5rem',
+                      gap: '0.75rem',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: '280px' }}>
                       <Money
-                        size={20}
+                        size={22}
                         color={
                           detail.payment.isVerified
                             ? '#198038'
                             : detail.payment.status === 'PendingVerification'
                             ? '#b28600'
-                            : '#0f62fe'
+                            : '#da1e28'
                         }
                       />
                       <div>
-                        <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#161616' }}>
-                          Statutory Fee Clearance (LKR {detail.payment.amount?.toLocaleString()})
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#525252' }}>
+                        <div style={{ fontSize: '0.875rem', fontWeight: 600, color: detail.payment.isVerified ? '#0e6027' : '#161616' }}>
                           {detail.payment.isVerified
-                            ? 'Audited by Department Finance Officer • Verified against Bank Deposit Slip'
+                            ? `✓ Statutory Payment Verified: LKR ${detail.payment.amount?.toLocaleString()}`
                             : detail.payment.status === 'PendingVerification'
-                            ? 'Bank deposit slip uploaded • Awaiting review by Department Finance Officer'
-                            : 'Statutory fee payment pending by citizen for this stage'}
+                            ? `⏳ Statutory Payment Awaiting Finance Audit: LKR ${detail.payment.amount?.toLocaleString()}`
+                            : `⚠ Statutory Payment Outstanding: LKR ${detail.payment.amount?.toLocaleString()}`}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#525252', marginTop: '2px' }}>
+                          {detail.payment.isVerified
+                            ? `Payment has been audited and cleared by the Department Finance Officer (${detail.payment.method || 'Bank Deposit / Online'}). This stage is unlocked for final verification.`
+                            : detail.payment.status === 'PendingVerification'
+                            ? `Citizen uploaded bank deposit slip for Stage ${detail.task.currentStage}. Department Finance Officer review is pending. Stage approval is locked until cleared.`
+                            : `Statutory fee payment is pending from the citizen for Stage ${detail.task.currentStage}. Stage verification approval is locked.`}
                         </div>
                       </div>
                     </div>
@@ -458,12 +522,26 @@ export default function VerificationWorkspace() {
                       {detail.payment.slipUrl && (
                         <Button
                           size="sm"
-                          kind="ghost"
+                          kind="tertiary"
                           renderIcon={Launch}
                           href={detail.payment.slipUrl}
                           target="_blank"
                         >
                           View Deposit Slip
+                        </Button>
+                      )}
+                      {detail.payment.id && (
+                        <Button
+                          size="sm"
+                          kind="ghost"
+                          renderIcon={Edit}
+                          onClick={() => {
+                            setEditPaymentStatus(detail.payment?.isVerified ? "Paid" : (detail.payment?.status || "Paid"));
+                            setPaymentNotes("");
+                            setShowPaymentModal(true);
+                          }}
+                        >
+                          Edit Payment Status
                         </Button>
                       )}
                       <Tag
@@ -472,7 +550,7 @@ export default function VerificationWorkspace() {
                             ? 'green'
                             : detail.payment.status === 'PendingVerification'
                             ? 'warm-gray'
-                            : 'blue'
+                            : 'red'
                         }
                       >
                         {detail.payment.isVerified
@@ -517,13 +595,13 @@ export default function VerificationWorkspace() {
                 <div style={{ backgroundColor: '#fff', padding: '1.5rem', border: '1px solid #e0e0e0' }}>
                    <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Record Decision</h3>
                    
-                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
                       <Button 
                          kind={decision === "Approved" ? "primary" : "tertiary"} 
                          size="md"
                          renderIcon={Checkmark} 
                          onClick={() => handleDecision("Approved")}
-                         disabled={isSubmitting}
+                         disabled={isSubmitting || (detail?.payment != null && !detail.payment.isVerified)}
                          style={{ flex: '1 1 auto', minWidth: '160px', justifyContent: 'center' }}
                       >
                          {(detail?.task.maxStages ?? 1) > (detail?.task.currentStage ?? 1)
@@ -551,6 +629,28 @@ export default function VerificationWorkspace() {
                          Reject
                       </Button>
                    </div>
+
+                   {detail?.payment != null && !detail.payment.isVerified && (
+                     <div
+                       style={{
+                         marginBottom: '1.5rem',
+                         padding: '0.625rem 0.875rem',
+                         backgroundColor: '#fff8f8',
+                         border: '1px solid #ffb3b8',
+                         borderRadius: 4,
+                         display: 'flex',
+                         alignItems: 'center',
+                         gap: '0.5rem',
+                         fontSize: '0.8125rem',
+                         color: '#da1e28',
+                       }}
+                     >
+                       <Warning size={16} />
+                       <span>
+                         <strong>Stage Approval Locked:</strong> Statutory fee of LKR {detail.payment.amount?.toLocaleString()} must be audited and verified by the Department Finance Officer before this stage can be approved.
+                       </span>
+                     </div>
+                   )}
 
                    {(decision === "Rejected" || decision === "Revision Requested") && (
                      <div style={{ animation: "fadeIn 0.2s ease-in" }}>
@@ -648,6 +748,44 @@ export default function VerificationWorkspace() {
                 value={deleteNotes}
                 onChange={(e) => setDeleteNotes(e.target.value)}
               />
+            </Modal>
+
+            {/* Modal for editing statutory payment status */}
+            <Modal
+              open={showPaymentModal}
+              modalHeading="Update Statutory Payment Status"
+              primaryButtonText={isUpdatingPayment ? "Saving..." : "Save Payment Status"}
+              secondaryButtonText="Cancel"
+              primaryButtonDisabled={isUpdatingPayment}
+              onRequestSubmit={handleSavePaymentStatus}
+              onRequestClose={() => setShowPaymentModal(false)}
+              size="sm"
+            >
+              <div style={{ marginBottom: '1rem' }}>
+                <p style={{ color: '#525252', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                  Update fee status for <strong>Stage {detail?.task.currentStage}</strong> (Amount: LKR {detail?.payment?.amount?.toLocaleString()}).
+                  Saving as "Paid / Verified" will verify the statutory fee and unlock the stage for final approval.
+                </p>
+                <Select
+                  id="workspace-payment-status-select"
+                  labelText="Payment Verification Status"
+                  value={editPaymentStatus}
+                  onChange={(e) => setEditPaymentStatus(e.target.value)}
+                  style={{ marginBottom: '1rem' }}
+                >
+                  <SelectItem value="Paid" text="Paid / Verified (Statutory fee cleared and verified)" />
+                  <SelectItem value="PendingVerification" text="Pending Finance Verification (Slip under review)" />
+                  <SelectItem value="Failed" text="Rejected / Failed (Fee unpaid or invalid slip)" />
+                </Select>
+                <TextArea
+                  id="workspace-payment-notes"
+                  labelText="Verification Notes / Audit Reason"
+                  placeholder="e.g., Deposit receipt confirmed with bank records / audited by officer..."
+                  value={paymentNotes}
+                  onChange={(e) => setPaymentNotes(e.target.value)}
+                  rows={3}
+                />
+              </div>
             </Modal>
           </main>
         </>

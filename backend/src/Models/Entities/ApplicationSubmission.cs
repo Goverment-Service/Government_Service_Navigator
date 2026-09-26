@@ -17,5 +17,10 @@ namespace Government_Service_Navigator.Backend.Models.Entities
         public string FormDataJson { get; set; } = "{}";
 
         public DateTime SubmittedAt { get; set; } = DateTime.UtcNow;
+
+        public int CurrentStage { get; set; } = 1;
+        public int MaxStages { get; set; } = 1;
+        public string StageStatus { get; set; } = "PendingReview"; // "PendingReview", "StageApproved", "Completed", "ActionRequired"
+
     }
 }

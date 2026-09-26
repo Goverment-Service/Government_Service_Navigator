@@ -64,6 +64,8 @@ namespace Government_Service_Navigator.Backend.Controllers
                     t.ApplicationId,
                     t.Status,
                     t.CreatedDate,
+                    t.CurrentStage,
+                    t.MaxStages,
                     ReferenceNumber = $"APP-{t.ApplicationId}",
                     CitizenNic = nic,
                     CitizenName = nic != null && names.TryGetValue(nic, out var name) ? name : null,
@@ -323,6 +325,65 @@ namespace Government_Service_Navigator.Backend.Controllers
             if (!success) return NotFound();
             return Ok();
         }
+
+        [Authorize(Roles = OfficerRoles)]
+        [HttpPut("tasks/{id}/approve-stage")]
+        public async Task<IActionResult> ApproveStage(int id, [FromBody] ApproveStageRequest request)
+        {
+            var task = await _context.VerificationTasks.FindAsync(id);
+            if (task == null) return NotFound("Task not found.");
+
+            var submission = await _context.ApplicationSubmissions.FindAsync(task.ApplicationId);
+            if (submission == null) return NotFound("Submission not found.");
+
+            var officerId = GetCurrentOfficerId();
+
+            // 1. Advance the stage
+            if (task.CurrentStage < task.MaxStages)
+            {
+                task.CurrentStage++;
+                task.Status = "Pending"; // Next stage is now pending citizen action or next review
+                submission.CurrentStage = task.CurrentStage;
+                submission.StageStatus = "StageApproved"; // Unlocks the next form for the citizen!
+            }
+            else
+            {
+                // All stages finished
+                task.Status = "Approved";
+                submission.StageStatus = "Completed";
+            }
+
+            // 2. Audit log the milestone approval
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ApplicationId = submission.Id,
+                Action = $"Stage {task.CurrentStage - 1} Milestone Approved",
+                PerformedBy = officerId,
+                Timestamp = DateTime.UtcNow,
+                OldValues = $"Stage: {task.CurrentStage - 1}",
+                NewValues = $"Stage: {task.CurrentStage}, Note: {request.Notes}"
+            });
+
+            // 3. Trigger citizen notification
+            var notificationService = HttpContext.RequestServices.GetService<INotificationService>();
+            if (notificationService != null && !string.IsNullOrEmpty(submission.UserEmail))
+            {
+                await notificationService.SendEmailAsync(
+                    submission.UserEmail,
+                    $"Stage {task.CurrentStage - 1} Approved!",
+                    $"Your Stage {task.CurrentStage - 1} documents were verified. Please open the app to complete Stage {task.CurrentStage}."
+                );
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { currentStage = task.CurrentStage, maxStages = task.MaxStages, status = task.Status });
+        }
+
+        public class ApproveStageRequest
+        {
+            public string? Notes { get; set; }
+        }
+
 
         [Authorize(Roles = OfficerRoles)]
         [HttpDelete("rejection-reasons/{id}")]

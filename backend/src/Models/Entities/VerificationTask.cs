@@ -15,5 +15,9 @@ namespace Government_Service_Navigator.Backend.Models.Entities
         
         public ICollection<OfficerReview> Reviews { get; set; }
         public ICollection<ComplianceCheck> ComplianceChecks { get; set; }
+
+        public int CurrentStage { get; set; } = 1;
+        public int MaxStages { get; set; } = 1;
+
     }
 }

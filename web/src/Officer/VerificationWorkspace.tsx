@@ -32,6 +32,8 @@ interface TaskDetail {
     citizenName?: string | null;
     citizenNic?: string | null;
     serviceName?: string | null;
+    currentStage?: number;
+    maxStages?: number;
   };
   submittedAt?: string | null;
   userEmail?: string | null;
@@ -206,19 +208,28 @@ export default function VerificationWorkspace() {
     setSubmitStatus("idle");
     
     const token = localStorage.getItem("officerToken");
+    const isMultiStage = (detail?.task.maxStages ?? 1) > (detail?.task.currentStage ?? 1);
 
     try {
-      const response = await fetch(`http://localhost:5119/api/Verification/tasks/${taskId}/decision`, {
+      const endpoint = (status === "Approved" && isMultiStage)
+        ? `http://localhost:5119/api/Verification/tasks/${taskId}/approve-stage`
+        : `http://localhost:5119/api/Verification/tasks/${taskId}/decision`;
+
+      const payload = (status === "Approved" && isMultiStage)
+        ? { notes: comments || "Milestone approved by officer" }
+        : {
+            status: status === "Revision Requested" ? "Revised" : status,
+            comments: comments,
+            rejectionReasonId: reasonId ? parseInt(reasonId) : null
+          };
+
+      const response = await fetch(endpoint, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({
-          status: status === "Revision Requested" ? "Revised" : status,
-          comments: comments,
-          rejectionReasonId: reasonId ? parseInt(reasonId) : null
-        })
+        body: JSON.stringify(payload)
       });
 
       if (response.ok) {
@@ -317,7 +328,14 @@ export default function VerificationWorkspace() {
               {/* Right Column: Reasoning & Decision Panel */}
               <Column sm={4} md={3} lg={7} style={{ padding: '0 1rem' }}>
                 
-                <h2 style={{ fontSize: '1.75rem', fontWeight: 300, marginBottom: '0.5rem' }}>Application Review</h2>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <h2 style={{ fontSize: '1.75rem', fontWeight: 300 }}>Application Review</h2>
+                  {detail?.task.maxStages && detail.task.maxStages > 1 && (
+                    <Tag type="teal">
+                      Stage {detail.task.currentStage ?? 1} of {detail.task.maxStages}
+                    </Tag>
+                  )}
+                </div>
                 <div style={{ marginBottom: '2rem' }}>
                   <p style={{ fontSize: '0.875rem', color: '#525252' }}>App ID: <strong>{detail?.task.referenceNumber ?? "—"}</strong></p>
                   <p style={{ fontSize: '0.875rem', color: '#525252' }}>Citizen: <strong>{detail?.task.citizenName || "—"}</strong>{detail?.task.citizenNic ? ` (${detail.task.citizenNic})` : ""}</p>
@@ -370,7 +388,9 @@ export default function VerificationWorkspace() {
                          onClick={() => handleDecision("Approved")}
                          disabled={isSubmitting}
                       >
-                         Approve
+                         {(detail?.task.maxStages ?? 1) > (detail?.task.currentStage ?? 1)
+                           ? `Approve Stage ${detail?.task.currentStage ?? 1} & Advance`
+                           : "Approve"}
                       </Button>
                       <Button 
                          kind={decision === "Revision Requested" ? "primary" : "ghost"} 

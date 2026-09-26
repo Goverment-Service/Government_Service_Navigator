@@ -24,6 +24,16 @@ class ServiceApiClient {
     }
   }
 
+  /// Returns stage-specific details (document requirements and fee schedule for the given stage).
+  static Future<Map<String, dynamic>> fetchServiceStageDetails(int serviceId, int stage) async {
+    final response = await http.get(Uri.parse('$baseUrl/$serviceId/stage/$stage'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to load stage $stage details');
+    }
+  }
+
   static Future<Map<String, dynamic>> evaluateEligibility(int serviceId, int age, String citizenship) async {
     final response = await http.post(
       Uri.parse('$baseUrl/eligibility-score'),

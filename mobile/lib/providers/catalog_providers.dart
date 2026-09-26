@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../services/service_api_client.dart';
 import 'session_provider.dart';
@@ -31,6 +32,11 @@ Future<Map<String, List<Map<String, dynamic>>>> departments(Ref ref) async {
 @riverpod
 Future<Map<String, dynamic>> serviceDetails(Ref ref, int serviceId) =>
     ServiceApiClient.fetchServiceDetails(serviceId);
+
+/// Stage-specific details (required documents, fee schedule, department) for a given service and stage.
+final serviceStageDetailsProvider = FutureProvider.family<Map<String, dynamic>, ({int serviceId, int stage})>((ref, arg) {
+  return ServiceApiClient.fetchServiceStageDetails(arg.serviceId, arg.stage);
+});
 
 /// Admin-built application form for a service, or null if none is published yet.
 @riverpod

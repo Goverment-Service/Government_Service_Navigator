@@ -11,6 +11,8 @@ class ServiceRoadmapTracker extends StatelessWidget {
   final String? currentDepartment;
   final VoidCallback? onFillStageFormTap;
   final String? fillStageFormButtonText;
+  final int? selectedStage;
+  final ValueChanged<int>? onStageSelected;
 
   const ServiceRoadmapTracker({
     super.key,
@@ -22,6 +24,8 @@ class ServiceRoadmapTracker extends StatelessWidget {
     this.currentDepartment,
     this.onFillStageFormTap,
     this.fillStageFormButtonText,
+    this.selectedStage,
+    this.onStageSelected,
   });
 
   List<String> get _defaultStageNames {
@@ -29,7 +33,7 @@ class ServiceRoadmapTracker extends StatelessWidget {
       return List.generate(maxStages, (i) {
         if (i < stageDepartments!.length) {
           final dept = stageDepartments![i];
-          return 'Stage ${i + 1}: $dept Review';
+          return 'Stage ${i + 1}: $dept';
         }
         return 'Stage ${i + 1}: Department Review';
       });
@@ -76,15 +80,17 @@ class ServiceRoadmapTracker extends StatelessWidget {
             children: [
               const Icon(CupertinoIcons.map_fill, color: AppColors.primary, size: 18),
               const SizedBox(width: 8),
-              const Text(
-                'Service Progress Roadmap',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.dark,
+              const Expanded(
+                child: Text(
+                  'Service Progress Roadmap',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.dark,
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -109,6 +115,7 @@ class ServiceRoadmapTracker extends StatelessWidget {
               title: stages[i],
               isPassed: (i + 1) < currentStage || (stageStatus == 'Completed' && (i + 1) <= maxStages),
               isCurrent: (i + 1) == currentStage && stageStatus != 'Completed',
+              isSelected: selectedStage != null ? selectedStage == (i + 1) : (i + 1) == currentStage,
               isLast: i == stages.length - 1,
             ),
           ],
@@ -151,9 +158,12 @@ class ServiceRoadmapTracker extends StatelessWidget {
                   children: [
                     const Icon(CupertinoIcons.doc_text_fill, size: 16, color: Colors.white),
                     const SizedBox(width: 8),
-                    Text(
-                      fillStageFormButtonText ?? 'Fill Stage $currentStage Form Now',
-                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Colors.white),
+                    Flexible(
+                      child: Text(
+                        fillStageFormButtonText ?? 'Fill Stage $currentStage Form Now',
+                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Colors.white),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     const SizedBox(width: 6),
                     const Icon(CupertinoIcons.arrow_right, size: 14, color: Colors.white),
@@ -172,6 +182,7 @@ class ServiceRoadmapTracker extends StatelessWidget {
     required String title,
     required bool isPassed,
     required bool isCurrent,
+    required bool isSelected,
     required bool isLast,
   }) {
     Color iconBg;
@@ -243,10 +254,21 @@ class ServiceRoadmapTracker extends StatelessWidget {
     }
 
     return InkWell(
-      onTap: isTappable ? onActionTap : null,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+      onTap: () {
+        if (onStageSelected != null) {
+          onStageSelected!(stageNumber);
+        } else if (isTappable && onActionTap != null) {
+          onActionTap!();
+        }
+      },
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary.withValues(alpha: 0.06) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: isSelected ? Border.all(color: AppColors.primary.withValues(alpha: 0.35), width: 1.2) : null,
+        ),
+        padding: EdgeInsets.symmetric(vertical: 6, horizontal: isSelected ? 8 : 4),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -275,19 +297,46 @@ class ServiceRoadmapTracker extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w600,
-                          color: isPassed
-                              ? AppColors.dark
-                              : isCurrent
-                                  ? AppColors.primary
-                                  : AppColors.secondaryLabel,
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: (isCurrent || isSelected) ? FontWeight.w700 : FontWeight.w600,
+                            color: isSelected
+                                ? AppColors.primary
+                                : isPassed
+                                    ? AppColors.dark
+                                    : isCurrent
+                                        ? AppColors.primary
+                                        : AppColors.secondaryLabel,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (isSelected) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: isCurrent
+                                ? AppColors.primary.withValues(alpha: 0.15)
+                                : Colors.grey.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            isCurrent ? 'Current' : 'Viewing',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              color: isCurrent ? AppColors.primary : AppColors.dark,
+                            ),
+                          ),
+                        ),
+                      ],
                       if (isTappable) ...[
                         const SizedBox(width: 6),
                         Container(
@@ -301,7 +350,7 @@ class ServiceRoadmapTracker extends StatelessWidget {
                             style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: AppColors.warning),
                           ),
                         ),
-                        const Spacer(),
+                        const SizedBox(width: 4),
                         const Icon(CupertinoIcons.chevron_right, size: 13, color: AppColors.primary),
                       ],
                     ],

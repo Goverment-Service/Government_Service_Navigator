@@ -60,6 +60,9 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
   final Map<String, ({String id, String fileName})> _documents = {};
   final Set<String> _uploading = {};
 
+  /// Payment field mode: label -> 'slip' (default bank deposit slip) | 'online' (online ref ID)
+  final Map<String, String> _paymentModes = {};
+
   /// Table fields: label -> rows -> one controller per column.
   final Map<String, List<List<TextEditingController>>> _tableRows = {};
 
@@ -147,7 +150,6 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
     if (hasFileField) return const [];
     return _formState.value?.requiredDocs ?? const [];
   }
-  bool get _hasFee => _isStageMode ? false : (_formState.value?.hasFee ?? false);
 
   int get _currentStage => _isStageMode
       ? (widget.stageNumber ?? 1)
@@ -233,6 +235,15 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
               .where((row) => row.values.any((v) => v.isNotEmpty))
               .toList();
           answers[label] = rows.isEmpty ? '' : jsonEncode(rows);
+        case 'payment':
+          final mode = _paymentModes[label] ?? 'slip';
+          if (mode == 'slip') {
+            final fileName = _documents[label]?.fileName ?? '';
+            answers[label] = fileName.isNotEmpty ? 'Bank Deposit Slip: $fileName' : '';
+          } else {
+            final ref = _controllers[label]?.text.trim() ?? '';
+            answers[label] = ref.isNotEmpty ? 'Online Ref: $ref' : '';
+          }
         default:
           answers[label] = _controllers[label]?.text.trim() ?? '';
       }
@@ -841,6 +852,42 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
       case 'file':
         return _labelled(label, required, child: _buildFilePicker(label, required));
 
+      case 'payment':
+        double amount = 0;
+        String feeType = label;
+        String methods = 'Online Card, Manual Bank Deposit Slip';
+        final rawOptions = field['options'];
+        if (rawOptions is Map) {
+          amount = (rawOptions['amount'] as num?)?.toDouble() ?? 0;
+          feeType = rawOptions['feeType']?.toString() ?? feeType;
+          methods = rawOptions['methods']?.toString() ?? methods;
+        } else if (rawOptions is String && rawOptions.trim().startsWith('{')) {
+          try {
+            final parsed = jsonDecode(rawOptions);
+            if (parsed is Map) {
+              amount = (parsed['amount'] as num?)?.toDouble() ?? 0;
+              feeType = parsed['feeType']?.toString() ?? feeType;
+              methods = parsed['methods']?.toString() ?? methods;
+            }
+          } catch (_) {}
+        } else if (rawOptions is num) {
+          amount = rawOptions.toDouble();
+        }
+
+        final controller = _controllerFor(label);
+        if (controller.text.isEmpty && amount > 0) {
+          controller.text = amount.toStringAsFixed(2);
+        }
+
+        return _buildPaymentSection(
+          label: label,
+          feeType: feeType,
+          amount: amount,
+          methods: methods,
+          required: required,
+          controller: controller,
+        );
+
       default: // text
         return _labelled(
           label,
@@ -1006,6 +1053,311 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
           child: content,
         );
       },
+    );
+  }
+
+  Widget _buildPaymentSection({
+    required String label,
+    required String feeType,
+    required double amount,
+    required String methods,
+    required bool required,
+    required TextEditingController controller,
+  }) {
+    final currentMode = _paymentModes[label] ?? 'slip';
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F5FF),
+        border: Border.all(color: const Color(0xFF0F62FE), width: 1.5),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: const BoxDecoration(
+              color: Color(0xFF0F62FE),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(2)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: const [
+                    Icon(CupertinoIcons.creditcard, size: 16, color: Colors.white),
+                    SizedBox(width: 6),
+                    Text(
+                      'STATUTORY PAYMENT REQUIRED',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+                if (required)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.25),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: const Text(
+                      'MANDATORY',
+                      style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            label.isNotEmpty ? label : feeType,
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _ink),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Accepted: $methods',
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF525252)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: const Color(0xFFD0E2FF)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text('Payable Fee', style: TextStyle(fontSize: 9, color: Color(0xFF525252))),
+                          Text(
+                            'LKR ${amount.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F62FE),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Payment mode switcher: Bank Deposit Slip vs Online Ref ID
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5EFFF),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFD0E2FF)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _paymentModes[label] = 'slip';
+                              controller.clear();
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: currentMode == 'slip' ? Colors.white : Colors.transparent,
+                              borderRadius: BorderRadius.circular(4),
+                              boxShadow: currentMode == 'slip'
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.08),
+                                        blurRadius: 3,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  CupertinoIcons.doc_text,
+                                  size: 14,
+                                  color: currentMode == 'slip' ? const Color(0xFF0F62FE) : const Color(0xFF525252),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Bank Deposit Slip',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: currentMode == 'slip' ? FontWeight.bold : FontWeight.w500,
+                                    color: currentMode == 'slip' ? const Color(0xFF0F62FE) : const Color(0xFF525252),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _paymentModes[label] = 'online';
+                              _documents.remove(label);
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: currentMode == 'online' ? Colors.white : Colors.transparent,
+                              borderRadius: BorderRadius.circular(4),
+                              boxShadow: currentMode == 'online'
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.08),
+                                        blurRadius: 3,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  CupertinoIcons.creditcard,
+                                  size: 14,
+                                  color: currentMode == 'online' ? const Color(0xFF0F62FE) : const Color(0xFF525252),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Online Ref ID',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: currentMode == 'online' ? FontWeight.bold : FontWeight.w500,
+                                    color: currentMode == 'online' ? const Color(0xFF0F62FE) : const Color(0xFF525252),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                if (currentMode == 'slip')
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: const Color(0xFFE0E0E0)),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(CupertinoIcons.arrow_up_doc, size: 14, color: Color(0xFF0F62FE)),
+                            SizedBox(width: 6),
+                            Text(
+                              'Upload Bank Deposit Slip / Payment Evidence',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _ink),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        const Text(
+                          'Upload stamped deposit slip or payment receipt for official departmental finance audit.',
+                          style: TextStyle(fontSize: 10, color: Color(0xFF666666)),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildFilePicker(label, required),
+                      ],
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: const Color(0xFFE0E0E0)),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(CupertinoIcons.checkmark_shield, size: 14, color: Color(0xFF0F62FE)),
+                            SizedBox(width: 6),
+                            Text(
+                              'Online Payment / Transfer Reference ID',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _ink),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        const Text(
+                          'Enter the reference number or transaction ID from your confirmation email or banking transfer.',
+                          style: TextStyle(fontSize: 10, color: Color(0xFF666666)),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: controller,
+                          decoration: _boxDecoration().copyWith(
+                            hintText: 'e.g. TXN-984210 / REF-123456',
+                            hintStyle: const TextStyle(color: Color(0xFF8D8D8D), fontSize: 13),
+                          ),
+                          validator: (v) {
+                            if (required && (v == null || v.trim().isEmpty)) {
+                              return '$label reference ID is required';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+
+                const SizedBox(height: 6),
+                Text(
+                  currentMode == 'slip'
+                      ? 'Deposit slips and receipts are audited by the Department Finance Officer before stage clearance.'
+                      : 'Online transaction reference IDs are audited and cleared against gateway statements.',
+                  style: const TextStyle(fontSize: 10, fontStyle: FontStyle.italic, color: Color(0xFF525252)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

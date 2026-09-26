@@ -281,6 +281,21 @@ namespace Government_Service_Navigator.Backend.Controllers
                 }
             }
 
+            decimal stageInitialFee = 0m;
+            if (template != null)
+            {
+                var paymentField = template.Fields.FirstOrDefault(f => f.Type == "payment");
+                if (paymentField != null && !string.IsNullOrWhiteSpace(paymentField.Options))
+                {
+                    try
+                    {
+                        using var pDoc = JsonDocument.Parse(paymentField.Options);
+                        if (pDoc.RootElement.TryGetProperty("amount", out var amt)) stageInitialFee = amt.GetDecimal();
+                    }
+                    catch { }
+                }
+            }
+
             var draft = new DraftApplication
             {
                 ApplicationId = 0, // will be set upon save
@@ -290,7 +305,9 @@ namespace Government_Service_Navigator.Backend.Controllers
                 CitizenName = User.FindFirstValue(ClaimTypes.Name) ?? nic,
                 CitizenAge = citizenAge,
                 FormFields = request.Answers,
-                AttachedDocumentNames = attachedDocList
+                AttachedDocumentNames = attachedDocList,
+                CalculatedFee = stageInitialFee,
+                Stage = stageOrder
             };
 
             // Identify required document fields for this template/stage
@@ -345,12 +362,67 @@ namespace Government_Service_Navigator.Backend.Controllers
                             string feeName = pDoc.RootElement.TryGetProperty("feeType", out var ft)
                                 ? ft.GetString() ?? paymentField.Label
                                 : paymentField.Label;
-                            stageFeeResult = new FeeCalculationResult
+
+                            bool paymentProvided = false;
+                            var cleanFieldLabel = paymentField.Label.Trim().TrimEnd(':');
+
+                            // 1. Check if citizen uploaded a bank deposit slip
+                            var matchedDocKvp = request.Documents.FirstOrDefault(kvp =>
+                                string.Equals(kvp.Key.Trim().TrimEnd(':'), cleanFieldLabel, StringComparison.OrdinalIgnoreCase));
+                            if (matchedDocKvp.Value != Guid.Empty && documents.TryGetValue(matchedDocKvp.Value, out var slipDoc))
                             {
-                                TotalAmount = stageAmt,
-                                Currency = "LKR",
-                                LineItems = new List<FeeLineItem> { new FeeLineItem(feeName, stageAmt) }
-                            };
+                                var payment = new Payment
+                                {
+                                    ApplicationId = submission.Id,
+                                    Amount = stageAmt,
+                                    Currency = "LKR",
+                                    Method = "Bank Deposit",
+                                    Status = "PendingVerification",
+                                    ManualSlipUrl = $"/api/verification/documents/{slipDoc.Id}/content",
+                                    UserEmail = submission.UserEmail,
+                                    CreatedDate = DateTime.UtcNow
+                                };
+                                _context.Payments.Add(payment);
+                                await _context.SaveChangesAsync();
+                                paymentProvided = true;
+                            }
+                            // 2. Check if citizen provided an online transaction reference
+                            var matchedAnswerKvp = request.Answers.FirstOrDefault(kvp =>
+                                string.Equals(kvp.Key.Trim().TrimEnd(':'), cleanFieldLabel, StringComparison.OrdinalIgnoreCase));
+                            if (!paymentProvided && !string.IsNullOrWhiteSpace(matchedAnswerKvp.Value))
+                            {
+                                var refVal = matchedAnswerKvp.Value.Trim();
+                                var isOnline = refVal.StartsWith("Online Ref:", StringComparison.OrdinalIgnoreCase);
+                                var cleanRef = refVal.Replace("Online Ref:", "", StringComparison.OrdinalIgnoreCase).Trim();
+                                if (!string.IsNullOrWhiteSpace(cleanRef) && !cleanRef.StartsWith("Bank Deposit Slip:", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    var payment = new Payment
+                                    {
+                                        ApplicationId = submission.Id,
+                                        Amount = stageAmt,
+                                        Currency = "LKR",
+                                        Method = isOnline ? "Online" : "Bank Deposit",
+                                        Status = isOnline ? "Paid" : "PendingVerification",
+                                        StripePaymentIntentId = cleanRef,
+                                        UserEmail = submission.UserEmail,
+                                        CreatedDate = DateTime.UtcNow,
+                                        PaidDate = isOnline ? DateTime.UtcNow : null
+                                    };
+                                    _context.Payments.Add(payment);
+                                    await _context.SaveChangesAsync();
+                                    paymentProvided = true;
+                                }
+                            }
+
+                            if (!paymentProvided)
+                            {
+                                stageFeeResult = new FeeCalculationResult
+                                {
+                                    TotalAmount = stageAmt,
+                                    Currency = "LKR",
+                                    LineItems = new List<FeeLineItem> { new FeeLineItem(feeName, stageAmt) }
+                                };
+                            }
                         }
                     }
                     catch { }
@@ -526,6 +598,78 @@ namespace Government_Service_Navigator.Backend.Controllers
                 }
             }
 
+            // Validate required fields of this stage template
+            var missing = template.Fields
+                .Where(f => f.IsRequired && !DisplayOnlyTypes.Contains(f.Type))
+                .Where(f => !request.Answers.TryGetValue(f.Label, out var v) || string.IsNullOrWhiteSpace(v))
+                .Select(f => f.Label)
+                .ToList();
+            if (missing.Count > 0)
+                return BadRequest(new { message = $"Required fields are missing for Stage {template.StageOrder}.", missingFields = missing });
+
+            // Identify required document fields for this stage
+            var stageRequiredDocs = template.Fields
+                .Where(f => f.IsRequired && (f.Type == "file" || f.Type == "document" || f.Type == "documentUpload"))
+                .Select(f => f.Label.Trim().TrimEnd(':').Trim())
+                .ToList();
+
+            var stageAttachedDocs = new List<string>();
+            foreach (var doc in documents.Values)
+            {
+                stageAttachedDocs.Add(doc.FileName);
+                if (!string.IsNullOrWhiteSpace(doc.FieldLabel))
+                {
+                    stageAttachedDocs.Add(doc.FieldLabel);
+                    stageAttachedDocs.Add($"{doc.FieldLabel}: {doc.FileName}");
+                }
+            }
+            foreach (var label in request.Documents.Keys)
+            {
+                if (!stageAttachedDocs.Contains(label))
+                    stageAttachedDocs.Add(label);
+            }
+
+            var derivedAge = ApplicationDraftingService.AgeFromNic(nic, DateTime.UtcNow);
+            int citizenAge = derivedAge ?? 25;
+
+            decimal stageAmt = 0m;
+            var stagePaymentField = template.Fields.FirstOrDefault(f => f.Type == "payment");
+            if (stagePaymentField != null && !string.IsNullOrWhiteSpace(stagePaymentField.Options))
+            {
+                try
+                {
+                    using var pDoc = JsonDocument.Parse(stagePaymentField.Options);
+                    if (pDoc.RootElement.TryGetProperty("amount", out var amt)) stageAmt = amt.GetDecimal();
+                }
+                catch { }
+            }
+
+            var draft = new DraftApplication
+            {
+                ApplicationId = submission.Id,
+                ServiceProcedureId = submission.ServiceProcedureId,
+                ServiceName = submission.ServiceProcedure?.Name ?? "Service",
+                CitizenNic = nic,
+                CitizenName = User.FindFirstValue(ClaimTypes.Name) ?? nic,
+                CitizenAge = citizenAge,
+                FormFields = request.Answers,
+                AttachedDocumentNames = stageAttachedDocs,
+                CalculatedFee = stageAmt,
+                Stage = template.StageOrder
+            };
+
+            // Run Agent 4 (Validation & Safety Agent) for this stage
+            var validationResult = await _safetyAgent.ValidateAndEnqueueAsync(draft, stageRequiredDocs);
+            if (!validationResult.IsValid)
+            {
+                return BadRequest(new
+                {
+                    message = $"Stage {template.StageOrder} safety validation failed.",
+                    errors = validationResult.RejectionReasons,
+                    summary = validationResult.Summary
+                });
+            }
+
             // Merge answers into existing form data
             Dictionary<string, string> currentAnswers = new();
             try { currentAnswers = JsonSerializer.Deserialize<Dictionary<string, string>>(submission.FormDataJson) ?? new(); }
@@ -553,28 +697,78 @@ namespace Government_Service_Navigator.Backend.Controllers
             await _context.SaveChangesAsync();
 
             // Check if THIS sequential stage has a payment field
-            var stagePaymentField = template.Fields.FirstOrDefault(f => f.Type == "payment");
-            if (stagePaymentField != null && !string.IsNullOrWhiteSpace(stagePaymentField.Options))
+            if (stagePaymentField != null && stageAmt > 0)
             {
+                string feeName = stagePaymentField.Label;
                 try
                 {
-                    using var pDoc = JsonDocument.Parse(stagePaymentField.Options);
-                    if (pDoc.RootElement.TryGetProperty("amount", out var amt) && amt.GetDecimal() > 0)
-                    {
-                        var stageAmt = amt.GetDecimal();
-                        string feeName = pDoc.RootElement.TryGetProperty("feeType", out var ft)
-                            ? ft.GetString() ?? stagePaymentField.Label
-                            : stagePaymentField.Label;
-                        var stageFee = new FeeCalculationResult
-                        {
-                            TotalAmount = stageAmt,
-                            Currency = "LKR",
-                            LineItems = new List<FeeLineItem> { new FeeLineItem(feeName, stageAmt) }
-                        };
-                        return Ok(PaymentRequiredResponse(submission, submission.ServiceProcedure?.Name ?? "Service", stageFee));
-                    }
+                    using var pDoc = JsonDocument.Parse(stagePaymentField.Options ?? "{}");
+                    if (pDoc.RootElement.TryGetProperty("feeType", out var ft) && ft.GetString() is string s && !string.IsNullOrWhiteSpace(s))
+                        feeName = s;
                 }
                 catch { }
+
+                bool stagePaymentProvided = false;
+                var cleanStageLabel = stagePaymentField.Label.Trim().TrimEnd(':');
+
+                // 1. Check if citizen uploaded a bank deposit slip
+                var matchedDocKvp = request.Documents.FirstOrDefault(kvp =>
+                    string.Equals(kvp.Key.Trim().TrimEnd(':'), cleanStageLabel, StringComparison.OrdinalIgnoreCase));
+                if (matchedDocKvp.Value != Guid.Empty && documents.TryGetValue(matchedDocKvp.Value, out var slipDoc))
+                {
+                    var payment = new Payment
+                    {
+                        ApplicationId = submission.Id,
+                        Amount = stageAmt,
+                        Currency = "LKR",
+                        Method = "Bank Deposit",
+                        Status = "PendingVerification",
+                        ManualSlipUrl = $"/api/verification/documents/{slipDoc.Id}/content",
+                        UserEmail = submission.UserEmail,
+                        CreatedDate = DateTime.UtcNow
+                    };
+                    _context.Payments.Add(payment);
+                    await _context.SaveChangesAsync();
+                    stagePaymentProvided = true;
+                }
+                // 2. Check if citizen provided an online transaction reference
+                var matchedAnswerKvp = request.Answers.FirstOrDefault(kvp =>
+                    string.Equals(kvp.Key.Trim().TrimEnd(':'), cleanStageLabel, StringComparison.OrdinalIgnoreCase));
+                if (!stagePaymentProvided && !string.IsNullOrWhiteSpace(matchedAnswerKvp.Value))
+                {
+                    var refVal = matchedAnswerKvp.Value.Trim();
+                    var isOnline = refVal.StartsWith("Online Ref:", StringComparison.OrdinalIgnoreCase);
+                    var cleanRef = refVal.Replace("Online Ref:", "", StringComparison.OrdinalIgnoreCase).Trim();
+                    if (!string.IsNullOrWhiteSpace(cleanRef) && !cleanRef.StartsWith("Bank Deposit Slip:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var payment = new Payment
+                        {
+                            ApplicationId = submission.Id,
+                            Amount = stageAmt,
+                            Currency = "LKR",
+                            Method = isOnline ? "Online" : "Bank Deposit",
+                            Status = isOnline ? "Paid" : "PendingVerification",
+                            StripePaymentIntentId = cleanRef,
+                            UserEmail = submission.UserEmail,
+                            CreatedDate = DateTime.UtcNow,
+                            PaidDate = isOnline ? DateTime.UtcNow : null
+                        };
+                        _context.Payments.Add(payment);
+                        await _context.SaveChangesAsync();
+                        stagePaymentProvided = true;
+                    }
+                }
+
+                if (!stagePaymentProvided)
+                {
+                    var stageFee = new FeeCalculationResult
+                    {
+                        TotalAmount = stageAmt,
+                        Currency = "LKR",
+                        LineItems = new List<FeeLineItem> { new FeeLineItem(feeName, stageAmt) }
+                    };
+                    return Ok(PaymentRequiredResponse(submission, submission.ServiceProcedure?.Name ?? "Service", stageFee));
+                }
             }
 
             return Ok(new

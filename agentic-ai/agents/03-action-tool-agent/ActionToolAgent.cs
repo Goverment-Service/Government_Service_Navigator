@@ -76,15 +76,15 @@ public class ActionToolAgent : IActionToolAgent
         }
 
         // 1. Tool: prefill_application
-        var prefill = await _prefillTool.PrefillAsync(request.ServiceProcedureId, request.Applicant, cancellationToken);
+        var prefill = await _prefillTool.PrefillAsync(request.ServiceProcedureId, request.Applicant, request.Stage, cancellationToken);
         toolCalls.Add(Record("prefill_application",
-            new { request.ServiceProcedureId, Applicant = MaskNic(request.Applicant.CitizenNic) },
+            new { request.ServiceProcedureId, request.Stage, Applicant = MaskNic(request.Applicant.CitizenNic) },
             new { FilledFields = prefill.FormFields.Keys, prefill.UnfilledRequiredFields, prefill.UsedDefaultTemplate }));
 
         // 2. Tool: calculate_fee
-        var fee = await _feeTool.CalculateAsync(request.ServiceProcedureId, request.ExpressProcessing, cancellationToken: cancellationToken);
+        var fee = await _feeTool.CalculateAsync(request.ServiceProcedureId, request.ExpressProcessing, stage: request.Stage, cancellationToken: cancellationToken);
         toolCalls.Add(Record("calculate_fee",
-            new { request.ServiceProcedureId, request.ExpressProcessing },
+            new { request.ServiceProcedureId, request.ExpressProcessing, request.Stage },
             fee));
 
         // 3. Tool: find_appointment_slot
@@ -132,6 +132,7 @@ public class ActionToolAgent : IActionToolAgent
             FormFields = formFields,
             AttachedDocumentNames = request.ProvidedDocuments ?? new List<string>(),
             CalculatedFee = fee.TotalAmount,
+            Stage = request.Stage ?? 1,
             ProposedAppointmentDate = slot.SlotStartUtc,
             DraftedAt = DateTime.UtcNow
         };

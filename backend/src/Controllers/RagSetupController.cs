@@ -1,5 +1,6 @@
 using AgenticAi.Agents.IntakePlanningAgent;
 using Backend.Data;
+using Government_Service_Navigator.Backend.Data;
 using Government_Service_Navigator.AgenticAi.Agents.ActionToolAgent.Retrieval;
 using Government_Service_Navigator.Backend.Data.Context;
 using Government_Service_Navigator.Backend.Services.Interfaces;
@@ -141,5 +142,177 @@ public class RagSetupController : ControllerBase
 
         await _vectorDb.SaveChangesAsync();
         return Ok($"Vectorized {chunks.Count} Action/Tool Agent knowledge chunks into the VectorDb.");
+    }
+
+    [HttpPost("upload-policy")]
+    public async Task<IActionResult> UploadPolicy(
+        [FromForm] int serviceProcedureId,
+        [FromForm] string documentTitle,
+        [FromForm] string? policyText,
+        [FromForm] IFormFile? file)
+    {
+        var service = await _appDb.ServiceProcedures.FindAsync(serviceProcedureId);
+        if (service == null) return NotFound("Service procedure not found.");
+
+        string text = policyText ?? string.Empty;
+        if (file != null && file.Length > 0)
+        {
+            using var reader = new StreamReader(file.OpenReadStream());
+            text = await reader.ReadToEndAsync();
+        }
+
+        if (string.IsNullOrWhiteSpace(text))
+            return BadRequest("Document content or policy text must be provided.");
+
+        var rawParagraphs = text.Split(new[] { "\r\n\r\n", "\n\n", "### " }, StringSplitOptions.RemoveEmptyEntries);
+        var chunks = new List<string>();
+
+        foreach (var p in rawParagraphs)
+        {
+            var cleaned = p.Trim();
+            if (cleaned.Length < 35) continue;
+
+            if (cleaned.Length > 1200)
+            {
+                for (int i = 0; i < cleaned.Length; i += 1000)
+                {
+                    int len = Math.Min(1000, cleaned.Length - i);
+                    chunks.Add($"[{service.Name} - {documentTitle}]: " + cleaned.Substring(i, len));
+                }
+            }
+            else
+            {
+                chunks.Add($"[{service.Name} - {documentTitle}]: " + cleaned);
+            }
+        }
+
+        if (chunks.Count == 0)
+        {
+            chunks.Add($"[{service.Name} - {documentTitle}]: " + text.Trim());
+        }
+
+        var categoryTag = $"Service:{service.Id}:{service.ServiceId}";
+
+        int added = 0;
+        foreach (var chunk in chunks)
+        {
+            var embedding = await _embeddingService.GetEmbeddingAsync(chunk);
+            _vectorDb.KnowledgeChunks.Add(new KnowledgeChunk
+            {
+                Content = chunk,
+                SourceCategory = categoryTag,
+                Embedding = embedding
+            });
+            added++;
+        }
+
+        await _vectorDb.SaveChangesAsync();
+        return Ok(new
+        {
+            message = $"Successfully vectorized {added} knowledge chunks for {service.Name} into Neon Vector DB.",
+            serviceId = service.ServiceId,
+            serviceName = service.Name,
+            chunksCount = added,
+            sampleChunk = chunks.FirstOrDefault()
+        });
+    }
+
+    [HttpGet("service-knowledge/{serviceProcedureId}")]
+    public async Task<IActionResult> GetServiceKnowledge(int serviceProcedureId)
+    {
+        var service = await _appDb.ServiceProcedures.FindAsync(serviceProcedureId);
+        if (service == null) return NotFound("Service not found.");
+
+        var categoryTag = $"Service:{service.Id}:{service.ServiceId}";
+        var chunks = await _vectorDb.KnowledgeChunks
+            .Where(c => c.SourceCategory == categoryTag || c.Content.Contains(service.Name))
+            .Select(c => new { c.Id, c.Content, c.SourceCategory })
+            .ToListAsync();
+
+        return Ok(chunks);
+    }
+
+    [HttpDelete("service-knowledge/{serviceProcedureId}")]
+    public async Task<IActionResult> ClearServiceKnowledge(int serviceProcedureId)
+    {
+        var service = await _appDb.ServiceProcedures.FindAsync(serviceProcedureId);
+        if (service == null) return NotFound("Service not found.");
+
+        var categoryTag = $"Service:{service.Id}:{service.ServiceId}";
+        var chunks = await _vectorDb.KnowledgeChunks
+            .Where(c => c.SourceCategory == categoryTag)
+            .ToListAsync();
+
+        _vectorDb.KnowledgeChunks.RemoveRange(chunks);
+        await _vectorDb.SaveChangesAsync();
+
+        return Ok(new { message = $"Cleared {chunks.Count} knowledge chunks for {service.Name}." });
+    }
+
+    [HttpPost("ingest-local-documents")]
+    public async Task<IActionResult> IngestLocalDocuments()
+    {
+        var docDir = Path.Combine(AppContext.BaseDirectory, "Data", "KnowledgeDocuments");
+        if (!Directory.Exists(docDir))
+        {
+            docDir = Path.Combine(Directory.GetCurrentDirectory(), "src", "Data", "KnowledgeDocuments");
+            if (!Directory.Exists(docDir))
+            {
+                docDir = Path.Combine(Directory.GetCurrentDirectory(), "Data", "KnowledgeDocuments");
+            }
+        }
+
+        if (!Directory.Exists(docDir))
+            return NotFound($"Knowledge documents directory not found at: {docDir}");
+
+        var files = Directory.GetFiles(docDir, "*.md");
+        var results = new List<string>();
+
+        foreach (var file in files)
+        {
+            var fileName = Path.GetFileName(file);
+            string serviceId = fileName switch
+            {
+                var f when f.Contains("passport") => "GSN-IMM-001",
+                var f when f.Contains("driving") => "GSN-DMT-002",
+                var f when f.Contains("police") => "GSN-POL-003",
+                var f when f.Contains("business") => "GSN-COM-004",
+                var f when f.Contains("death") => "GSN-CIV-005",
+                _ => string.Empty
+            };
+
+            var service = await _appDb.ServiceProcedures.FirstOrDefaultAsync(s => s.ServiceId == serviceId);
+            if (service == null) continue;
+
+            var content = await System.IO.File.ReadAllTextAsync(file);
+            var title = Path.GetFileNameWithoutExtension(fileName).Replace('_', ' ');
+
+            var paragraphs = content.Split(new[] { "\r\n\r\n", "\n\n", "### " }, StringSplitOptions.RemoveEmptyEntries);
+            int count = 0;
+            var categoryTag = $"Service:{service.Id}:{service.ServiceId}";
+
+            var existing = await _vectorDb.KnowledgeChunks.Where(c => c.SourceCategory == categoryTag).ToListAsync();
+            _vectorDb.KnowledgeChunks.RemoveRange(existing);
+
+            foreach (var p in paragraphs)
+            {
+                var cleaned = p.Trim();
+                if (cleaned.Length < 35) continue;
+
+                var chunkText = $"[{service.Name} - {title}]: " + cleaned;
+                var emb = await _embeddingService.GetEmbeddingAsync(chunkText);
+                _vectorDb.KnowledgeChunks.Add(new KnowledgeChunk
+                {
+                    Content = chunkText,
+                    SourceCategory = categoryTag,
+                    Embedding = emb
+                });
+                count++;
+            }
+            await _vectorDb.SaveChangesAsync();
+            results.Add($"Ingested {count} chunks for {service.Name} from {fileName}");
+        }
+
+        return Ok(new { message = "Local government knowledge documents ingested successfully into Neon Vector.", details = results });
     }
 }

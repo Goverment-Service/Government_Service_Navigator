@@ -6,5 +6,6 @@ public record EligibilityPlanRequest(
     string ServiceName,
     int? ServiceId,
     CitizenProfile Profile,
-    string? PlanSummary = null
+    string? PlanSummary = null,
+    int? Stage = null
 );

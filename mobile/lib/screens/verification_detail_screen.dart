@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/application_providers.dart';
 import '../services/verification_api_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/service_roadmap_tracker.dart';
+import 'payments/payment_screen.dart';
+import 'application_form_screen.dart';
 
 class VerificationDetailScreen extends ConsumerStatefulWidget {
   /// The application as it looked in the list; newer data from [myApplicationsProvider] wins.
@@ -133,6 +136,47 @@ class _VerificationDetailScreenState extends ConsumerState<VerificationDetailScr
               _buildDigitalVerificationPass(),
               const SizedBox(height: 20),
             ],
+
+            // 3.5. Multi-Stage Service Roadmap Tracker
+            ServiceRoadmapTracker(
+              currentStage: _app.currentStage,
+              maxStages: _app.maxStages,
+              stageStatus: _app.stageStatus,
+              stageDepartments: _app.workflowDepartments,
+              currentDepartment: _app.currentDepartment ?? _app.department,
+              fillStageFormButtonText: _app.currentDepartment != null
+                  ? 'Fill Stage ${_app.currentStage} Form for ${_app.currentDepartment}'
+                  : 'Fill Stage ${_app.currentStage} Form Now',
+              onFillStageFormTap: () async {
+                await Navigator.of(context).push(
+                  CupertinoPageRoute(
+                    builder: (_) => ApplicationFormScreen(
+                      serviceId: _app.serviceProcedureId > 0 ? _app.serviceProcedureId : _app.applicationId,
+                      serviceName: _app.serviceName,
+                      stageNumber: _app.currentStage,
+                      applicationId: _app.applicationId,
+                    ),
+                  ),
+                );
+                if (mounted) await _refresh();
+              },
+              onActionTap: _app.stageStatus == 'AwaitingFeePayment'
+                  ? () async {
+                      await Navigator.of(context).push(
+                        CupertinoPageRoute(
+                          builder: (_) => PaymentScreen(
+                            applicationId: _app.applicationId.toString(),
+                            amount: _app.amount > 0 ? _app.amount : 2500.0,
+                            userEmail: _app.userEmail,
+                            popOnPaid: true,
+                          ),
+                        ),
+                      );
+                      if (mounted) await _refresh();
+                    }
+                  : null,
+            ),
+            const SizedBox(height: 20),
 
             // 4. Verification Progress Stepper
             _buildVerificationProgressCard(),

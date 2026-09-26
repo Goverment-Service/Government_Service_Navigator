@@ -68,12 +68,12 @@ public class EligibilityDocumentAgent : IEligibilityDocumentAgent
         // 2. Rules tool: age / citizenship criteria
         var ruleResult = _rulesTool.EvaluateRules(serviceId, profile.Age, profile.CitizenshipStatus);
 
-        // 3. Required documents: vector DB catalog chunk first; if the service isn't vectorized (not seeded yet),
-        //    read the catalog directly with the get_document_requirements tool
-        var fromVectorDb = serviceChunk != null;
-        var requiredDocs = fromVectorDb
-            ? serviceChunk!.RequiredDocuments
-            : await _docsTool.GetRequiredDocumentsForServiceAsync(serviceId, cancellationToken);
+        // 3. Required documents: when a specific stage is evaluated, use the stage-aware get_document_requirements tool.
+        // Otherwise, prefer the vector DB catalog chunk with tool fallback.
+        var fromVectorDb = serviceChunk != null && !request.Stage.HasValue;
+        var requiredDocs = (request.Stage.HasValue || !fromVectorDb)
+            ? await _docsTool.GetRequiredDocumentsForServiceAsync(serviceId, request.Stage, cancellationToken)
+            : serviceChunk!.RequiredDocuments;
 
         var missingDocs = requiredDocs.Where(req => !providedDocs.Any(prov => DocumentMatches(req, prov))).ToList();
 

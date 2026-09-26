@@ -21,7 +21,9 @@ interface FinanceShellProps {
 }
 
 export default function FinanceShell({ active, children }: FinanceShellProps) {
-  const officerName = getDisplayName(getStoredUser());
+  const user = getStoredUser();
+  const officerName = getDisplayName(user);
+  const officerDept = user?.department && user.department !== "Finance Department" ? user.department : "Department of Immigration & Emigration";
 
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
@@ -92,7 +94,7 @@ export default function FinanceShell({ active, children }: FinanceShellProps) {
 
           <main className="mt-12 min-h-screen p-4 min-[66rem]:p-8 ml-0 min-[66rem]:ml-64" style={{ backgroundColor: '#f4f4f4' }}>
             <div style={{ marginBottom: '0.5rem', color: '#525252', fontSize: '0.875rem' }}>
-              Signed in as {officerName} &middot; Finance Department
+              Signed in as {officerName} &middot; {officerDept}
             </div>
             {children}
           </main>

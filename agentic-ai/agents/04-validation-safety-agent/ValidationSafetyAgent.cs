@@ -39,7 +39,7 @@ namespace Government_Service_Navigator.AgenticAi.Agents.ValidationSafety
             }
 
             // 2. Tool 2: Check Duplicate Application
-            var duplicateResult = await _duplicateTool.CheckAsync(draft.CitizenNic, draft.ServiceProcedureId);
+            var duplicateResult = await _duplicateTool.CheckAsync(draft.CitizenNic, draft.ServiceProcedureId, draft.ApplicationId);
             complianceChecks.Add(duplicateResult.ComplianceCheck);
 
             if (duplicateResult.IsDuplicate)
@@ -71,7 +71,7 @@ namespace Government_Service_Navigator.AgenticAi.Agents.ValidationSafety
             // 5. High-Impact Action: Pass -> Enqueue into human Verifying Officer's review queue
             int taskId = draft.ApplicationId > 0 ? draft.ApplicationId : new Random().Next(1000, 9999);
 
-            if (_taskEnqueuer != null)
+            if (_taskEnqueuer != null && draft.ApplicationId > 0)
             {
                 try
                 {

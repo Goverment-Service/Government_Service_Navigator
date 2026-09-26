@@ -1,7 +1,7 @@
 import "@carbon/styles/css/styles.css";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import CurrentUserBadge from "../../components/CurrentUserBadge";
-import { getStoredUser, getAdminOverviewHref } from "../../utils/currentUser";
+import { getStoredUser, getAdminOverviewHref, isDeptAdmin, canManageServices } from "../../utils/currentUser";
 import { getCategoryForDepartment } from "../../constants/departments";
 import {
   Header,
@@ -22,6 +22,7 @@ import {
   Column,
   Loading,
   InlineNotification,
+  Tag,
 } from "@carbon/react";
 import {
   Dashboard,
@@ -57,13 +58,35 @@ export default function EligibilityRuleBuilder() {
   const [isSideNavExpanded, setIsSideNavExpanded] = useState(false);
   const [currentUser] = useState(getStoredUser);
   const [overviewHref] = useState(() => getAdminOverviewHref(currentUser));
-  const isDepartmentAdmin = (currentUser?.role || "").toLowerCase().includes("admin") && !!currentUser?.department;
-  const scopedCategory = currentUser?.department ? getCategoryForDepartment(currentUser.department) : null;
+  const deptAdminUser = isDeptAdmin(currentUser);
+  const isSysAdmin = canManageServices(currentUser);
+  const scopedCategory = deptAdminUser && currentUser?.department ? getCategoryForDepartment(currentUser.department) : null;
+
+  useEffect(() => {
+    if (!isSysAdmin) {
+      window.location.replace(overviewHref);
+    }
+  }, [isSysAdmin, overviewHref]);
+
+  if (!isSysAdmin) {
+    return (
+      <div style={{ padding: "3rem", display: "flex", justifyContent: "center" }}>
+        <InlineNotification
+          kind="error"
+          title="Access Restricted"
+          subtitle="Eligibility rules are managed centrally by System Administrators. Redirecting to your dashboard..."
+          lowContrast
+        />
+      </div>
+    );
+  }
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
   const [rules, setRules] = useState<EligibilityRule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [serviceSearchQuery, setServiceSearchQuery] = useState("");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("All");
   const [notification, setNotification] = useState<{
     type: "success" | "error";
     title: string;
@@ -77,7 +100,7 @@ export default function EligibilityRuleBuilder() {
         const activeServices = data.filter((srv: Service) => srv.status === "Active");
         setServices(activeServices);
         const scopedServices = activeServices.filter(
-          (srv: Service) => !isDepartmentAdmin || !scopedCategory || srv.category === scopedCategory
+          (srv: Service) => !deptAdminUser || !scopedCategory || srv.category === scopedCategory
         );
         if (scopedServices.length > 0) {
           setSelectedServiceId(scopedServices[0].id.toString());
@@ -88,7 +111,7 @@ export default function EligibilityRuleBuilder() {
         console.error("Error fetching services:", error);
         setIsLoading(false);
       });
-  }, [isDepartmentAdmin, scopedCategory]);
+  }, [deptAdminUser, scopedCategory]);
 
 
   useEffect(() => {
@@ -197,8 +220,48 @@ export default function EligibilityRuleBuilder() {
   };
 
   const visibleServices = services.filter(
-    (srv) => !isDepartmentAdmin || !scopedCategory || srv.category === scopedCategory
+    (srv) => !deptAdminUser || !scopedCategory || srv.category === scopedCategory
   );
+
+  const availableCategories = useMemo(() => {
+    const cats = new Set<string>();
+    visibleServices.forEach((s) => {
+      if (s.category) cats.add(s.category);
+    });
+    return Array.from(cats).sort();
+  }, [visibleServices]);
+
+  const filteredProcedureOptions = useMemo(() => {
+    let list = visibleServices;
+    if (selectedCategoryFilter !== "All") {
+      list = list.filter((s) => s.category === selectedCategoryFilter);
+    }
+    if (serviceSearchQuery.trim()) {
+      const q = serviceSearchQuery.toLowerCase().trim();
+      list = list.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.serviceId.toLowerCase().includes(q) ||
+          (s.category && s.category.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [visibleServices, selectedCategoryFilter, serviceSearchQuery]);
+
+  const selectedService = useMemo(() => {
+    return services.find((s) => s.id.toString() === selectedServiceId) || null;
+  }, [services, selectedServiceId]);
+
+  useEffect(() => {
+    if (filteredProcedureOptions.length > 0) {
+      const isCurrentInFiltered = filteredProcedureOptions.some(
+        (s) => s.id.toString() === selectedServiceId
+      );
+      if (!isCurrentInFiltered) {
+        setSelectedServiceId(filteredProcedureOptions[0].id.toString());
+      }
+    }
+  }, [filteredProcedureOptions, selectedServiceId]);
 
   const filteredRules = rules.filter(
     (r) =>
@@ -312,21 +375,165 @@ export default function EligibilityRuleBuilder() {
           </div>
         )}
 
-        <Tile style={{ width: "100%", marginBottom: "1.5rem" }}>
-          <Select
-            id="target-service-select"
-            labelText="Target Service Procedure"
-            value={selectedServiceId}
-            onChange={(e) => setSelectedServiceId(e.target.value)}
+        <Tile
+          style={{
+            width: "100%",
+            marginBottom: "1.5rem",
+            padding: "1.25rem 1.5rem",
+            backgroundColor: "#ffffff",
+            borderRadius: "4px",
+            border: "1px solid #e0e0e0",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "1rem",
+              flexWrap: "wrap",
+              gap: "0.5rem",
+            }}
           >
-            {visibleServices.map((srv) => (
-              <SelectItem
-                key={srv.id}
-                value={srv.id.toString()}
-                text={`${srv.serviceId} - ${srv.name}`}
+            <div>
+              <h2
+                style={{
+                  fontSize: "1rem",
+                  fontWeight: 600,
+                  color: "#161616",
+                  margin: 0,
+                }}
+              >
+                Target Service Procedure
+              </h2>
+              <p
+                style={{
+                  fontSize: "0.8125rem",
+                  color: "#525252",
+                  marginTop: "0.25rem",
+                  marginBottom: 0,
+                }}
+              >
+                Search procedures by keyword/ID or filter by category to manage eligibility criteria rulesets.
+              </p>
+            </div>
+            {selectedService && (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <Tag type="blue" size="sm">
+                  {selectedService.category || "General"}
+                </Tag>
+                <Tag type="cool-gray" size="sm">
+                  {selectedService.serviceId}
+                </Tag>
+              </div>
+            )}
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: "1rem",
+              alignItems: "flex-end",
+            }}
+          >
+            {/* Search Input */}
+            <div>
+              <Search
+                id="rules-procedure-search"
+                labelText="Search Procedures"
+                placeholder="Search by code (e.g. GSN-IMM) or name..."
+                size="md"
+                value={serviceSearchQuery}
+                onChange={(e) => setServiceSearchQuery(e.target.value)}
+                onClear={() => setServiceSearchQuery("")}
               />
-            ))}
-          </Select>
+            </div>
+
+            {/* Category Filter */}
+            <div>
+              <Select
+                id="rules-procedure-category-filter"
+                labelText="Filter by Category"
+                size="md"
+                value={selectedCategoryFilter}
+                onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+              >
+                <SelectItem
+                  value="All"
+                  text={`All Categories (${visibleServices.length})`}
+                />
+                {availableCategories.map((cat) => (
+                  <SelectItem
+                    key={cat}
+                    value={cat}
+                    text={`${cat} (${visibleServices.filter((s) => s.category === cat).length})`}
+                  />
+                ))}
+              </Select>
+            </div>
+
+            {/* Filtered Dropdown */}
+            <div>
+              <Select
+                id="target-service-select"
+                labelText={`Target Procedure (${filteredProcedureOptions.length} available)`}
+                size="md"
+                value={selectedServiceId}
+                onChange={(e) => setSelectedServiceId(e.target.value)}
+                disabled={filteredProcedureOptions.length === 0}
+              >
+                {filteredProcedureOptions.length === 0 ? (
+                  <SelectItem value="" text="No matching procedures found" />
+                ) : (
+                  filteredProcedureOptions.map((srv) => (
+                    <SelectItem
+                      key={srv.id}
+                      value={srv.id.toString()}
+                      text={`${srv.serviceId} - ${srv.name}${srv.category ? ` (${srv.category})` : ""}`}
+                    />
+                  ))
+                )}
+              </Select>
+            </div>
+          </div>
+
+          {/* Active Filter Bar & Reset */}
+          {(serviceSearchQuery || selectedCategoryFilter !== "All") && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingTop: "0.75rem",
+                marginTop: "0.75rem",
+                borderTop: "1px solid #f0f0f0",
+                fontSize: "0.8125rem",
+                color: "#525252",
+              }}
+            >
+              <span>
+                Showing <strong>{filteredProcedureOptions.length}</strong> of{" "}
+                <strong>{visibleServices.length}</strong> procedures
+                {serviceSearchQuery ? ` matching "${serviceSearchQuery}"` : ""}
+                {selectedCategoryFilter !== "All"
+                  ? ` in category "${selectedCategoryFilter}"`
+                  : ""}
+              </span>
+
+              <Button
+                kind="ghost"
+                size="sm"
+                onClick={() => {
+                  setServiceSearchQuery("");
+                  setSelectedCategoryFilter("All");
+                }}
+              >
+                Reset Search & Filter
+              </Button>
+            </div>
+          )}
         </Tile>
 
         <Tile style={{ width: "100%" }}>

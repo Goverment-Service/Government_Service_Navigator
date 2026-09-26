@@ -1,7 +1,7 @@
 import '@carbon/styles/css/styles.css'; 
 import { useState } from "react";
 import CurrentUserBadge from "../components/CurrentUserBadge";
-import { getStoredUser, getAdminOverviewHref } from "../utils/currentUser";
+import { getStoredUser, getAdminOverviewHref, canManageServices } from "../utils/currentUser";
 import {
   Header,
   HeaderContainer,
@@ -22,7 +22,8 @@ import {
   SelectItem,
   Button,
   Stack,
-  Search
+  Search,
+  InlineNotification,
 } from "@carbon/react";
 import {
   Dashboard,
@@ -38,8 +39,54 @@ import {
 } from "@carbon/icons-react";
 
 export default function SystemSettings() {
+  const [currentUser] = useState(getStoredUser);
+  const isSysAdmin = canManageServices(currentUser);
+  const [overviewHref] = useState(() => getAdminOverviewHref(currentUser));
   const [isSaving, setIsSaving] = useState(false);
-  const [overviewHref] = useState(() => getAdminOverviewHref(getStoredUser()));
+
+  if (!isSysAdmin) {
+    return (
+      <HeaderContainer
+        render={({ isSideNavExpanded, onClickSideNavExpand }) => (
+          <>
+            <Header aria-label="GSN System Settings">
+              <HeaderMenuButton
+                aria-label={isSideNavExpanded ? "Close menu" : "Open menu"}
+                onClick={onClickSideNavExpand}
+                isActive={isSideNavExpanded}
+                aria-expanded={isSideNavExpanded}
+              />
+              <HeaderName href={overviewHref} prefix="GSN">
+                Registry Admin
+              </HeaderName>
+              <HeaderGlobalBar>
+                <CurrentUserBadge />
+              </HeaderGlobalBar>
+            </Header>
+            <main
+              className="mt-12 min-h-screen p-8 flex flex-col items-center justify-center"
+              style={{ backgroundColor: "#f4f4f4", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "80vh" }}
+            >
+              <div style={{ maxWidth: "620px", width: "100%" }}>
+                <InlineNotification
+                  kind="error"
+                  title="Access Denied: System Administrator Only"
+                  subtitle="System Settings is restricted to Central System Administrators. Department Administrators and operational officers do not have permission to view or modify platform-wide settings."
+                  lowContrast
+                  hideCloseButton
+                />
+                <div style={{ marginTop: "1.5rem" }}>
+                  <Button onClick={() => window.location.href = overviewHref}>
+                    Return to Department Dashboard
+                  </Button>
+                </div>
+              </div>
+            </main>
+          </>
+        )}
+      />
+    );
+  }
 
   // Example Setting States
   const [maintenanceMode, setMaintenanceMode] = useState(false);

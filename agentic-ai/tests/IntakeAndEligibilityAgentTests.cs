@@ -39,7 +39,7 @@ namespace Government_Service_Navigator.AgenticAi.Tests
         private class StubDocumentRepository : IDocumentRequirementRepository
         {
             public List<string> Names { get; } = new();
-            public Task<List<string>> GetDocumentNamesAsync(int serviceProcedureId, CancellationToken cancellationToken = default)
+            public Task<List<string>> GetDocumentNamesAsync(int serviceProcedureId, int? stage = null, CancellationToken cancellationToken = default)
                 => Task.FromResult(Names);
         }
 

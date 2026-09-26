@@ -1,4 +1,5 @@
 import '@carbon/styles/css/styles.css';
+import { useState } from "react";
 import {
   Header,
   HeaderContainer,
@@ -8,17 +9,36 @@ import {
   SideNav,
   SideNavItems,
   SideNavLink,
-  Search,
-  HeaderMenuButton
+  HeaderMenuButton,
+  InlineNotification,
+  Button,
 } from "@carbon/react";
-import { Dashboard, Document, Time, User, Logout, Notification, Add, Catalog ,
+import {
+  Dashboard,
+  Document,
+  Time,
+  User,
+  Logout,
+  Notification,
+  Catalog,
   CheckmarkOutline,
-  DataStructured
+  DataStructured,
+  Rule,
+  Categories,
+  UserMultiple,
+  Security,
+  Settings,
 } from '@carbon/icons-react';
-
+import CurrentUserBadge from "../../components/CurrentUserBadge";
 import TemplateBuilder from "./TemplateBuilder";
+import { getStoredUser, getAdminOverviewHref, canManageServices } from "../../utils/currentUser";
 
 export default function ApplicationCreate() {
+  const [currentUser] = useState(getStoredUser);
+  const isSysAdmin = canManageServices(currentUser);
+  const overviewHref = getAdminOverviewHref(currentUser);
+  const [isSideNavExpanded, setIsSideNavExpanded] = useState(false);
+
   const handleLogout = async () => {
     const token = localStorage.getItem("officerToken");
     try {
@@ -34,56 +54,132 @@ export default function ApplicationCreate() {
     } finally {
       localStorage.removeItem("officerToken");
       localStorage.removeItem("officerUser");
-      window.location.href = "/officer/login";
+      window.location.href = isSysAdmin ? "/admin/login" : "/officer/login";
     }
   };
 
-  return (
-    <HeaderContainer
-      render={({ isSideNavExpanded, onClickSideNavExpand }) => (
-        <>
-          <Header aria-label="Registry Portal System">
-            <HeaderMenuButton
-              aria-label={isSideNavExpanded ? "Close menu" : "Open menu"}
-              onClick={onClickSideNavExpand}
-              isActive={isSideNavExpanded}
-              isCollapsible
-            />
-            <HeaderName href="#" prefix="GSN">Registry Portal</HeaderName>
-            <HeaderGlobalBar>
-              <div className="gsn-header-search">
-                 <Search size="sm" id="search-queue-create" labelText="Search" placeholder="Search..." />
+  if (!isSysAdmin) {
+    return (
+      <HeaderContainer
+        render={({ isSideNavExpanded: navExpanded, onClickSideNavExpand }) => (
+          <>
+            <Header aria-label="Registry Portal System">
+              <HeaderMenuButton
+                aria-label={navExpanded ? "Close menu" : "Open menu"}
+                onClick={onClickSideNavExpand}
+                isActive={navExpanded}
+                isCollapsible
+              />
+              <HeaderName href="/officer/dashboard" prefix="GSN">Registry Portal</HeaderName>
+              <HeaderGlobalBar>
+                <CurrentUserBadge />
+                <HeaderGlobalAction aria-label="Notifications" onClick={() => {}}>
+                  <Notification size={20} />
+                </HeaderGlobalAction>
+              </HeaderGlobalBar>
+
+              <SideNav aria-label="Side navigation" expanded={navExpanded}>
+                <SideNavItems>
+                  <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">Application Queue</SideNavLink>
+                  <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification">
+                    Bulk Verification
+                  </SideNavLink>
+                  <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes">
+                    Rejection Codes
+                  </SideNavLink>
+                  <SideNavLink renderIcon={Document} href="/officer/verified-records">Verified Records</SideNavLink>
+                  <SideNavLink renderIcon={Time} href="/officer/pending-reviews">Pending Reviews</SideNavLink>
+                  <SideNavLink renderIcon={User} href="/officer/profile">My Profile</SideNavLink>
+                  <div style={{ marginTop: 'auto', borderTop: '1px solid #393939' }}>
+                    <SideNavLink renderIcon={Logout} onClick={handleLogout} style={{ cursor: 'pointer' }}>Sign Out</SideNavLink>
+                  </div>
+                </SideNavItems>
+              </SideNav>
+            </Header>
+
+            <main className="gsn-shell-main" style={{ padding: '2rem' }}>
+              <InlineNotification
+                kind="warning"
+                title="Template Builder Restricted to System Administrators"
+                subtitle="Form templates and multi-department workflow stages are configured centrally by System Administrators. Department staff and operational officers do not configure form templates."
+                lowContrast
+              />
+              <div style={{ marginTop: '1.5rem' }}>
+                <Button onClick={() => window.location.href = overviewHref}>
+                  Return to Dashboard
+                </Button>
               </div>
-              <HeaderGlobalAction aria-label="Notifications" onClick={() => {}}>
-                <Notification size={20} />
-              </HeaderGlobalAction>
-            </HeaderGlobalBar>
+            </main>
+          </>
+        )}
+      />
+    );
+  }
 
-            <SideNav aria-label="Side navigation" expanded={isSideNavExpanded}>
-              <SideNavItems>
-                <SideNavLink renderIcon={Dashboard} href="/officer/dashboard">Application Queue</SideNavLink>
-                                <SideNavLink renderIcon={CheckmarkOutline} href="/officer/bulk-verification">
-                  Bulk Verification
-                </SideNavLink>
-                <SideNavLink renderIcon={DataStructured} href="/officer/rejection-codes">
-                  Rejection Codes
-                </SideNavLink>
-<SideNavLink renderIcon={Catalog} href="/officer/applications">All Applications</SideNavLink>
-                <SideNavLink renderIcon={Add} href="/officer/Application_create/application_create" isActive>Create Template</SideNavLink>
-                <SideNavLink renderIcon={Document} href="/officer/verified-records">Verified Records</SideNavLink>
-                <SideNavLink renderIcon={Time} href="/officer/pending-reviews">Pending Reviews</SideNavLink>
-                <SideNavLink renderIcon={User} href="/officer/profile">My Profile</SideNavLink>
-                <div style={{ marginTop: 'auto', borderTop: '1px solid #393939' }}>
-                  <SideNavLink renderIcon={Logout} onClick={handleLogout} style={{ cursor: 'pointer' }}>Sign Out</SideNavLink>
-                </div>
-              </SideNavItems>
-            </SideNav>
-          </Header>
+  return (
+    <>
+      <Header aria-label="Registry Admin System">
+        <HeaderMenuButton
+          aria-label={isSideNavExpanded ? "Close menu" : "Open menu"}
+          onClick={() => setIsSideNavExpanded((prev) => !prev)}
+          isActive={isSideNavExpanded}
+          isCollapsible
+        />
+        <HeaderName href="/admin" prefix="GSN">
+          Registry Admin
+        </HeaderName>
+        <HeaderGlobalBar>
+          <CurrentUserBadge />
+          <HeaderGlobalAction aria-label="Notifications">
+            <Notification size={20} />
+          </HeaderGlobalAction>
+        </HeaderGlobalBar>
 
-          <TemplateBuilder />
-        </>
-      )}
-    />
+        <SideNav
+          aria-label="Side navigation"
+          expanded={isSideNavExpanded}
+          onOverlayClick={() => setIsSideNavExpanded(false)}
+        >
+          <SideNavItems>
+            <SideNavLink renderIcon={Dashboard} href="/admin">
+              Overview
+            </SideNavLink>
+            <SideNavLink renderIcon={Catalog} href="/admin/services">
+              Service Catalog
+            </SideNavLink>
+            <SideNavLink renderIcon={Rule} href="/admin/services/rules">
+              Eligibility Rules
+            </SideNavLink>
+            <SideNavLink
+              renderIcon={Categories}
+              href="/admin/services/config"
+              isActive
+            >
+              Service Configuration
+            </SideNavLink>
+            <SideNavLink renderIcon={UserMultiple} href="/admin/officers">
+              Manage Officers
+            </SideNavLink>
+            <SideNavLink renderIcon={Security} href="/admin/audit-logs">
+              Audit Logs
+            </SideNavLink>
+            <SideNavLink renderIcon={Settings} href="/admin/settings">
+              System Settings
+            </SideNavLink>
+            <div style={{ marginTop: "auto", borderTop: "1px solid #393939" }}>
+              <SideNavLink
+                renderIcon={Logout}
+                onClick={handleLogout}
+                style={{ cursor: "pointer" }}
+              >
+                Sign Out
+              </SideNavLink>
+            </div>
+          </SideNavItems>
+        </SideNav>
+      </Header>
+
+      <TemplateBuilder />
+    </>
   );
 }
-

@@ -21,6 +21,9 @@ namespace Government_Service_Navigator.Backend.Services
                 SubTitle = request.SubTitle,
                 LawText = request.LawText,
                 ServiceProcedureId = request.ServiceProcedureId,
+                Department = request.Department,
+                StageOrder = request.StageOrder,
+                StageDescription = request.StageDescription,
                 Fields = request.Fields.Select((f, index) => new FormField
                 {
                     Label = f.Label,
@@ -39,6 +42,7 @@ namespace Government_Service_Navigator.Backend.Services
             return await _context.Templates
                 .Include(t => t.Fields.OrderBy(f=> f.OrderIndex))
                 .Include(t => t.ServiceProcedure)
+                .OrderBy(t => t.StageOrder)
                 .ToListAsync();
         }
         public async Task<Template?> GetTemplateByIdAsync(Guid id)
@@ -47,6 +51,15 @@ namespace Government_Service_Navigator.Backend.Services
                 .Include(t => t.Fields.OrderBy(f => f.OrderIndex))
                 .Include(t => t.ServiceProcedure)
                 .FirstOrDefaultAsync(t => t.Id == id);
+        }
+        public async Task<IEnumerable<Template>> GetTemplatesByServiceAsync(int serviceProcedureId)
+        {
+            return await _context.Templates
+                .Include(t => t.Fields.OrderBy(f => f.OrderIndex))
+                .Include(t => t.ServiceProcedure)
+                .Where(t => t.ServiceProcedureId == serviceProcedureId)
+                .OrderBy(t => t.StageOrder)
+                .ToListAsync();
         }
         public async Task<Template> UpdateTemplateAsync(Guid id, CreateTemplateRequest request)
         {
@@ -57,6 +70,9 @@ namespace Government_Service_Navigator.Backend.Services
             template.SubTitle = request.SubTitle;
             template.LawText = request.LawText;
             template.ServiceProcedureId = request.ServiceProcedureId;
+            template.Department = request.Department;
+            template.StageOrder = request.StageOrder;
+            template.StageDescription = request.StageDescription;
 
             _context.FormFields.RemoveRange(template.Fields);
             

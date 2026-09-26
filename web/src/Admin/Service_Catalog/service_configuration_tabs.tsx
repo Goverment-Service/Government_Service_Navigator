@@ -1,10 +1,11 @@
 import "@carbon/styles/css/styles.css";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import CurrentUserBadge from "../../components/CurrentUserBadge";
-import { getStoredUser, getAdminOverviewHref } from "../../utils/currentUser";
+import { getStoredUser, getAdminOverviewHref, isDeptAdmin, canManageServices } from "../../utils/currentUser";
 import { getCategoryForDepartment } from "../../constants/departments";
 import {
   Header,
+  HeaderContainer,
   HeaderName,
   HeaderMenuButton,
   HeaderGlobalBar,
@@ -36,6 +37,7 @@ import {
   Checkbox,
   InlineNotification,
   Tile,
+  TextArea,
 } from "@carbon/react";
 import {
   Dashboard,
@@ -50,6 +52,8 @@ import {
   TrashCan,
   Edit,
   Add,
+  Upload,
+  Renew,
 } from "@carbon/icons-react";
 
 const docHeaders = [
@@ -88,12 +92,67 @@ interface FeeSchedule {
   effectiveDate: string;
 }
 
+const AVAILABLE_DEPARTMENTS = [
+  "Department of Immigration & Emigration",
+  "Department of Registration of Persons",
+  "Department of Motor Traffic",
+  "Police Department",
+  "Divisional Secretariat",
+  "Transport Department",
+  "Civil Department",
+];
+
 export default function ServiceConfigurationTabs() {
   const [isSideNavExpanded, setIsSideNavExpanded] = useState(false);
   const [currentUser] = useState(getStoredUser);
   const [overviewHref] = useState(() => getAdminOverviewHref(currentUser));
-  const isDepartmentAdmin = (currentUser?.role || "").toLowerCase().includes("admin") && !!currentUser?.department;
-  const scopedCategory = currentUser?.department ? getCategoryForDepartment(currentUser.department) : null;
+  const deptAdminUser = isDeptAdmin(currentUser);        // Department Admin
+  const isSysAdmin = canManageServices(currentUser);
+  const scopedCategory = deptAdminUser && currentUser?.department ? getCategoryForDepartment(currentUser.department) : null;
+
+  if (!isSysAdmin) {
+    return (
+      <HeaderContainer
+        render={({ isSideNavExpanded, onClickSideNavExpand }) => (
+          <>
+            <Header aria-label="GSN Service Configuration">
+              <HeaderMenuButton
+                aria-label={isSideNavExpanded ? "Close menu" : "Open menu"}
+                onClick={onClickSideNavExpand}
+                isActive={isSideNavExpanded}
+                aria-expanded={isSideNavExpanded}
+              />
+              <HeaderName href={overviewHref} prefix="GSN">
+                Registry Admin
+              </HeaderName>
+              <HeaderGlobalBar>
+                <CurrentUserBadge />
+              </HeaderGlobalBar>
+            </Header>
+            <main
+              className="mt-12 min-h-screen p-8 flex flex-col items-center justify-center"
+              style={{ backgroundColor: "#f4f4f4", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "80vh" }}
+            >
+              <div style={{ maxWidth: "620px", width: "100%" }}>
+                <InlineNotification
+                  kind="error"
+                  title="Access Denied: System Administrator Only"
+                  subtitle="Service workflows, form templates, required documents, fee schedules, and policy knowledge bases are managed centrally by System Administrators. Department Administrators and officers do not have permission to modify these configurations."
+                  lowContrast
+                  hideCloseButton
+                />
+                <div style={{ marginTop: "1.5rem" }}>
+                  <Button onClick={() => window.location.href = overviewHref}>
+                    Return to Department Dashboard
+                  </Button>
+                </div>
+              </div>
+            </main>
+          </>
+        )}
+      />
+    );
+  }
   const [services, setServices] = useState<ServiceOption[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
   const [selectedServiceName, setSelectedServiceName] = useState<string>("");
@@ -102,11 +161,37 @@ export default function ServiceConfigurationTabs() {
   const [fees, setFees] = useState<FeeSchedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [serviceSearchQuery, setServiceSearchQuery] = useState("");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("All");
+  const [selectedTabIndex, setSelectedTabIndex] = useState<number>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    if (tab === "3" || tab === "workflow" || tab === "stages") return 3;
+    if (tab === "2" || tab === "knowledge") return 2;
+    if (tab === "1" || tab === "fees") return 1;
+    return 0;
+  });
   const [notification, setNotification] = useState<{
-    type: "success" | "error";
+    type: "success" | "error" | "info" | "warning";
     title: string;
     subtitle: string;
   } | null>(null);
+
+  // Multi-Department Sequential Workflow State
+  const [totalStages, setTotalStages] = useState<number>(1);
+  const [workflowType, setWorkflowType] = useState<"single" | "multiple">("single");
+  const [workflowDepartments, setWorkflowDepartments] = useState<string[]>(["Civil Department"]);
+  const [stageTemplates, setStageTemplates] = useState<Array<{
+    id: string;
+    formName: string;
+    subTitle?: string;
+    department?: string;
+    stageOrder: number;
+    stageDescription?: string;
+    status: string;
+  }>>([]);
+  const [isSavingWorkflow, setIsSavingWorkflow] = useState(false);
+  const [, setIsLoadingWorkflow] = useState(false);
 
   // Modal State for Adding/Editing Documents
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
@@ -128,6 +213,211 @@ export default function ServiceConfigurationTabs() {
     effectiveDate: new Date().toISOString().split("T")[0],
   });
 
+  // Knowledge Base State
+  const [knowledgeChunks, setKnowledgeChunks] = useState<Array<{ id: string; content: string; sourceCategory: string }>>([]);
+  const [knowledgeLoading, setKnowledgeLoading] = useState(false);
+  const [policyTitle, setPolicyTitle] = useState("");
+  const [policyText, setPolicyText] = useState("");
+  const [policyFile, setPolicyFile] = useState<File | null>(null);
+  const [isUploadingKnowledge, setIsUploadingKnowledge] = useState(false);
+
+  const fetchTemplatesForService = async (svcId: string) => {
+    if (!svcId) return;
+    try {
+      setIsLoadingWorkflow(true);
+      const res = await fetch(`http://localhost:5119/api/templates/by-service/${svcId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setStageTemplates(data || []);
+      }
+    } catch (e) {
+      console.error("Error fetching templates for service:", e);
+    } finally {
+      setIsLoadingWorkflow(false);
+    }
+  };
+
+  const handleSaveWorkflow = async () => {
+    if (!selectedServiceId) return;
+    try {
+      setIsSavingWorkflow(true);
+      const depts = [...workflowDepartments];
+      while (depts.length < totalStages) {
+        depts.push("Civil Department");
+      }
+      const trimmedDepts = depts.slice(0, totalStages);
+
+      const res = await fetch(`http://localhost:5119/api/services/${selectedServiceId}/workflow`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          totalStages: totalStages,
+          workflowDepartments: trimmedDepts,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to save workflow");
+      }
+
+      setWorkflowDepartments(trimmedDepts);
+      sessionStorage.setItem("admin_selected_service_id", selectedServiceId);
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.set("serviceId", selectedServiceId);
+      currentUrl.searchParams.set("tab", "3");
+      window.history.replaceState({}, "", currentUrl.toString());
+
+      setNotification({
+        type: "success",
+        title: "Workflow Configuration Saved",
+        subtitle: `Configured ${totalStages} sequential verification stage(s) across departments.`,
+      });
+      fetchTemplatesForService(selectedServiceId);
+    } catch (e) {
+      console.error(e);
+      setNotification({
+        type: "error",
+        title: "Save Failed",
+        subtitle: "Could not save workflow configuration. Check server connection.",
+      });
+    } finally {
+      setIsSavingWorkflow(false);
+    }
+  };
+
+  const handleNavigateToBuilder = async (targetUrl: string) => {
+    if (selectedServiceId) {
+      try {
+        const depts = [...workflowDepartments];
+        while (depts.length < totalStages) {
+          depts.push(AVAILABLE_DEPARTMENTS[depts.length % AVAILABLE_DEPARTMENTS.length] || "Civil Department");
+        }
+        const trimmedDepts = depts.slice(0, totalStages);
+        await fetch(`http://localhost:5119/api/services/${selectedServiceId}/workflow`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            totalStages: totalStages,
+            workflowDepartments: trimmedDepts,
+          }),
+        });
+      } catch (err) {
+        console.warn("Auto-saving workflow before builder navigation:", err);
+      }
+    }
+    window.location.href = targetUrl;
+  };
+
+  const fetchKnowledge = async (svcId: string) => {
+    if (!svcId) return;
+    try {
+      setKnowledgeLoading(true);
+      const res = await fetch(`http://localhost:5119/api/RagSetup/service-knowledge/${svcId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setKnowledgeChunks(data);
+      }
+    } catch (e) {
+      console.error("Error loading service knowledge:", e);
+    } finally {
+      setKnowledgeLoading(false);
+    }
+  };
+
+  const handleUploadPolicy = async () => {
+    if (!selectedServiceId || (!policyText.trim() && !policyFile)) {
+      setNotification({
+        type: "warning",
+        title: "Missing Content",
+        subtitle: "Please paste regulation text or choose a document file to vectorize.",
+      });
+      return;
+    }
+
+    try {
+      setIsUploadingKnowledge(true);
+      const formData = new FormData();
+      formData.append("serviceProcedureId", selectedServiceId);
+      formData.append("documentTitle", policyTitle || `${selectedServiceName} Official Regulation Document`);
+      if (policyText.trim()) formData.append("policyText", policyText);
+      if (policyFile) formData.append("file", policyFile);
+
+      const res = await fetch("http://localhost:5119/api/RagSetup/upload-policy", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setNotification({
+          type: "success",
+          title: "Vectorized Successfully",
+          subtitle: data.message || "Regulation document vectorized into Neon Vector DB!",
+        });
+        setPolicyTitle("");
+        setPolicyText("");
+        setPolicyFile(null);
+        await fetchKnowledge(selectedServiceId);
+      } else {
+        const err = await res.text();
+        setNotification({
+          type: "error",
+          title: "Upload Failed",
+          subtitle: err || "Failed to vectorize document.",
+        });
+      }
+    } catch (e) {
+      console.error(e);
+      setNotification({
+        type: "error",
+        title: "Network Error",
+        subtitle: "Could not connect to the vectorization engine.",
+      });
+    } finally {
+      setIsUploadingKnowledge(false);
+    }
+  };
+
+  const handleClearKnowledge = async () => {
+    if (!selectedServiceId) return;
+    try {
+      const res = await fetch(`http://localhost:5119/api/RagSetup/service-knowledge/${selectedServiceId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setNotification({
+          type: "info",
+          title: "Knowledge Reset",
+          subtitle: "Vector chunks cleared for this service.",
+        });
+        setKnowledgeChunks([]);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleIngestLocalDocs = async () => {
+    try {
+      setIsUploadingKnowledge(true);
+      const res = await fetch("http://localhost:5119/api/RagSetup/ingest-local-documents", {
+        method: "POST",
+      });
+      if (res.ok) {
+        setNotification({
+          type: "success",
+          title: "Sri Lankan Gazette Ingestion Complete",
+          subtitle: "All 5 authentic Sri Lankan government policy documents vectorized into Neon Vector DB!",
+        });
+        await fetchKnowledge(selectedServiceId);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsUploadingKnowledge(false);
+    }
+  };
+
   // 1. Fetch all services on mount
     useEffect(() => {
     fetch("http://localhost:5119/api/services")
@@ -136,11 +426,32 @@ export default function ServiceConfigurationTabs() {
         const activeServices = data.filter((srv: ServiceOption) => srv.status === "Active");
         setServices(activeServices);
         const scopedServices = activeServices.filter(
-          (srv: ServiceOption) => !isDepartmentAdmin || !scopedCategory || srv.category === scopedCategory
+          (srv: ServiceOption) => !deptAdminUser || !scopedCategory || srv.category === scopedCategory
         );
-        if (scopedServices.length > 0) {
-          setSelectedServiceId(scopedServices[0].id.toString());
-          setSelectedServiceName(scopedServices[0].name);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlSvcId = urlParams.get("serviceId");
+        const savedSvcId = sessionStorage.getItem("admin_selected_service_id");
+
+        let targetService: ServiceOption | undefined;
+        if (urlSvcId) {
+          targetService = scopedServices.find(
+            (s: ServiceOption) => s.id.toString() === urlSvcId || s.serviceId === urlSvcId
+          );
+        }
+        if (!targetService && savedSvcId) {
+          targetService = scopedServices.find(
+            (s: ServiceOption) => s.id.toString() === savedSvcId || s.serviceId === savedSvcId
+          );
+        }
+        if (!targetService && scopedServices.length > 0) {
+          targetService = scopedServices[0];
+        }
+
+        if (targetService) {
+          setSelectedServiceId(targetService.id.toString());
+          setSelectedServiceName(targetService.name);
+          sessionStorage.setItem("admin_selected_service_id", targetService.id.toString());
         }
         setIsLoading(false);
       })
@@ -148,7 +459,7 @@ export default function ServiceConfigurationTabs() {
         console.error("Error fetching services:", error);
         setIsLoading(false);
       });
-  }, [isDepartmentAdmin, scopedCategory]);
+  }, [deptAdminUser, scopedCategory]);
 
 
   // 2. Fetch procedure details (documents and fees) when selected procedure changes
@@ -181,6 +492,23 @@ export default function ServiceConfigurationTabs() {
         );
         setDocuments(formattedDocs);
         setFees(formattedFees);
+        fetchKnowledge(selectedServiceId);
+
+        // Load multi-department workflow stages
+        const srvStages = data.totalStages || 1;
+        setTotalStages(srvStages);
+        setWorkflowType(srvStages > 1 ? "multiple" : "single");
+        let srvDepts: string[] = [];
+        if (Array.isArray(data.workflowDepartments)) {
+          srvDepts = data.workflowDepartments;
+        } else if (typeof data.workflowDepartments === "string") {
+          try { srvDepts = JSON.parse(data.workflowDepartments); } catch {}
+        }
+        if (!srvDepts || srvDepts.length === 0) {
+          srvDepts = ["Civil Department"];
+        }
+        setWorkflowDepartments(srvDepts);
+        fetchTemplatesForService(selectedServiceId);
       } catch (error) {
         console.error("Error fetching service config:", error);
       } finally {
@@ -401,8 +729,48 @@ export default function ServiceConfigurationTabs() {
   };
 
   const visibleServices = services.filter(
-    (srv) => !isDepartmentAdmin || !scopedCategory || srv.category === scopedCategory
+    (srv) => !deptAdminUser || !scopedCategory || srv.category === scopedCategory
   );
+
+  const availableCategories = useMemo(() => {
+    const cats = new Set<string>();
+    visibleServices.forEach((s) => {
+      if (s.category) cats.add(s.category);
+    });
+    return Array.from(cats).sort();
+  }, [visibleServices]);
+
+  const filteredProcedureOptions = useMemo(() => {
+    let list = visibleServices;
+    if (selectedCategoryFilter !== "All") {
+      list = list.filter((s) => s.category === selectedCategoryFilter);
+    }
+    if (serviceSearchQuery.trim()) {
+      const q = serviceSearchQuery.toLowerCase().trim();
+      list = list.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.serviceId.toLowerCase().includes(q) ||
+          (s.category && s.category.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [visibleServices, selectedCategoryFilter, serviceSearchQuery]);
+
+  const selectedService = useMemo(() => {
+    return services.find((s) => s.id.toString() === selectedServiceId) || null;
+  }, [services, selectedServiceId]);
+
+  useEffect(() => {
+    if (filteredProcedureOptions.length > 0) {
+      const isCurrentInFiltered = filteredProcedureOptions.some(
+        (s) => s.id.toString() === selectedServiceId
+      );
+      if (!isCurrentInFiltered) {
+        setSelectedServiceId(filteredProcedureOptions[0].id.toString());
+      }
+    }
+  }, [filteredProcedureOptions, selectedServiceId]);
 
   const filteredDocs = documents.filter(
     (d) =>
@@ -548,28 +916,189 @@ export default function ServiceConfigurationTabs() {
           </div>
         )}
 
-        <Tile style={{ width: "100%", marginBottom: "1.5rem" }}>
-          <Select
-            id="target-service-config-select"
-            labelText="Select Target Service Procedure"
-            value={selectedServiceId}
-            onChange={(e) => setSelectedServiceId(e.target.value)}
+        <Tile
+          style={{
+            width: "100%",
+            marginBottom: "1.5rem",
+            padding: "1.25rem 1.5rem",
+            backgroundColor: "#ffffff",
+            borderRadius: "4px",
+            border: "1px solid #e0e0e0",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "1rem",
+              flexWrap: "wrap",
+              gap: "0.5rem",
+            }}
           >
-            {visibleServices.map((srv) => (
-              <SelectItem
-                key={srv.id}
-                value={srv.id.toString()}
-                text={`${srv.serviceId} - ${srv.name}`}
+            <div>
+              <h2
+                style={{
+                  fontSize: "1rem",
+                  fontWeight: 600,
+                  color: "#161616",
+                  margin: 0,
+                }}
+              >
+                Select Target Service Procedure
+              </h2>
+              <p
+                style={{
+                  fontSize: "0.8125rem",
+                  color: "#525252",
+                  marginTop: "0.25rem",
+                  marginBottom: 0,
+                }}
+              >
+                Search procedures by keyword/ID or filter by category to configure required documents, fees, policy knowledge, and stage workflows.
+              </p>
+            </div>
+            {selectedService && (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <Tag type="blue" size="sm">
+                  {selectedService.category || "General"}
+                </Tag>
+                <Tag type="cool-gray" size="sm">
+                  {selectedService.serviceId}
+                </Tag>
+              </div>
+            )}
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: "1rem",
+              alignItems: "flex-end",
+            }}
+          >
+            {/* Search Input */}
+            <div>
+              <Search
+                id="service-procedure-search"
+                labelText="Search Procedures"
+                placeholder="Search by code (e.g. GSN-IMM) or name..."
+                size="md"
+                value={serviceSearchQuery}
+                onChange={(e) => setServiceSearchQuery(e.target.value)}
+                onClear={() => setServiceSearchQuery("")}
               />
-            ))}
-          </Select>
+            </div>
+
+            {/* Category Filter */}
+            <div>
+              <Select
+                id="service-procedure-category-filter"
+                labelText="Filter by Category"
+                size="md"
+                value={selectedCategoryFilter}
+                onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+              >
+                <SelectItem
+                  value="All"
+                  text={`All Categories (${visibleServices.length})`}
+                />
+                {availableCategories.map((cat) => (
+                  <SelectItem
+                    key={cat}
+                    value={cat}
+                    text={`${cat} (${visibleServices.filter((s) => s.category === cat).length})`}
+                  />
+                ))}
+              </Select>
+            </div>
+
+            {/* Filtered Dropdown */}
+            <div>
+              <Select
+                id="target-service-config-select"
+                labelText={`Target Procedure (${filteredProcedureOptions.length} available)`}
+                size="md"
+                value={selectedServiceId}
+                onChange={(e) => {
+                  const newId = e.target.value;
+                  setSelectedServiceId(newId);
+                  sessionStorage.setItem("admin_selected_service_id", newId);
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("serviceId", newId);
+                  window.history.replaceState({}, "", url.toString());
+                }}
+                disabled={filteredProcedureOptions.length === 0}
+              >
+                {filteredProcedureOptions.length === 0 ? (
+                  <SelectItem value="" text="No matching procedures found" />
+                ) : (
+                  filteredProcedureOptions.map((srv) => (
+                    <SelectItem
+                      key={srv.id}
+                      value={srv.id.toString()}
+                      text={`${srv.serviceId} - ${srv.name}${srv.category ? ` (${srv.category})` : ""}`}
+                    />
+                  ))
+                )}
+              </Select>
+            </div>
+          </div>
+
+          {/* Active Filter Bar & Reset */}
+          {(serviceSearchQuery || selectedCategoryFilter !== "All") && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingTop: "0.75rem",
+                marginTop: "0.75rem",
+                borderTop: "1px solid #f0f0f0",
+                fontSize: "0.8125rem",
+                color: "#525252",
+              }}
+            >
+              <span>
+                Showing <strong>{filteredProcedureOptions.length}</strong> of{" "}
+                <strong>{visibleServices.length}</strong> procedures
+                {serviceSearchQuery ? ` matching "${serviceSearchQuery}"` : ""}
+                {selectedCategoryFilter !== "All"
+                  ? ` in category "${selectedCategoryFilter}"`
+                  : ""}
+              </span>
+
+              <Button
+                kind="ghost"
+                size="sm"
+                onClick={() => {
+                  setServiceSearchQuery("");
+                  setSelectedCategoryFilter("All");
+                }}
+              >
+                Reset Search & Filter
+              </Button>
+            </div>
+          )}
         </Tile>
 
         <div style={{ width: "100%" }}>
-          <Tabs>
+          <Tabs
+            selectedIndex={selectedTabIndex}
+            onChange={({ selectedIndex }) => {
+              setSelectedTabIndex(selectedIndex);
+              const url = new URL(window.location.href);
+              url.searchParams.set("tab", selectedIndex.toString());
+              window.history.replaceState({}, "", url.toString());
+            }}
+          >
             <TabList aria-label="Configuration Tabs">
               <Tab>Required Documents</Tab>
               <Tab>Fee Schedule</Tab>
+              <Tab>Official Policy & AI Knowledge Base</Tab>
+              <Tab>Department Workflow & Stages</Tab>
             </TabList>
             <TabPanels>
               {/* Documents Tab */}
@@ -831,6 +1360,348 @@ export default function ServiceConfigurationTabs() {
                     </Button>
                   </>
                 )}
+              </TabPanel>
+
+              {/* Tab 3: Official Policy & AI Knowledge Base (Neon Vector DB) */}
+              <TabPanel style={{ padding: "1.5rem 0" }}>
+                <div style={{ marginBottom: "1.5rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+                    <div>
+                      <h4 style={{ margin: 0, fontWeight: 600, fontSize: "1.15rem" }}>
+                        Official Gazettes, Circulars & Dynamic Policy Ingestion
+                      </h4>
+                      <p style={{ margin: "0.4rem 0 0 0", color: "#525252", fontSize: "0.875rem", maxWidth: "800px" }}>
+                        Upload official government circulars, statutory gazettes, or departmental rules for <strong>{selectedServiceName}</strong>.
+                        The system parses the document, computes 768-dimensional semantic embeddings, and stores them in Neon PostgreSQL vector storage for real-time citizen AI guidance.
+                      </p>
+                    </div>
+                    <div style={{ display: "flex", gap: "0.75rem" }}>
+                      <Button
+                        kind="tertiary"
+                        size="md"
+                        renderIcon={Renew}
+                        disabled={isUploadingKnowledge}
+                        onClick={handleIngestLocalDocs}
+                      >
+                        Ingest Sri Lankan Gazettes
+                      </Button>
+                      {knowledgeChunks.length > 0 && (
+                        <Button
+                          kind="danger--ghost"
+                          size="md"
+                          renderIcon={TrashCan}
+                          disabled={isUploadingKnowledge}
+                          onClick={handleClearKnowledge}
+                        >
+                          Clear Service Knowledge
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Upload & Vectorization Form */}
+                <Tile style={{ marginBottom: "2rem", padding: "1.5rem", border: "1px solid #e0e0e0" }}>
+                  <h5 style={{ margin: "0 0 1rem 0", fontWeight: 600, fontSize: "1rem" }}>
+                    Ingest Official Circular or Regulatory Policy
+                  </h5>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+                    <TextInput
+                      id="policy-title-input"
+                      labelText="Document / Gazette Title"
+                      placeholder="e.g. Gazette Extraordinary No. 2341/14 - Revised Passport & Biometric Regulations"
+                      value={policyTitle}
+                      onChange={(e) => setPolicyTitle(e.target.value)}
+                    />
+
+                    <div>
+                      <label style={{ display: "block", fontSize: "0.75rem", color: "#525252", marginBottom: "0.35rem", fontWeight: 500 }}>
+                        Attach Gazette / Rule Document (.md, .txt, .pdf)
+                      </label>
+                      <input
+                        id="policy-file-input"
+                        type="file"
+                        accept=".md,.txt,.pdf"
+                        style={{
+                          padding: "0.5rem",
+                          border: "1px solid #8d8d8d",
+                          backgroundColor: "#f4f4f4",
+                          width: "100%",
+                          borderRadius: "4px"
+                        }}
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            setPolicyFile(e.target.files[0]);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <TextArea
+                      id="policy-text-input"
+                      labelText="Or Paste Official Policy Text / Legal Provisions directly"
+                      placeholder="Paste statutory rules, mandatory prerequisites, counter requirements, medical guidelines, or fee provisions here..."
+                      rows={5}
+                      value={policyText}
+                      onChange={(e) => setPolicyText(e.target.value)}
+                    />
+
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <Button
+                        kind="primary"
+                        renderIcon={Upload}
+                        disabled={isUploadingKnowledge || (!policyText.trim() && !policyFile)}
+                        onClick={handleUploadPolicy}
+                      >
+                        {isUploadingKnowledge ? "Vectorizing & Ingesting..." : "Vectorize & Ingest to Neon DB"}
+                      </Button>
+                    </div>
+                  </div>
+                </Tile>
+
+                {/* Active Knowledge Chunks Viewer */}
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                    <h5 style={{ margin: 0, fontWeight: 600, fontSize: "1rem" }}>
+                      Active Neon Vector Chunks
+                    </h5>
+                    <Tag type={knowledgeChunks.length > 0 ? "teal" : "gray"}>
+                      {knowledgeChunks.length} Chunks Indexed in Neon DB
+                    </Tag>
+                  </div>
+
+                  {knowledgeLoading ? (
+                    <div style={{ padding: "2rem", textAlign: "center" }}>
+                      <Loading description="Loading vectorized chunks from Neon DB..." withOverlay={false} small />
+                    </div>
+                  ) : knowledgeChunks.length === 0 ? (
+                    <Tile style={{ padding: "2rem", textAlign: "center", backgroundColor: "#f4f4f4", border: "1px dashed #8d8d8d" }}>
+                      <p style={{ margin: 0, color: "#525252", fontSize: "0.95rem" }}>
+                        No vector chunks indexed yet for <strong>{selectedServiceName}</strong>.
+                      </p>
+                      <p style={{ margin: "0.5rem 0 0 0", color: "#6f6f6f", fontSize: "0.85rem" }}>
+                        Click <strong>&quot;Ingest Sri Lankan Gazettes&quot;</strong> above or upload an official circular to populate authentic regulatory context for citizen AI assistance.
+                      </p>
+                    </Tile>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                      {knowledgeChunks.map((chunk, index) => (
+                        <Tile key={chunk.id || index} style={{ padding: "1.2rem", borderLeft: "4px solid #0f62fe", backgroundColor: "#ffffff" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
+                            <Tag type="blue">Chunk #{index + 1}</Tag>
+                            <span style={{ fontSize: "0.75rem", color: "#6f6f6f", fontFamily: "monospace" }}>
+                              Source: {chunk.sourceCategory || "Official Sri Lankan Policy Document"}
+                            </span>
+                          </div>
+                          <div style={{
+                            fontSize: "0.875rem",
+                            color: "#161616",
+                            whiteSpace: "pre-wrap",
+                            lineHeight: "1.5",
+                            backgroundColor: "#f4f4f4",
+                            padding: "0.85rem",
+                            borderRadius: "4px",
+                            fontFamily: "monospace"
+                          }}>
+                            {chunk.content}
+                          </div>
+                        </Tile>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </TabPanel>
+
+              {/* Tab 4: Multi-Department Workflow & Stages */}
+              <TabPanel style={{ padding: "2rem 0", backgroundColor: "transparent" }}>
+                <Tile style={{ marginBottom: "2rem", backgroundColor: "#fff", borderLeft: "4px solid #0f62fe" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+                    <div>
+                      <h4 style={{ margin: "0 0 0.5rem 0", fontWeight: 600, fontSize: "1.25rem" }}>
+                        Multi-Department Verification Workflow
+                      </h4>
+                      <p style={{ margin: 0, color: "#525252", fontSize: "0.875rem", maxWidth: "680px" }}>
+                        Configure sequential verification stages across different Sri Lankan ministries and departments. 
+                        Applications progress sequentially: an officer in Stage 1 verifies initial credentials before Stage 2 is unlocked 
+                        for the subsequent department.
+                      </p>
+                    </div>
+                    <Button 
+                      kind="primary" 
+                      size="md" 
+                      onClick={handleSaveWorkflow} 
+                      disabled={isSavingWorkflow}
+                    >
+                      {isSavingWorkflow ? "Saving Workflow..." : "Save Workflow Configuration"}
+                    </Button>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "1.5rem", marginTop: "1.5rem", paddingTop: "1.5rem", borderTop: "1px solid #e0e0e0" }}>
+                    <div>
+                      <Select
+                        id="workflow-type-select"
+                        labelText="Workflow Structure"
+                        helperText="Choose whether this service requires a single stage or multiple sequential stages."
+                        value={workflowType}
+                        onChange={(e) => {
+                          const type = e.target.value as "single" | "multiple";
+                          setWorkflowType(type);
+                          if (type === "single") {
+                            setTotalStages(1);
+                            setWorkflowDepartments((prev) => [prev[0] || "Civil Department"]);
+                          } else {
+                            const newTotal = totalStages > 1 ? totalStages : 2;
+                            setTotalStages(newTotal);
+                            const updated = [...workflowDepartments];
+                            while (updated.length < newTotal) {
+                              updated.push(AVAILABLE_DEPARTMENTS[updated.length % AVAILABLE_DEPARTMENTS.length] || "Civil Department");
+                            }
+                            setWorkflowDepartments(updated.slice(0, newTotal));
+                          }
+                        }}
+                      >
+                        <SelectItem value="single" text="Single Stage (One Department Review)" />
+                        <SelectItem value="multiple" text="Multiple Stages (Sequential Department Workflow)" />
+                      </Select>
+                    </div>
+
+                    {workflowType === "multiple" && (
+                      <div>
+                        <TextInput
+                          id="totalStages-input"
+                          type="number"
+                          min={2}
+                          max={50}
+                          labelText="Number of Stages"
+                          helperText="Enter the total number of sequential verification stages."
+                          value={totalStages.toString()}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            const newTotal = isNaN(val) ? 2 : Math.max(2, val);
+                            setTotalStages(newTotal);
+                            const updated = [...workflowDepartments];
+                            while (updated.length < newTotal) {
+                              updated.push(AVAILABLE_DEPARTMENTS[updated.length % AVAILABLE_DEPARTMENTS.length] || "Civil Department");
+                            }
+                            setWorkflowDepartments(updated.slice(0, newTotal));
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                      <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#525252", textTransform: "uppercase" }}>
+                        Workflow Architecture Summary
+                      </span>
+                      <div style={{ marginTop: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                        {Array.from({ length: totalStages }).map((_, idx) => (
+                          <div key={idx} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <Tag type="blue">Stage {idx + 1}: {workflowDepartments[idx] || "Unassigned"}</Tag>
+                            {idx < totalStages - 1 && <span style={{ color: "#8d8d8d", fontWeight: "bold" }}>➔</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </Tile>
+
+                {/* Sequential Stage Cards */}
+                <h4 style={{ margin: "0 0 1rem 0", fontWeight: 600, fontSize: "1.1rem" }}>
+                  Department Assignment & Application Forms Per Stage
+                </h4>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                  {Array.from({ length: totalStages }).map((_, idx) => {
+                    const stageNum = idx + 1;
+                    const stageDept = workflowDepartments[idx] || "Civil Department";
+                    const templateForStage = stageTemplates.find((t) => t.stageOrder === stageNum);
+
+                    return (
+                      <Tile 
+                        key={stageNum} 
+                        style={{ 
+                          padding: "1.5rem", 
+                          backgroundColor: "#fff", 
+                          border: templateForStage ? "1px solid #e0e0e0" : "1px dashed #da1e28",
+                          borderRadius: "4px"
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+                          <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
+                              <Tag type="blue" size="md">STAGE {stageNum}</Tag>
+                              <Tag type={templateForStage ? "green" : "red"}>
+                                {templateForStage ? "Form Linked" : "Missing Application Form"}
+                              </Tag>
+                              <span style={{ fontSize: "0.85rem", color: "#525252", fontWeight: 600 }}>
+                                Handled by: {stageDept}
+                              </span>
+                            </div>
+
+                            <p style={{ margin: 0, color: "#161616", fontWeight: 500, fontSize: "1rem" }}>
+                              {templateForStage 
+                                ? `${templateForStage.formName} - ${templateForStage.subTitle || "Stage Application Form"}`
+                                : `Stage ${stageNum} Officer Verification Gate`
+                              }
+                            </p>
+                            {templateForStage?.stageDescription && (
+                              <p style={{ margin: "0.25rem 0 0 0", color: "#525252", fontSize: "0.85rem", fontStyle: "italic" }}>
+                                Instructions: {templateForStage.stageDescription}
+                              </p>
+                            )}
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                            {templateForStage ? (
+                              <Button
+                                kind="tertiary"
+                                size="sm"
+                                onClick={() => handleNavigateToBuilder(
+                                  `/admin/services/builder?id=${templateForStage.id}&serviceId=${selectedServiceId}&stage=${stageNum}&department=${encodeURIComponent(stageDept)}`
+                                )}
+                              >
+                                Edit Stage Form in Builder
+                              </Button>
+                            ) : (
+                              <Button
+                                kind="primary"
+                                size="sm"
+                                onClick={() => handleNavigateToBuilder(
+                                  `/admin/services/builder?serviceId=${selectedServiceId}&stage=${stageNum}&department=${encodeURIComponent(stageDept)}`
+                                )}
+                              >
+                                + Build Stage {stageNum} Form
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Stage Department Selector */}
+                        <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: "1px solid #f4f4f4", display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                          <div style={{ minWidth: "320px", flex: 1 }}>
+                            <Select
+                              id={`stage-dept-${stageNum}`}
+                              labelText={`Assigned Department for Stage ${stageNum}`}
+                              value={stageDept}
+                              onChange={(e) => {
+                                const updated = [...workflowDepartments];
+                                updated[idx] = e.target.value;
+                                setWorkflowDepartments(updated);
+                              }}
+                            >
+                              {AVAILABLE_DEPARTMENTS.map((dept) => (
+                                <SelectItem key={dept} value={dept} text={dept} />
+                              ))}
+                            </Select>
+                          </div>
+                          <div style={{ fontSize: "0.8rem", color: "#525252", maxWidth: "420px" }}>
+                            Officers belonging to <strong>{stageDept}</strong> will automatically receive incoming applications at Stage {stageNum} in their queue.
+                          </div>
+                        </div>
+                      </Tile>
+                    );
+                  })}
+                </div>
               </TabPanel>
             </TabPanels>
           </Tabs>

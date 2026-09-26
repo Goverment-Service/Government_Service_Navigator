@@ -45,6 +45,12 @@ namespace Government_Service_Navigator.Backend.Controllers
             if(template ==null) return NotFound();
             return Ok(template);
         }
+        [HttpGet("by-service/{serviceProcedureId:int}")]
+        public async Task<IActionResult> GetTemplatesByService(int serviceProcedureId)
+        {
+            var templates = await _templateService.GetTemplatesByServiceAsync(serviceProcedureId);
+            return Ok(templates);
+        }
         [HttpPut("update/{id}")]
         public async Task<IActionResult>UpdateTemplate(Guid id, [FromBody] CreateTemplateRequest request)
         {

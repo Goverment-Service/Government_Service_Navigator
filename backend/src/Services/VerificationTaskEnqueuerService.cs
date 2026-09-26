@@ -15,6 +15,8 @@ public class VerificationTaskEnqueuerService : IVerificationTaskEnqueuer
 
     public async Task<int> EnqueueTaskAsync(int applicationId, string citizenNic, string agentId)
     {
+        if (applicationId <= 0) return 0;
+
         var task = await _verificationService.CreateTaskAsync(new CreateTaskRequest
         {
             ApplicationId = applicationId,

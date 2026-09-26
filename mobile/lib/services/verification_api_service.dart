@@ -55,6 +55,19 @@ class VerificationApiService {
 
   static ApplicationItemModel _applicationFromTask(Map<String, dynamic> json) {
     final task = VerificationTaskModel.fromJson(json);
+
+    List<String>? workflowDepts;
+    if (json['workflowDepartments'] is List) {
+      workflowDepts = (json['workflowDepartments'] as List).map((e) => e.toString()).toList();
+    } else if (json['workflowDepartments'] is String) {
+      try {
+        final decoded = jsonDecode(json['workflowDepartments'] as String);
+        if (decoded is List) {
+          workflowDepts = decoded.map((e) => e.toString()).toList();
+        }
+      } catch (_) {}
+    }
+
     return ApplicationItemModel(
       applicationId: task.applicationId,
       referenceNumber: json['referenceNumber']?.toString() ?? 'APP-${task.applicationId}',
@@ -65,6 +78,15 @@ class VerificationApiService {
       applicantName: json['applicantName']?.toString(),
       verificationTask: task,
       installmentPlan: InstallmentSummary.fromJson(json['installmentPlan']),
+      currentStage: (json['currentStage'] as num?)?.toInt() ?? 1,
+      maxStages: (json['maxStages'] as num?)?.toInt() ?? 1,
+      stageStatus: json['stageStatus']?.toString() ?? (task.status == 'Approved' ? 'Completed' : 'PendingReview'),
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      userEmail: json['userEmail']?.toString(),
+      department: json['department']?.toString(),
+      currentDepartment: json['currentDepartment']?.toString(),
+      workflowDepartments: workflowDepts,
+      serviceProcedureId: (json['serviceProcedureId'] as num?)?.toInt() ?? 0,
     );
   }
 

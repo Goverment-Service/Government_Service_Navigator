@@ -168,6 +168,60 @@ export default function AgentDraftPanel({ draft, loading, error, answers, onRege
             )}
           </AccordionItem>
 
+          {/* Agent 4: Validation & Safety Agent */}
+          <AccordionItem title="Phase 4: Safety & Compliance Audit (Agent 4)" open>
+            {draft?.validation ? (
+              <>
+                <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem", alignItems: "center" }}>
+                  <Tag type={draft.validation.isValid ? "green" : "red"}>
+                    {draft.validation.isValid ? "Safety Checks Passed" : "Safety Check Failed"}
+                  </Tag>
+                  <Tag type={draft.validation.isValid ? "cool-gray" : "magenta"}>
+                    {draft.validation.isValid ? "Low Risk" : "High Risk / Attention"}
+                  </Tag>
+                </div>
+
+                <p style={{ ...muted, marginBottom: "0.75rem" }}>{draft.validation.summary}</p>
+
+                {draft.validation.complianceChecks.length > 0 && (
+                  <ul style={{ fontSize: "0.875rem", display: "grid", gap: "0.5rem" }}>
+                    {draft.validation.complianceChecks.map((check, idx) => (
+                      <li
+                        key={idx}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "0.375rem 0.5rem",
+                          background: "#f4f4f4",
+                          borderRadius: "4px"
+                        }}
+                      >
+                        <span><strong>{check.checkType}:</strong> {check.details}</span>
+                        <Tag type={check.isPassed ? "green" : "red"} size="sm">
+                          {check.isPassed ? "PASSED" : "FAILED"}
+                        </Tag>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {draft.validation.rejectionReasons.length > 0 && (
+                  <div style={{ marginTop: "0.75rem" }}>
+                    <Tag type="red">Flagged Issues:</Tag>
+                    <ul style={{ listStyle: "disc", paddingLeft: "1.25rem", marginTop: "0.25rem", color: "#da1e28" }}>
+                      {draft.validation.rejectionReasons.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p style={muted}>Safety and duplicate checks pending review generation.</p>
+            )}
+          </AccordionItem>
+
           {/* What the officer needs to act on */}
           <AccordionItem title="Phase 3: Officer Attention" open>
             {action.isReadyForValidation ? (

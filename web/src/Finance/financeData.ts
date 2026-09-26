@@ -5,6 +5,11 @@ export interface Payment {
   id: number;
   applicationId: string;
   userId: string;
+  citizenNic?: string;
+  citizenName?: string;
+  serviceName?: string;
+  stageNumber?: number;
+  department?: string;
   method: PaymentMethod;
   amount: number;
   status: PaymentStatus;
@@ -18,6 +23,7 @@ export interface Payment {
   paymentDate?: string; // ISO date
   slipFileName?: string;
   slipUploadedAt?: string;
+  manualSlipUrl?: string;
 
   // Online Pay details
   gatewayName?: string;

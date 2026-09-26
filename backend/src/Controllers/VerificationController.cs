@@ -40,7 +40,13 @@ namespace Government_Service_Navigator.Backend.Controllers
             var appIds = tasks.Select(t => t.ApplicationId).ToList();
             var submissions = await _context.ApplicationSubmissions
                 .Where(s => appIds.Contains(s.Id))
-                .Select(s => new { s.Id, s.CitizenNic, ServiceName = s.ServiceProcedure!.Name, s.ServiceProcedure.Category })
+                .Select(s => new {
+                    s.Id,
+                    s.CitizenNic,
+                    ServiceName = s.ServiceProcedure!.Name,
+                    s.ServiceProcedure.Category,
+                    s.CurrentDepartment
+                })
                 .ToDictionaryAsync(s => s.Id);
 
             var nics = submissions.Values.Select(s => s.CitizenNic)
@@ -64,6 +70,10 @@ namespace Government_Service_Navigator.Backend.Controllers
                     t.ApplicationId,
                     t.Status,
                     t.CreatedDate,
+                    t.CurrentStage,
+                    t.MaxStages,
+                    Department = t.Department ?? s?.CurrentDepartment,
+                    t.StageNumber,
                     ReferenceNumber = $"APP-{t.ApplicationId}",
                     CitizenNic = nic,
                     CitizenName = nic != null && names.TryGetValue(nic, out var name) ? name : null,
@@ -73,10 +83,23 @@ namespace Government_Service_Navigator.Backend.Controllers
             }).ToList();
         }
 
-        // The "sub" JWT claim is inbound-mapped to ClaimTypes.NameIdentifier by the JWT bearer
-        // handler; User.Identity.Name (ClaimTypes.Name) is never set, so it always reads null.
-        private string GetCurrentOfficerId() =>
-            User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.Identity?.Name ?? "Unknown";
+        private string GetCurrentOfficerId()
+        {
+            var email = User.FindFirstValue(ClaimTypes.Email) ??
+                        User.FindFirst("email")?.Value;
+            var dept = User.FindFirstValue("department") ?? User.FindFirst("department")?.Value;
+            var name = User.FindFirst("fullName")?.Value ?? User.FindFirst(ClaimTypes.Name)?.Value;
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                return !string.IsNullOrWhiteSpace(dept) ? $"{email} ({dept})" : email;
+            }
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                return !string.IsNullOrWhiteSpace(dept) ? $"{name} ({dept})" : name;
+            }
+            return User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Verifying Officer";
+        }
 
         // Citizen view: only the applications submitted under the caller's own NIC.
         [HttpGet("my-applications")]
@@ -87,11 +110,24 @@ namespace Government_Service_Navigator.Backend.Controllers
 
             var tasks = await _verificationService.GetTasksForCitizenAsync(nic);
 
-            // Attach the service name/department from the citizen's submissions so the app can label each entry.
+            // Attach the service name/department and stage metadata from the citizen's submissions so the app can label each entry.
             var appIds = tasks.Select(t => t.ApplicationId).ToList();
             var services = await _context.ApplicationSubmissions
                 .Where(s => appIds.Contains(s.Id) && s.CitizenNic == nic)
-                .Select(s => new { s.Id, s.ServiceProcedure!.Name, s.ServiceProcedure.Category })
+                .Select(s => new
+                {
+                    s.Id,
+                    s.ServiceProcedureId,
+                    s.ServiceProcedure!.Name,
+                    s.ServiceProcedure.Category,
+                    Amount = s.ServiceProcedure.FeeSchedules.OrderByDescending(f => f.EffectiveDate).Select(f => (double?)f.Amount).FirstOrDefault() ?? 0.0,
+                    s.CurrentStage,
+                    s.MaxStages,
+                    s.StageStatus,
+                    s.CurrentDepartment,
+                    WorkflowDepartments = s.ServiceProcedure.WorkflowDepartments,
+                    s.UserEmail
+                })
                 .ToDictionaryAsync(s => s.Id);
 
             // Latest installment plan per application, so the app can open its schedule from the application card
@@ -115,27 +151,40 @@ namespace Government_Service_Navigator.Backend.Controllers
                 .GroupBy(p => p.ApplicationId)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.Id).First());
 
-            return Ok(tasks.Select(t => new
+            return Ok(tasks.Select(t =>
             {
-                t.Id,
-                t.ApplicationId,
-                t.Status,
-                t.CreatedDate,
-                ReferenceNumber = $"APP-{t.ApplicationId}",
-                ServiceName = services.TryGetValue(t.ApplicationId, out var s) ? s.Name : null,
-                Category = s?.Category,
-                InstallmentPlan = planByApp.TryGetValue(t.ApplicationId, out var plan)
-                    ? new
-                    {
-                        PlanId = plan.Id,
-                        plan.Status,
-                        plan.NumberOfInstallments,
-                        plan.PaidCount,
-                        NextAmount = plan.Next?.Amount,
-                        NextDueDate = plan.Next?.DueDate,
-                        NextStatus = plan.Next?.Status
-                    }
-                    : null
+                var s = services.TryGetValue(t.ApplicationId, out var sub) ? sub : null;
+                return new
+                {
+                    t.Id,
+                    t.ApplicationId,
+                    t.Status,
+                    t.CreatedDate,
+                    ReferenceNumber = $"APP-{t.ApplicationId}",
+                    ServiceName = s?.Name,
+                    Category = s?.Category,
+                    Department = t.Department ?? s?.CurrentDepartment,
+                    CurrentDepartment = s?.CurrentDepartment,
+                    WorkflowDepartments = s?.WorkflowDepartments,
+                    ServiceProcedureId = s?.ServiceProcedureId ?? 0,
+                    CurrentStage = t.CurrentStage > 0 ? t.CurrentStage : (s?.CurrentStage ?? 1),
+                    MaxStages = t.MaxStages > 0 ? t.MaxStages : (s?.MaxStages ?? 1),
+                    StageStatus = !string.IsNullOrEmpty(s?.StageStatus) ? s.StageStatus : (t.Status == "Approved" ? "Completed" : "PendingReview"),
+                    Amount = s?.Amount ?? 0.0,
+                    UserEmail = s?.UserEmail ?? string.Empty,
+                    InstallmentPlan = planByApp.TryGetValue(t.ApplicationId, out var plan)
+                        ? new
+                        {
+                            PlanId = plan.Id,
+                            plan.Status,
+                            plan.NumberOfInstallments,
+                            plan.PaidCount,
+                            NextAmount = plan.Next?.Amount,
+                            NextDueDate = plan.Next?.DueDate,
+                            NextStatus = plan.Next?.Status
+                        }
+                        : null
+                };
             }));
         }
 
@@ -143,7 +192,11 @@ namespace Government_Service_Navigator.Backend.Controllers
         [HttpGet("tasks/pending")]
         public async Task<IActionResult> GetPendingTasks()
         {
-            var tasks = await _verificationService.GetPendingTasksAsync();
+            var role = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+            var dept = User.FindFirstValue("department") ?? User.FindFirst("department")?.Value;
+            var isSystemAdmin = role.Contains("System Admin", StringComparison.OrdinalIgnoreCase) || role == "Admin";
+            var deptScope = isSystemAdmin || string.IsNullOrEmpty(dept) ? null : dept;
+            var tasks = await _verificationService.GetPendingTasksAsync(deptScope);
             return Ok(await WithApplicationDetailsAsync(tasks));
         }
 
@@ -151,7 +204,11 @@ namespace Government_Service_Navigator.Backend.Controllers
         [HttpGet("tasks/verified")]
         public async Task<IActionResult> GetVerifiedTasks()
         {
-            var tasks = await _verificationService.GetVerifiedTasksAsync();
+            var role = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+            var dept = User.FindFirstValue("department") ?? User.FindFirst("department")?.Value;
+            var isSystemAdmin = role.Contains("System Admin", StringComparison.OrdinalIgnoreCase) || role == "Admin";
+            var deptScope = isSystemAdmin || string.IsNullOrEmpty(dept) ? null : dept;
+            var tasks = await _verificationService.GetVerifiedTasksAsync(deptScope);
             return Ok(await WithApplicationDetailsAsync(tasks));
         }
 
@@ -163,8 +220,19 @@ namespace Government_Service_Navigator.Backend.Controllers
             var task = await _context.VerificationTasks.FindAsync(id);
             if (task == null) return NotFound();
 
-            var summary = (await WithApplicationDetailsAsync(new List<VerificationTask> { task }))[0];
             var submission = await _context.ApplicationSubmissions.FindAsync(task.ApplicationId);
+
+            var role = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+            var dept = User.FindFirstValue("department") ?? User.FindFirst("department")?.Value;
+            var isSystemAdmin = role.Contains("System Admin", StringComparison.OrdinalIgnoreCase) || role == "Admin";
+
+            var taskDept = task.Department ?? submission?.CurrentDepartment;
+            if (!isSystemAdmin && !string.IsNullOrEmpty(dept) && !string.IsNullOrEmpty(taskDept) && !string.Equals(taskDept, dept, StringComparison.OrdinalIgnoreCase))
+            {
+                return Forbid();
+            }
+
+            var summary = (await WithApplicationDetailsAsync(new List<VerificationTask> { task }))[0];
 
             Dictionary<string, string> answers = new();
             if (submission != null)
@@ -180,13 +248,90 @@ namespace Government_Service_Navigator.Backend.Controllers
                 .Select(d => new { d.Id, d.FieldLabel, d.FileName, d.ContentType, d.SizeBytes, d.UploadedAt })
                 .ToListAsync();
 
+            // Check if there is payment processing for this stage / application
+            var payment = await _context.Payments
+                .Where(p => p.ApplicationId == task.ApplicationId)
+                .OrderByDescending(p => p.Id)
+                .FirstOrDefaultAsync();
+
+            decimal stageFeeAmount = 0m;
+            bool stageHasPaymentField = false;
+            if (submission != null)
+            {
+                var template = await _context.Templates
+                    .Include(t => t.Fields)
+                    .FirstOrDefaultAsync(t => t.ServiceProcedureId == submission.ServiceProcedureId && t.StageOrder == task.StageNumber && t.Status == "Active");
+                var paymentField = template?.Fields.FirstOrDefault(f => f.Type == "payment");
+                if (paymentField != null)
+                {
+                    stageHasPaymentField = true;
+                    if (!string.IsNullOrWhiteSpace(paymentField.Options))
+                    {
+                        try
+                        {
+                            using var pDoc = JsonDocument.Parse(paymentField.Options);
+                            if (pDoc.RootElement.TryGetProperty("amount", out var a)) stageFeeAmount = a.GetDecimal();
+                        }
+                        catch { }
+                    }
+                }
+            }
+
+            object? paymentInfo = null;
+            if (stageHasPaymentField && stageFeeAmount > 0)
+            {
+                if (payment != null)
+                {
+                    paymentInfo = new
+                    {
+                        id = payment.Id,
+                        hasPayment = true,
+                        amount = payment.Amount,
+                        status = payment.Status, // "Paid", "PendingVerification", "Pending", "Failed"
+                        isVerified = payment.Status == "Paid",
+                        method = payment.Method,
+                        slipUrl = payment.ManualSlipUrl,
+                        paidDate = payment.PaidDate
+                    };
+                }
+                else
+                {
+                    paymentInfo = new
+                    {
+                        id = (int?)null,
+                        hasPayment = true,
+                        amount = stageFeeAmount,
+                        status = "Pending",
+                        isVerified = false,
+                        method = "Unpaid",
+                        slipUrl = (string?)null,
+                        paidDate = (DateTime?)null
+                    };
+                }
+            }
+            else if (submission != null && submission.MaxStages <= 1 && payment != null)
+            {
+                paymentInfo = new
+                {
+                    id = payment.Id,
+                    hasPayment = true,
+                    amount = payment.Amount,
+                    status = payment.Status,
+                    isVerified = payment.Status == "Paid",
+                    method = payment.Method,
+                    slipUrl = payment.ManualSlipUrl,
+                    paidDate = payment.PaidDate
+                };
+            }
+
             return Ok(new
             {
                 task = summary,
                 submittedAt = submission?.SubmittedAt,
                 userEmail = submission?.UserEmail,
                 answers,
-                documents
+                documents,
+                payment = paymentInfo
             });
         }
 
@@ -274,20 +419,104 @@ namespace Government_Service_Navigator.Backend.Controllers
         [HttpPut("tasks/{id}/decision")]
         public async Task<IActionResult> RecordDecision(int id, [FromBody] VerificationDecisionRequest request)
         {
+            var task = await _context.VerificationTasks.FindAsync(id);
+            if (task == null) return NotFound("Task not found or update failed");
+
+            // Guard: If approving, ensure statutory fee for this stage is verified by Finance!
+            if (string.Equals(request.Status, "Approved", StringComparison.OrdinalIgnoreCase))
+            {
+                var submission = await _context.ApplicationSubmissions.FindAsync(task.ApplicationId);
+                if (submission != null)
+                {
+                    var currentStageNum = task.StageNumber > 0 ? task.StageNumber : task.CurrentStage;
+                    var template = await _context.Templates
+                        .Include(t => t.Fields)
+                        .FirstOrDefaultAsync(t => t.ServiceProcedureId == submission.ServiceProcedureId 
+                                               && t.StageOrder == currentStageNum 
+                                               && t.Status == "Active");
+                    var paymentField = template?.Fields.FirstOrDefault(f => f.Type == "payment");
+                    if (paymentField != null)
+                    {
+                        var payment = await _context.Payments
+                            .Where(p => p.ApplicationId == task.ApplicationId)
+                            .OrderByDescending(p => p.Id)
+                            .FirstOrDefaultAsync();
+
+                        if (payment == null || payment.Status != "Paid")
+                        {
+                            return BadRequest(new 
+                            { 
+                                message = $"Cannot complete Stage {currentStageNum} as verified: Statutory payment has not been verified by the Department Finance Officer." 
+                            });
+                        }
+                    }
+                }
+            }
+
             var result = await _verificationService.RecordDecisionAsync(id, request, GetCurrentOfficerId());
 
             if (!result) return NotFound("Task not found or update failed");
             return Ok();
         }
 
+        public class DeleteApplicationRequest
+        {
+            public string? Reason { get; set; }
+        }
+
         [Authorize(Roles = OfficerRoles)]
         [HttpDelete("tasks/{id}")]
-        public async Task<IActionResult> DeleteTask(int id)
+        public async Task<IActionResult> DeleteTask(int id, [FromQuery] string? reason = null)
         {
-            var result = await _verificationService.DeleteTaskAsync(id, GetCurrentOfficerId());
+            var result = await _verificationService.DeleteTaskAsync(id, GetCurrentOfficerId(), reason);
 
-            if (!result) return NotFound();
-            return NoContent();
+            if (!result) return NotFound(new { success = false, message = $"Verification task {id} not found." });
+            return Ok(new { success = true, message = "Application deleted from verification queue and recorded in audit log." });
+        }
+
+        [Authorize(Roles = OfficerRoles)]
+        [HttpPost("tasks/{id}/delete")]
+        public async Task<IActionResult> DeleteTaskPost(int id, [FromBody] DeleteApplicationRequest? request = null, [FromQuery] string? reason = null)
+        {
+            var effectiveReason = request?.Reason ?? reason;
+            var result = await _verificationService.DeleteTaskAsync(id, GetCurrentOfficerId(), effectiveReason);
+
+            if (!result) return NotFound(new { success = false, message = $"Verification task {id} not found." });
+            return Ok(new { success = true, message = "Application deleted from verification queue and recorded in audit log." });
+        }
+
+        [Authorize(Roles = OfficerRoles)]
+        [HttpDelete("applications/{applicationId}")]
+        public async Task<IActionResult> DeleteApplication(int applicationId, [FromQuery] string? reason = null, [FromBody] DeleteApplicationRequest? request = null)
+        {
+            var officerId = GetCurrentOfficerId();
+            var effectiveReason = request?.Reason ?? reason;
+            var task = await _context.VerificationTasks.FirstOrDefaultAsync(t => t.ApplicationId == applicationId);
+            if (task != null)
+            {
+                var result = await _verificationService.DeleteTaskAsync(task.Id, officerId, effectiveReason);
+                if (!result) return NotFound(new { success = false, message = $"Application {applicationId} not found." });
+                return Ok(new { success = true, message = $"Application {applicationId} deleted and audit logged." });
+            }
+
+            var submission = await _context.ApplicationSubmissions
+                .Include(s => s.ServiceProcedure)
+                .FirstOrDefaultAsync(s => s.Id == applicationId);
+            if (submission == null) return NotFound(new { success = false, message = $"Application {applicationId} not found." });
+
+            submission.StageStatus = "Deleted";
+            var serviceName = submission.ServiceProcedure?.Name ?? "General Service";
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ApplicationId = applicationId,
+                Action = "Application Deleted",
+                PerformedBy = officerId,
+                Timestamp = DateTime.UtcNow,
+                OldValues = $"Citizen: {submission.CitizenNic}, Service: {serviceName}, Stage: {submission.CurrentStage}, PreviousStatus: {submission.StageStatus}",
+                NewValues = $"Deleted by verifying officer {officerId}. Reason: {effectiveReason ?? "Application not required for review"}"
+            });
+            await _context.SaveChangesAsync();
+            return Ok(new { success = true, message = $"Application {applicationId} deleted and audit logged." });
         }
 
         [Authorize(Roles = OfficerRoles)]
@@ -323,6 +552,113 @@ namespace Government_Service_Navigator.Backend.Controllers
             if (!success) return NotFound();
             return Ok();
         }
+
+        [Authorize(Roles = OfficerRoles)]
+        [HttpPut("tasks/{id}/approve-stage")]
+        public async Task<IActionResult> ApproveStage(int id, [FromBody] ApproveStageRequest request)
+        {
+            var task = await _context.VerificationTasks.FindAsync(id);
+            if (task == null) return NotFound("Task not found.");
+
+            var submission = await _context.ApplicationSubmissions.FindAsync(task.ApplicationId);
+            if (submission == null) return NotFound("Submission not found.");
+
+            // Guard: Ensure statutory fee for THIS stage is verified by Finance Officer!
+            var currentStageNum = task.StageNumber > 0 ? task.StageNumber : task.CurrentStage;
+            var template = await _context.Templates
+                .Include(t => t.Fields)
+                .FirstOrDefaultAsync(t => t.ServiceProcedureId == submission.ServiceProcedureId 
+                                       && t.StageOrder == currentStageNum 
+                                       && t.Status == "Active");
+            var paymentField = template?.Fields.FirstOrDefault(f => f.Type == "payment");
+            if (paymentField != null)
+            {
+                var payment = await _context.Payments
+                    .Where(p => p.ApplicationId == task.ApplicationId)
+                    .OrderByDescending(p => p.Id)
+                    .FirstOrDefaultAsync();
+
+                if (payment == null || payment.Status != "Paid")
+                {
+                    return BadRequest(new 
+                    { 
+                        message = $"Cannot approve Stage {currentStageNum} milestone: Statutory fee payment has not been verified by the Department Finance Officer." 
+                    });
+                }
+            }
+
+            var officerId = GetCurrentOfficerId();
+
+            // 1. Advance the stage
+            var prevStage = task.CurrentStage;
+            var prevDept = task.Department ?? submission.CurrentDepartment ?? "Verifying Department";
+
+            if (task.CurrentStage < task.MaxStages)
+            {
+                task.CurrentStage++;
+                task.StageNumber = task.CurrentStage;
+                submission.CurrentStage = task.CurrentStage;
+
+                // Look for the template assigned to the next stage
+                var nextTemplate = await _context.Templates
+                    .Where(t => t.ServiceProcedureId == submission.ServiceProcedureId && t.StageOrder == task.CurrentStage && t.Status == "Active")
+                    .FirstOrDefaultAsync();
+
+                if (nextTemplate != null)
+                {
+                    task.Department = nextTemplate.Department;
+                    submission.CurrentDepartment = nextTemplate.Department;
+                    task.Status = "Pending";
+                    submission.StageStatus = "StageApproved";
+                }
+                else
+                {
+                    task.Status = "Pending";
+                    submission.StageStatus = "AwaitingFeePayment"; // Unlocks fee payment milestone for the citizen!
+                }
+            }
+            else
+            {
+                // All stages finished
+                task.Status = "Approved";
+                submission.StageStatus = "Completed";
+            }
+
+            // 2. Audit log the milestone approval
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ApplicationId = submission.Id,
+                Action = $"Stage {prevStage} Milestone Approved by {prevDept}",
+                PerformedBy = officerId,
+                Timestamp = DateTime.UtcNow,
+                OldValues = $"Stage: {prevStage}, Dept: {prevDept}",
+                NewValues = $"Stage: {task.CurrentStage}, NextDept: {submission.CurrentDepartment}, Note: {request.Notes}"
+            });
+
+            // 3. Trigger citizen notification
+            var notificationService = HttpContext.RequestServices.GetService<INotificationService>();
+            if (notificationService != null && !string.IsNullOrEmpty(submission.UserEmail))
+            {
+                var nextNotice = !string.IsNullOrEmpty(submission.CurrentDepartment)
+                    ? $"Please open the app to submit the Stage {task.CurrentStage} form for {submission.CurrentDepartment}."
+                    : $"Please open the app to complete Stage {task.CurrentStage}.";
+
+                await notificationService.SendEmailAsync(
+                    submission.UserEmail,
+                    $"Stage {prevStage} Approved by {prevDept}!",
+                    $"Your Stage {prevStage} application has been verified and approved by {prevDept}. {nextNotice}"
+                );
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { currentStage = task.CurrentStage, maxStages = task.MaxStages, status = task.Status, currentDepartment = submission.CurrentDepartment });
+        }
+
+        public class ApproveStageRequest
+        {
+            public string? Notes { get; set; }
+        }
+
 
         [Authorize(Roles = OfficerRoles)]
         [HttpDelete("rejection-reasons/{id}")]

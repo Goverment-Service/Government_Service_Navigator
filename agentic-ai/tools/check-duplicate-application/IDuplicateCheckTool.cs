@@ -13,7 +13,7 @@ namespace Government_Service_Navigator.AgenticAi.Tools.CheckDuplicateApplication
 
     public interface IDuplicateCheckTool
     {
-        Task<DuplicateCheckOutcome> CheckAsync(string citizenNic, int serviceProcedureId);
+        Task<DuplicateCheckOutcome> CheckAsync(string citizenNic, int serviceProcedureId, int currentApplicationId = 0);
         void RegisterApplication(string citizenNic, int serviceProcedureId, string reference);
     }
 }

@@ -12,5 +12,6 @@ public record ActionDraftRequest(
     EligibilityPlanResponse Eligibility,
     List<string>? ProvidedDocuments = null,
     DateTime? PreferredAppointmentDateUtc = null,
-    bool ExpressProcessing = false
+    bool ExpressProcessing = false,
+    int? Stage = null
 );

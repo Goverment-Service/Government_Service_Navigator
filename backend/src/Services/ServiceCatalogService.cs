@@ -251,6 +251,15 @@ namespace Government_Service_Navigator.Backend.Services
             return true;
         }
 
+        public async Task<ServiceProcedure?> UpdateWorkflowAsync(int id, int totalStages, List<string> departments)
+        {
+            var service = await _context.ServiceProcedures.FindAsync(id);
+            if (service == null) return null;
 
+            service.TotalStages = totalStages;
+            service.WorkflowDepartments = System.Text.Json.JsonSerializer.Serialize(departments);
+            await _context.SaveChangesAsync();
+            return service;
+        }
     }
 }

@@ -187,6 +187,15 @@ class ApplicationItemModel {
   final VerificationTaskModel? verificationTask;
   final List<AuditLogModel> auditLogs;
   final InstallmentSummary? installmentPlan;
+  final int currentStage;
+  final int maxStages;
+  final String stageStatus;
+  final double amount;
+  final String? userEmail;
+  final String? department;
+  final String? currentDepartment;
+  final List<String>? workflowDepartments;
+  final int serviceProcedureId;
 
   ApplicationItemModel({
     required this.applicationId,
@@ -199,12 +208,30 @@ class ApplicationItemModel {
     this.verificationTask,
     this.auditLogs = const [],
     this.installmentPlan,
+    this.currentStage = 1,
+    this.maxStages = 1,
+    this.stageStatus = 'PendingReview',
+    this.amount = 0.0,
+    this.userEmail,
+    this.department,
+    this.currentDepartment,
+    this.workflowDepartments,
+    this.serviceProcedureId = 0,
   });
 
   ApplicationItemModel copyWith({
     String? status,
     VerificationTaskModel? verificationTask,
     List<AuditLogModel>? auditLogs,
+    int? currentStage,
+    int? maxStages,
+    String? stageStatus,
+    double? amount,
+    String? userEmail,
+    String? department,
+    String? currentDepartment,
+    List<String>? workflowDepartments,
+    int? serviceProcedureId,
   }) {
     return ApplicationItemModel(
       applicationId: applicationId,
@@ -217,6 +244,15 @@ class ApplicationItemModel {
       verificationTask: verificationTask ?? this.verificationTask,
       auditLogs: auditLogs ?? this.auditLogs,
       installmentPlan: installmentPlan,
+      currentStage: currentStage ?? this.currentStage,
+      maxStages: maxStages ?? this.maxStages,
+      stageStatus: stageStatus ?? this.stageStatus,
+      amount: amount ?? this.amount,
+      userEmail: userEmail ?? this.userEmail,
+      department: department ?? this.department,
+      currentDepartment: currentDepartment ?? this.currentDepartment,
+      workflowDepartments: workflowDepartments ?? this.workflowDepartments,
+      serviceProcedureId: serviceProcedureId ?? this.serviceProcedureId,
     );
   }
 }

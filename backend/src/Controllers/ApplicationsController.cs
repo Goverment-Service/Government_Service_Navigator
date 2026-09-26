@@ -9,6 +9,8 @@ using Government_Service_Navigator.Backend.DTOs.Requests;
 using Government_Service_Navigator.Backend.Models.Entities;
 using Government_Service_Navigator.Backend.Services;
 using Government_Service_Navigator.Backend.Services.Interfaces;
+using Government_Service_Navigator.AgenticAi.Agents.ValidationSafety;
+using Government_Service_Navigator.AgenticAi.Schemas;
 
 namespace Government_Service_Navigator.Backend.Controllers
 {
@@ -24,10 +26,12 @@ namespace Government_Service_Navigator.Backend.Controllers
         // Service Catalog category -> department; mirrors web/src/constants/departments.ts.
         private static readonly Dictionary<string, string> DepartmentByCategory = new(StringComparer.OrdinalIgnoreCase)
         {
+            ["Immigration"] = "Department of Immigration & Emigration",
+            ["Transport"] = "Department of Motor Traffic",
             ["Police"] = "Police Department",
-            ["Commerce"] = "Finance Department",
-            ["Transport"] = "Transport Department",
-            ["Civil"] = "Civil Department",
+            ["Civil"] = "Department of Registration of Persons",
+            ["Public Administration"] = "Divisional Secretariat",
+            ["Commerce"] = "Divisional Secretariat",
         };
 
         private const string PresentedByKey = "Presented by";
@@ -36,29 +40,89 @@ namespace Government_Service_Navigator.Backend.Controllers
         private readonly AppDbContext _context;
         private readonly IVerificationService _verificationService;
         private readonly ICalculateFeeTool _feeTool;
+        private readonly IValidationSafetyAgent _safetyAgent;
 
-        public ApplicationsController(AppDbContext context, IVerificationService verificationService, ICalculateFeeTool feeTool)
+        public ApplicationsController(AppDbContext context, IVerificationService verificationService, ICalculateFeeTool feeTool, IValidationSafetyAgent safetyAgent)
         {
             _context = context;
             _verificationService = verificationService;
             _feeTool = feeTool;
+            _safetyAgent = safetyAgent;
         }
 
         // Active application template linked to the service, or 404 if the admin hasn't built one.
-        [HttpGet("form/{serviceProcedureId}")]
-        public async Task<IActionResult> GetForm(int serviceProcedureId)
+        [HttpGet("form/{serviceProcedureId:int}")]
+        public async Task<IActionResult> GetForm(int serviceProcedureId, [FromQuery] int stage = 1)
         {
-            var template = await _context.Templates
+            var query = _context.Templates
                 .Include(t => t.Fields.OrderBy(f => f.OrderIndex))
-                .Where(t => t.ServiceProcedureId == serviceProcedureId && t.Status == "Active")
+                .Where(t => t.ServiceProcedureId == serviceProcedureId && t.Status == "Active");
+
+            var template = await query
+                .Where(t => t.StageOrder == stage)
                 .OrderByDescending(t => t.CreatedAt)
-                .FirstOrDefaultAsync();
+                .FirstOrDefaultAsync()
+                ?? await query.OrderBy(t => t.StageOrder).FirstOrDefaultAsync();
 
             if (template == null) return NotFound("No application form is available for this service yet.");
 
             var service = await _context.ServiceProcedures.FindAsync(serviceProcedureId);
-            var (department, email) = await ResolveDepartmentAsync(service?.Category);
-            return Ok(new { template, department = new { name = department, email } });
+            var deptName = !string.IsNullOrEmpty(template.Department) ? template.Department : null;
+            var (resolvedDept, email) = await ResolveDepartmentAsync(deptName ?? service?.Category);
+
+            List<string> workflowDepts = new();
+            if (!string.IsNullOrEmpty(service?.WorkflowDepartments))
+            {
+                try { workflowDepts = JsonSerializer.Deserialize<List<string>>(service!.WorkflowDepartments) ?? new(); }
+                catch { }
+            }
+
+            return Ok(new
+            {
+                template,
+                stage = template.StageOrder,
+                totalStages = service?.TotalStages ?? 1,
+                workflowDepartments = workflowDepts,
+                department = new { name = deptName ?? resolvedDept, email }
+            });
+        }
+
+        // Returns all configured workflow stages and application forms for a service
+        [HttpGet("stages/{serviceProcedureId:int}")]
+        public async Task<IActionResult> GetStages(int serviceProcedureId)
+        {
+            var service = await _context.ServiceProcedures.FindAsync(serviceProcedureId);
+            if (service == null) return NotFound("Service not found.");
+
+            var templates = await _context.Templates
+                .Where(t => t.ServiceProcedureId == serviceProcedureId && t.Status == "Active")
+                .OrderBy(t => t.StageOrder)
+                .Select(t => new
+                {
+                    t.Id,
+                    t.FormName,
+                    t.SubTitle,
+                    t.Department,
+                    t.StageOrder,
+                    t.StageDescription
+                })
+                .ToListAsync();
+
+            List<string> workflowDepts = new();
+            if (!string.IsNullOrEmpty(service.WorkflowDepartments))
+            {
+                try { workflowDepts = JsonSerializer.Deserialize<List<string>>(service.WorkflowDepartments) ?? new(); }
+                catch { }
+            }
+
+            return Ok(new
+            {
+                serviceId = service.Id,
+                serviceName = service.Name,
+                totalStages = service.TotalStages,
+                workflowDepartments = workflowDepts,
+                stageForms = templates
+            });
         }
 
         // The department handling a service category, and the email of its active Department Admin.
@@ -137,13 +201,20 @@ namespace Government_Service_Navigator.Backend.Controllers
             foreach (var (label, id) in request.Documents)
                 request.Answers[label] = documents[id].FileName;
 
+            string? targetDept = null;
+            int stageOrder = 1;
+            Template? template = null;
+
             if (request.TemplateId.HasValue)
             {
-                var template = await _context.Templates
+                template = await _context.Templates
                     .Include(t => t.Fields)
                     .FirstOrDefaultAsync(t => t.Id == request.TemplateId.Value
                                               && t.ServiceProcedureId == request.ServiceProcedureId);
                 if (template == null) return BadRequest("Form does not belong to this service.");
+
+                targetDept = template.Department;
+                stageOrder = template.StageOrder;
 
                 var missing = template.Fields
                     .Where(f => f.IsRequired && !DisplayOnlyTypes.Contains(f.Type))
@@ -155,9 +226,12 @@ namespace Government_Service_Navigator.Backend.Controllers
             }
 
             // Footer values are set server-side so the client can't alter which department receives it.
-            var (department, departmentEmail) = await ResolveDepartmentAsync(service.Category);
-            request.Answers[PresentedByKey] = department;
+            var (defaultDept, departmentEmail) = await ResolveDepartmentAsync(service.Category);
+            var finalDept = targetDept ?? defaultDept;
+            request.Answers[PresentedByKey] = finalDept;
             request.Answers[EmailKey] = departmentEmail;
+
+            var maxStages = service.TotalStages > 0 ? service.TotalStages : 1;
 
             var submission = new ApplicationSubmission
             {
@@ -166,8 +240,101 @@ namespace Government_Service_Navigator.Backend.Controllers
                 CitizenNic = nic,
                 UserEmail = User.FindFirstValue(ClaimTypes.Email) ?? string.Empty,
                 FormDataJson = JsonSerializer.Serialize(request.Answers),
-                SubmittedAt = DateTime.UtcNow
+                SubmittedAt = DateTime.UtcNow,
+                CurrentStage = stageOrder,
+                MaxStages = maxStages,
+                CurrentDepartment = finalDept,
+                StageStatus = "PendingReview"
             };
+
+            // 1. Build Draft Application for Agent 4
+            var derivedAge = ApplicationDraftingService.AgeFromNic(nic, DateTime.UtcNow);
+            int citizenAge = derivedAge ?? 0;
+            if (citizenAge == 0)
+            {
+                var ageKey = request.Answers.Keys.FirstOrDefault(k => k.Contains("age", StringComparison.OrdinalIgnoreCase));
+                if (ageKey != null && int.TryParse(request.Answers[ageKey], out var parsedAge))
+                {
+                    citizenAge = parsedAge;
+                }
+            }
+            if (citizenAge == 0)
+            {
+                citizenAge = 25; // Default valid legal age
+            }
+
+            var attachedDocList = new List<string>();
+            foreach (var doc in documents.Values)
+            {
+                attachedDocList.Add(doc.FileName);
+                if (!string.IsNullOrWhiteSpace(doc.FieldLabel))
+                {
+                    attachedDocList.Add(doc.FieldLabel);
+                    attachedDocList.Add($"{doc.FieldLabel}: {doc.FileName}");
+                }
+            }
+            foreach (var label in request.Documents.Keys)
+            {
+                if (!attachedDocList.Contains(label))
+                {
+                    attachedDocList.Add(label);
+                }
+            }
+
+            decimal stageInitialFee = 0m;
+            if (template != null)
+            {
+                var paymentField = template.Fields.FirstOrDefault(f => f.Type == "payment");
+                if (paymentField != null && !string.IsNullOrWhiteSpace(paymentField.Options))
+                {
+                    try
+                    {
+                        using var pDoc = JsonDocument.Parse(paymentField.Options);
+                        if (pDoc.RootElement.TryGetProperty("amount", out var amt)) stageInitialFee = amt.GetDecimal();
+                    }
+                    catch { }
+                }
+            }
+
+            var draft = new DraftApplication
+            {
+                ApplicationId = 0, // will be set upon save
+                ServiceProcedureId = service.Id,
+                ServiceName = service.Name,
+                CitizenNic = nic,
+                CitizenName = User.FindFirstValue(ClaimTypes.Name) ?? nic,
+                CitizenAge = citizenAge,
+                FormFields = request.Answers,
+                AttachedDocumentNames = attachedDocList,
+                CalculatedFee = stageInitialFee,
+                Stage = stageOrder
+            };
+
+            // Identify required document fields for this template/stage
+            List<string>? requiredDocs = null;
+            if (template != null)
+            {
+                var reqFileFields = template.Fields
+                    .Where(f => f.IsRequired && (f.Type == "file" || f.Type == "document" || f.Type == "documentUpload"))
+                    .Select(f => f.Label.Trim().TrimEnd(':').Trim())
+                    .ToList();
+                requiredDocs = reqFileFields;
+            }
+            requiredDocs ??= new List<string>();
+
+            // 2. Run Agent 4 (Schema, Duplicates, Risk Scoring)
+            var validationResult = await _safetyAgent.ValidateAndEnqueueAsync(draft, requiredDocs);
+
+            if (!validationResult.IsValid)
+            {
+                return BadRequest(new 
+                { 
+                    message = "Application safety validation failed.", 
+                    errors = validationResult.RejectionReasons,
+                    summary = validationResult.Summary
+                });
+            }
+
             _context.ApplicationSubmissions.Add(submission);
             await _context.SaveChangesAsync();
 
@@ -178,12 +345,99 @@ namespace Government_Service_Navigator.Backend.Controllers
             }
             if (documents.Count > 0) await _context.SaveChangesAsync();
 
-            // Services with a fee: the application stays out of the officer queue until it is paid (see Finalize)
-            var fee = await _feeTool.CalculateAsync(service.Id);
-            if (fee.TotalAmount > 0)
-                return Ok(PaymentRequiredResponse(submission, service.Name, fee));
+            // Services with custom stage templates: only require payment if THIS stage has a payment field
+            FeeCalculationResult? stageFeeResult = null;
 
-            return Ok(await SendToVerificationAsync(submission, service.Name, nic));
+            if (template != null)
+            {
+                var paymentField = template.Fields.FirstOrDefault(f => f.Type == "payment");
+                if (paymentField != null && !string.IsNullOrWhiteSpace(paymentField.Options))
+                {
+                    try
+                    {
+                        using var pDoc = JsonDocument.Parse(paymentField.Options);
+                        if (pDoc.RootElement.TryGetProperty("amount", out var amt) && amt.GetDecimal() > 0)
+                        {
+                            var stageAmt = amt.GetDecimal();
+                            string feeName = pDoc.RootElement.TryGetProperty("feeType", out var ft)
+                                ? ft.GetString() ?? paymentField.Label
+                                : paymentField.Label;
+
+                            bool paymentProvided = false;
+                            var cleanFieldLabel = paymentField.Label.Trim().TrimEnd(':');
+
+                            // 1. Check if citizen uploaded a bank deposit slip
+                            var matchedDocKvp = request.Documents.FirstOrDefault(kvp =>
+                                string.Equals(kvp.Key.Trim().TrimEnd(':'), cleanFieldLabel, StringComparison.OrdinalIgnoreCase));
+                            if (matchedDocKvp.Value != Guid.Empty && documents.TryGetValue(matchedDocKvp.Value, out var slipDoc))
+                            {
+                                var payment = new Payment
+                                {
+                                    ApplicationId = submission.Id,
+                                    Amount = stageAmt,
+                                    Currency = "LKR",
+                                    Method = "Bank Deposit",
+                                    Status = "PendingVerification",
+                                    ManualSlipUrl = $"/api/verification/documents/{slipDoc.Id}/content",
+                                    UserEmail = submission.UserEmail,
+                                    CreatedDate = DateTime.UtcNow
+                                };
+                                _context.Payments.Add(payment);
+                                await _context.SaveChangesAsync();
+                                paymentProvided = true;
+                            }
+                            // 2. Check if citizen provided an online transaction reference
+                            var matchedAnswerKvp = request.Answers.FirstOrDefault(kvp =>
+                                string.Equals(kvp.Key.Trim().TrimEnd(':'), cleanFieldLabel, StringComparison.OrdinalIgnoreCase));
+                            if (!paymentProvided && !string.IsNullOrWhiteSpace(matchedAnswerKvp.Value))
+                            {
+                                var refVal = matchedAnswerKvp.Value.Trim();
+                                var isOnline = refVal.StartsWith("Online Ref:", StringComparison.OrdinalIgnoreCase);
+                                var cleanRef = refVal.Replace("Online Ref:", "", StringComparison.OrdinalIgnoreCase).Trim();
+                                if (!string.IsNullOrWhiteSpace(cleanRef) && !cleanRef.StartsWith("Bank Deposit Slip:", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    var payment = new Payment
+                                    {
+                                        ApplicationId = submission.Id,
+                                        Amount = stageAmt,
+                                        Currency = "LKR",
+                                        Method = isOnline ? "Online" : "Bank Deposit",
+                                        Status = isOnline ? "Paid" : "PendingVerification",
+                                        StripePaymentIntentId = cleanRef,
+                                        UserEmail = submission.UserEmail,
+                                        CreatedDate = DateTime.UtcNow,
+                                        PaidDate = isOnline ? DateTime.UtcNow : null
+                                    };
+                                    _context.Payments.Add(payment);
+                                    await _context.SaveChangesAsync();
+                                    paymentProvided = true;
+                                }
+                            }
+
+                            if (!paymentProvided)
+                            {
+                                stageFeeResult = new FeeCalculationResult
+                                {
+                                    TotalAmount = stageAmt,
+                                    Currency = "LKR",
+                                    LineItems = new List<FeeLineItem> { new FeeLineItem(feeName, stageAmt) }
+                                };
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+            else if (service.TotalStages <= 1)
+            {
+                var generalFee = await _feeTool.CalculateAsync(service.Id);
+                if (generalFee.TotalAmount > 0) stageFeeResult = generalFee;
+            }
+
+            if (stageFeeResult != null && stageFeeResult.TotalAmount > 0)
+                return Ok(PaymentRequiredResponse(submission, service.Name, stageFeeResult));
+
+            return Ok(await SendToVerificationAsync(submission, service.Name, nic, validationResult.ComplianceChecks));
         }
 
         // Called after paying: once Paid payments (or an installment plan with its first installment paid) cover
@@ -205,7 +459,40 @@ namespace Government_Service_Navigator.Backend.Controllers
             if (existingTask != null)
                 return Ok(SubmittedResponse(submission, serviceName, existingTask.Id));
 
-            var fee = await _feeTool.CalculateAsync(submission.ServiceProcedureId);
+            // Determine required fee for this submission's current stage
+            decimal requiredAmount = 0m;
+            FeeCalculationResult fee;
+
+            var currentTemplate = await _context.Templates
+                .Include(t => t.Fields)
+                .FirstOrDefaultAsync(t => t.ServiceProcedureId == submission.ServiceProcedureId && t.StageOrder == submission.CurrentStage && t.Status == "Active");
+            var finalizePaymentField = currentTemplate?.Fields.FirstOrDefault(f => f.Type == "payment");
+            if (finalizePaymentField != null && !string.IsNullOrWhiteSpace(finalizePaymentField.Options))
+            {
+                decimal stageAmt = 0m;
+                string feeName = finalizePaymentField.Label;
+                try
+                {
+                    using var pDoc = JsonDocument.Parse(finalizePaymentField.Options);
+                    if (pDoc.RootElement.TryGetProperty("amount", out var amt)) stageAmt = amt.GetDecimal();
+                    if (pDoc.RootElement.TryGetProperty("feeType", out var ft) && ft.GetString() is string s) feeName = s;
+                }
+                catch { }
+
+                fee = new FeeCalculationResult
+                {
+                    TotalAmount = stageAmt,
+                    Currency = "LKR",
+                    LineItems = new List<FeeLineItem> { new FeeLineItem(feeName, stageAmt) }
+                };
+                requiredAmount = stageAmt;
+            }
+            else
+            {
+                fee = await _feeTool.CalculateAsync(submission.ServiceProcedureId);
+                requiredAmount = fee.TotalAmount;
+            }
+
             var paid = await _context.Payments
                 .Where(p => p.ApplicationId == applicationId && p.Status == "Paid")
                 .SumAsync(p => (decimal?)p.Amount) ?? 0m;
@@ -218,22 +505,38 @@ namespace Government_Service_Navigator.Backend.Controllers
             var onInstallmentPlan = await _context.InstallmentPlans
                 .AnyAsync(ip => paymentIds.Contains(ip.PaymentId)
                                 && (ip.Status == "Active" || ip.Status == "Completed")
-                                && ip.TotalAmount >= fee.TotalAmount
+                                && ip.TotalAmount >= requiredAmount
                                 && ip.Installments!.Any(i => i.Status == "Paid"));
 
-            if (paid < fee.TotalAmount && !onInstallmentPlan)
+            if (paid < requiredAmount && !onInstallmentPlan)
                 return StatusCode(StatusCodes.Status402PaymentRequired, PaymentRequiredResponse(submission, serviceName, fee, paid));
 
             return Ok(await SendToVerificationAsync(submission, serviceName, nic));
         }
 
-        private async Task<object> SendToVerificationAsync(ApplicationSubmission submission, string serviceName, string nic)
+        private async Task<object> SendToVerificationAsync(ApplicationSubmission submission, string serviceName, string nic, List<ComplianceCheckItem>? checks = null)
         {
             var task = await _verificationService.CreateTaskAsync(new CreateTaskRequest
             {
                 ApplicationId = submission.Id,
-                CitizenNic = nic
+                CitizenNic = nic,
+                Department = submission.CurrentDepartment,
+                StageNumber = submission.CurrentStage
             }, User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Citizen");
+            if (checks != null && checks.Count > 0)
+            {
+                foreach (var c in checks)
+                {
+                    _context.ComplianceChecks.Add(new ComplianceCheck
+                    {
+                        TaskId = task.Id,
+                        CheckType = c.CheckType,
+                        IsPassed = c.IsPassed,
+                        Details = c.Details
+                    });
+                }
+                await _context.SaveChangesAsync();
+            }
 
             return SubmittedResponse(submission, serviceName, task.Id);
         }
@@ -261,5 +564,230 @@ namespace Government_Service_Navigator.Backend.Controllers
             feeItems = fee.LineItems.Select(i => new { i.FeeType, i.Amount }),
             userEmail = submission.UserEmail
         };
+
+        // Submits the next sequential stage application form (e.g. Stage 2 for Department B)
+        [HttpPost("submit-stage")]
+        public async Task<IActionResult> SubmitStage([FromBody] SubmitStageRequest request)
+        {
+            var nic = User.FindFirstValue("nicNumber");
+            if (string.IsNullOrWhiteSpace(nic)) return Forbid();
+
+            var submission = await _context.ApplicationSubmissions
+                .Include(s => s.ServiceProcedure)
+                .FirstOrDefaultAsync(s => s.Id == request.ApplicationId && s.CitizenNic == nic);
+            if (submission == null) return NotFound("Application not found.");
+
+            var template = await _context.Templates
+                .Include(t => t.Fields)
+                .FirstOrDefaultAsync(t => t.Id == request.TemplateId && t.ServiceProcedureId == submission.ServiceProcedureId);
+            if (template == null) return BadRequest("Form template does not belong to this service.");
+
+            // Uploaded documents: must belong to the caller and not already attached
+            var documentIds = request.Documents.Values.Distinct().ToList();
+            var documents = await _context.SubmissionDocuments
+                .Where(d => documentIds.Contains(d.Id) && d.UploaderNic == nic && d.ApplicationId == null)
+                .ToDictionaryAsync(d => d.Id);
+
+            foreach (var (label, id) in request.Documents)
+            {
+                if (documents.TryGetValue(id, out var doc))
+                {
+                    request.Answers[label] = doc.FileName;
+                    doc.ApplicationId = submission.Id;
+                    doc.FieldLabel = label;
+                }
+            }
+
+            // Validate required fields of this stage template
+            var missing = template.Fields
+                .Where(f => f.IsRequired && !DisplayOnlyTypes.Contains(f.Type))
+                .Where(f => !request.Answers.TryGetValue(f.Label, out var v) || string.IsNullOrWhiteSpace(v))
+                .Select(f => f.Label)
+                .ToList();
+            if (missing.Count > 0)
+                return BadRequest(new { message = $"Required fields are missing for Stage {template.StageOrder}.", missingFields = missing });
+
+            // Identify required document fields for this stage
+            var stageRequiredDocs = template.Fields
+                .Where(f => f.IsRequired && (f.Type == "file" || f.Type == "document" || f.Type == "documentUpload"))
+                .Select(f => f.Label.Trim().TrimEnd(':').Trim())
+                .ToList();
+
+            var stageAttachedDocs = new List<string>();
+            foreach (var doc in documents.Values)
+            {
+                stageAttachedDocs.Add(doc.FileName);
+                if (!string.IsNullOrWhiteSpace(doc.FieldLabel))
+                {
+                    stageAttachedDocs.Add(doc.FieldLabel);
+                    stageAttachedDocs.Add($"{doc.FieldLabel}: {doc.FileName}");
+                }
+            }
+            foreach (var label in request.Documents.Keys)
+            {
+                if (!stageAttachedDocs.Contains(label))
+                    stageAttachedDocs.Add(label);
+            }
+
+            var derivedAge = ApplicationDraftingService.AgeFromNic(nic, DateTime.UtcNow);
+            int citizenAge = derivedAge ?? 25;
+
+            decimal stageAmt = 0m;
+            var stagePaymentField = template.Fields.FirstOrDefault(f => f.Type == "payment");
+            if (stagePaymentField != null && !string.IsNullOrWhiteSpace(stagePaymentField.Options))
+            {
+                try
+                {
+                    using var pDoc = JsonDocument.Parse(stagePaymentField.Options);
+                    if (pDoc.RootElement.TryGetProperty("amount", out var amt)) stageAmt = amt.GetDecimal();
+                }
+                catch { }
+            }
+
+            var draft = new DraftApplication
+            {
+                ApplicationId = submission.Id,
+                ServiceProcedureId = submission.ServiceProcedureId,
+                ServiceName = submission.ServiceProcedure?.Name ?? "Service",
+                CitizenNic = nic,
+                CitizenName = User.FindFirstValue(ClaimTypes.Name) ?? nic,
+                CitizenAge = citizenAge,
+                FormFields = request.Answers,
+                AttachedDocumentNames = stageAttachedDocs,
+                CalculatedFee = stageAmt,
+                Stage = template.StageOrder
+            };
+
+            // Run Agent 4 (Validation & Safety Agent) for this stage
+            var validationResult = await _safetyAgent.ValidateAndEnqueueAsync(draft, stageRequiredDocs);
+            if (!validationResult.IsValid)
+            {
+                return BadRequest(new
+                {
+                    message = $"Stage {template.StageOrder} safety validation failed.",
+                    errors = validationResult.RejectionReasons,
+                    summary = validationResult.Summary
+                });
+            }
+
+            // Merge answers into existing form data
+            Dictionary<string, string> currentAnswers = new();
+            try { currentAnswers = JsonSerializer.Deserialize<Dictionary<string, string>>(submission.FormDataJson) ?? new(); }
+            catch { }
+
+            foreach (var kvp in request.Answers)
+            {
+                currentAnswers[$"[Stage {template.StageOrder}] {kvp.Key}"] = kvp.Value;
+            }
+
+            submission.FormDataJson = JsonSerializer.Serialize(currentAnswers);
+            submission.CurrentStage = template.StageOrder;
+            submission.CurrentDepartment = template.Department;
+            submission.StageStatus = "PendingReview";
+
+            // Enqueue new verification task for the new department!
+            var task = await _verificationService.CreateTaskAsync(new CreateTaskRequest
+            {
+                ApplicationId = submission.Id,
+                CitizenNic = nic,
+                Department = template.Department,
+                StageNumber = template.StageOrder
+            }, User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Citizen");
+
+            await _context.SaveChangesAsync();
+
+            // Check if THIS sequential stage has a payment field
+            if (stagePaymentField != null && stageAmt > 0)
+            {
+                string feeName = stagePaymentField.Label;
+                try
+                {
+                    using var pDoc = JsonDocument.Parse(stagePaymentField.Options ?? "{}");
+                    if (pDoc.RootElement.TryGetProperty("feeType", out var ft) && ft.GetString() is string s && !string.IsNullOrWhiteSpace(s))
+                        feeName = s;
+                }
+                catch { }
+
+                bool stagePaymentProvided = false;
+                var cleanStageLabel = stagePaymentField.Label.Trim().TrimEnd(':');
+
+                // 1. Check if citizen uploaded a bank deposit slip
+                var matchedDocKvp = request.Documents.FirstOrDefault(kvp =>
+                    string.Equals(kvp.Key.Trim().TrimEnd(':'), cleanStageLabel, StringComparison.OrdinalIgnoreCase));
+                if (matchedDocKvp.Value != Guid.Empty && documents.TryGetValue(matchedDocKvp.Value, out var slipDoc))
+                {
+                    var payment = new Payment
+                    {
+                        ApplicationId = submission.Id,
+                        Amount = stageAmt,
+                        Currency = "LKR",
+                        Method = "Bank Deposit",
+                        Status = "PendingVerification",
+                        ManualSlipUrl = $"/api/verification/documents/{slipDoc.Id}/content",
+                        UserEmail = submission.UserEmail,
+                        CreatedDate = DateTime.UtcNow
+                    };
+                    _context.Payments.Add(payment);
+                    await _context.SaveChangesAsync();
+                    stagePaymentProvided = true;
+                }
+                // 2. Check if citizen provided an online transaction reference
+                var matchedAnswerKvp = request.Answers.FirstOrDefault(kvp =>
+                    string.Equals(kvp.Key.Trim().TrimEnd(':'), cleanStageLabel, StringComparison.OrdinalIgnoreCase));
+                if (!stagePaymentProvided && !string.IsNullOrWhiteSpace(matchedAnswerKvp.Value))
+                {
+                    var refVal = matchedAnswerKvp.Value.Trim();
+                    var isOnline = refVal.StartsWith("Online Ref:", StringComparison.OrdinalIgnoreCase);
+                    var cleanRef = refVal.Replace("Online Ref:", "", StringComparison.OrdinalIgnoreCase).Trim();
+                    if (!string.IsNullOrWhiteSpace(cleanRef) && !cleanRef.StartsWith("Bank Deposit Slip:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var payment = new Payment
+                        {
+                            ApplicationId = submission.Id,
+                            Amount = stageAmt,
+                            Currency = "LKR",
+                            Method = isOnline ? "Online" : "Bank Deposit",
+                            Status = isOnline ? "Paid" : "PendingVerification",
+                            StripePaymentIntentId = cleanRef,
+                            UserEmail = submission.UserEmail,
+                            CreatedDate = DateTime.UtcNow,
+                            PaidDate = isOnline ? DateTime.UtcNow : null
+                        };
+                        _context.Payments.Add(payment);
+                        await _context.SaveChangesAsync();
+                        stagePaymentProvided = true;
+                    }
+                }
+
+                if (!stagePaymentProvided)
+                {
+                    var stageFee = new FeeCalculationResult
+                    {
+                        TotalAmount = stageAmt,
+                        Currency = "LKR",
+                        LineItems = new List<FeeLineItem> { new FeeLineItem(feeName, stageAmt) }
+                    };
+                    return Ok(PaymentRequiredResponse(submission, submission.ServiceProcedure?.Name ?? "Service", stageFee));
+                }
+            }
+
+            return Ok(new
+            {
+                applicationId = submission.Id,
+                taskId = task.Id,
+                currentStage = submission.CurrentStage,
+                department = template.Department,
+                status = "PendingReview",
+                message = $"Stage {template.StageOrder} application submitted for verification by {template.Department}."
+            });
+        }
+    }
+
+    public class SubmitStageRequest
+    {
+        public int ApplicationId { get; set; }
+        public Guid TemplateId { get; set; }
+        public Dictionary<string, string> Answers { get; set; } = new();
+        public Dictionary<string, Guid> Documents { get; set; } = new();
     }
 }

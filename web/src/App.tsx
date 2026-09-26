@@ -22,6 +22,7 @@ import ApplicationPreview from "./Officer/application_preview";
 import VerificationWorkspace from "./Officer/VerificationWorkspace";
 import BulkVerification from "./Officer/BulkVerification";
 import RejectionCodes from "./Officer/RejectionCodes";
+import OfficerAuditLogs from "./Officer/officer_audit_logs";
 import ServiceCatalogManager from "./Admin/Service_Catalog/service_catalog_manager";
 import EligibilityRuleBuilder from "./Admin/Service_Catalog/eligibility_rule_builder";
 import ServiceConfigurationTabs from "./Admin/Service_Catalog/service_configuration_tabs";
@@ -58,6 +59,14 @@ export default function App() {
           path="/admin/services/config"
           element={<ServiceConfigurationTabs />}
         />
+        <Route
+          path="/admin/services/builder"
+          element={<ApplicationCreate />}
+        />
+        <Route
+          path="/officer/builder"
+          element={<ApplicationCreate />}
+        />
 
         <Route
           path="/admin/services/simulator"
@@ -81,6 +90,7 @@ export default function App() {
         <Route path="/officer/verification-workspace/:taskId?" element={<VerificationWorkspace />} />
         <Route path="/officer/bulk-verification" element={<BulkVerification />} />
         <Route path="/officer/rejection-codes" element={<RejectionCodes />} />
+        <Route path="/officer/audit-logs" element={<OfficerAuditLogs />} />
 
         {/* finance officer routes */}
         <Route path="/finance/dashboard" element={<FinanceDashboard />} />

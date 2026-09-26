@@ -18,6 +18,7 @@ namespace Government_Service_Navigator.Backend.Services.Interfaces
         Task<bool> DeleteDocumentRequirementAsync(int documentId);
         Task<ServiceProcedure> UpdateFeeSchedulesAsync(int id, List<FeeSchedule> feeSchedules);
         Task<bool> DeleteFeeScheduleAsync(int feeId);
+        Task<ServiceProcedure?> UpdateWorkflowAsync(int id, int totalStages, List<string> departments);
       
 
 

@@ -5,6 +5,7 @@ import '../../screens/verification_detail_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../screens/payments/installment_plan_view.dart';
 import '../../screens/payments/transaction_history_screen.dart';
+import '../../screens/payments/payment_screen.dart';
 import '../../screens/refunds/refund_request_screen.dart';
 import '../../screens/refunds/my_refunds_screen.dart';
 import '../../screens/analytics/approval_likelihood_screen.dart';
@@ -604,6 +605,103 @@ class _ApplicationsTabState extends ConsumerState<ApplicationsTab> {
             if (app.installmentPlan != null) ...[
               const SizedBox(height: 12),
               _buildInstallmentStrip(app),
+            ],
+            if (app.maxStages > 1) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: app.stageStatus == 'AwaitingFeePayment'
+                      ? AppColors.warning.withValues(alpha: 0.1)
+                      : AppColors.background,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: app.stageStatus == 'AwaitingFeePayment'
+                        ? AppColors.warning.withValues(alpha: 0.3)
+                        : AppColors.divider,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Stage ${app.currentStage}/${app.maxStages}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        app.stageStatus == 'AwaitingFeePayment'
+                            ? 'Fee Payment Required'
+                            : ((app.stageStatus == 'StageApproved' || app.stageStatus.endsWith('Unlocked'))
+                                ? 'Stage ${app.currentStage} Ready • ${app.currentDepartment ?? 'Next Dept'}'
+                                : (app.stageStatus == 'Completed'
+                                    ? 'All Milestones Cleared'
+                                    : (app.currentDepartment != null
+                                        ? 'Reviewing: ${app.currentDepartment}'
+                                        : 'In Review'))),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: (app.stageStatus == 'AwaitingFeePayment' || app.stageStatus == 'StageApproved' || app.stageStatus.endsWith('Unlocked')) ? FontWeight.w700 : FontWeight.w500,
+                          color: app.stageStatus == 'AwaitingFeePayment'
+                              ? AppColors.warning
+                              : ((app.stageStatus == 'StageApproved' || app.stageStatus.endsWith('Unlocked')) ? AppColors.success : AppColors.dark),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (app.stageStatus == 'StageApproved' || app.stageStatus.endsWith('Unlocked'))
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        color: AppColors.success,
+                        borderRadius: BorderRadius.circular(8),
+                        onPressed: () => Navigator.of(context).push(
+                          CupertinoPageRoute(
+                            builder: (context) => VerificationDetailScreen(application: app),
+                          ),
+                        ),
+                        child: const Text('Fill Form', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    if (app.stageStatus == 'AwaitingFeePayment')
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(8),
+                        onPressed: () async {
+                          await Navigator.of(context).push(
+                            CupertinoPageRoute(
+                              builder: (_) => PaymentScreen(
+                                applicationId: app.applicationId.toString(),
+                                amount: app.amount > 0 ? app.amount : 2500.0,
+                                userEmail: app.userEmail,
+                                popOnPaid: true,
+                              ),
+                            ),
+                          );
+                          _loadApplications();
+                        },
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(CupertinoIcons.creditcard_fill, size: 11, color: Colors.white),
+                            SizedBox(width: 4),
+                            Text('Pay Fee', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
             const SizedBox(height: 12),
             const Divider(height: 1, color: AppColors.divider),

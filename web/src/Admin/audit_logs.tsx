@@ -1,7 +1,7 @@
 import '@carbon/styles/css/styles.css'; // This fixes the unstyled layout![cite: 5]
 import { useState, useEffect } from "react";
 import CurrentUserBadge from "../components/CurrentUserBadge";
-import { getStoredUser, getAdminOverviewHref } from "../utils/currentUser";
+import { getStoredUser, getAdminOverviewHref, canManageServices } from "../utils/currentUser";
 import {
   Header,
   HeaderContainer,
@@ -38,8 +38,11 @@ import {
   Download,
   Catalog,
   Rule,
-  Categories
+  Categories,
+  Document,
+  Money,
 } from "@carbon/icons-react";
+import { getDepartmentSlug } from "../constants/departments";
 
 // Columns reflect only fields the backend AuditLog table actually stores.
 // There's no IP address capture anywhere in this system, so that column was dropped
@@ -73,7 +76,10 @@ function deriveStatus(action: string): string {
 export default function AuditLogs() {
   const [rows, setRows] = useState<AuditLogRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [overviewHref] = useState(() => getAdminOverviewHref(getStoredUser()));
+  const [currentUser] = useState(getStoredUser);
+  const isSysAdmin = canManageServices(currentUser);
+  const deptSlug = currentUser?.department ? getDepartmentSlug(currentUser.department) : null;
+  const [overviewHref] = useState(() => getAdminOverviewHref(currentUser));
 
   useEffect(() => {
     const fetchAuditLogs = async () => {
@@ -156,26 +162,46 @@ export default function AuditLogs() {
                   Overview
                 </SideNavLink>
 
-                {/* --- SUPUN'S ASSIGNED COMPONENTS --- */}
+                {!isSysAdmin && deptSlug && (
+                  <>
+                    <SideNavLink
+                      renderIcon={Document}
+                      href={`/admin/${deptSlug}/dashboard?view=verifications`}
+                    >
+                      Department Verifications
+                    </SideNavLink>
+                    <SideNavLink
+                      renderIcon={Money}
+                      href={`/admin/${deptSlug}/dashboard?view=financial`}
+                    >
+                      Financial Verifications
+                    </SideNavLink>
+                  </>
+                )}
+
                 <SideNavLink renderIcon={Catalog} href="/admin/services">
-                  Service Catalog
+                  {isSysAdmin ? "Service Catalog" : "Service Catalog (View)"}
                 </SideNavLink>
-                <SideNavLink renderIcon={Rule} href="/admin/services/rules">
-                  Eligibility Rules
-                </SideNavLink>
-                <SideNavLink
-                  renderIcon={Categories}
-                  href="/admin/services/config"
-                >
-                  Service Configuration
-                </SideNavLink>
-                <SideNavLink
-                  renderIcon={Rule}
-                  href="/admin/services/simulator"
-                >
-                  Eligibility Simulator
-                </SideNavLink>
-                {/* ---------------------------------- */}
+
+                {isSysAdmin && (
+                  <>
+                    <SideNavLink renderIcon={Rule} href="/admin/services/rules">
+                      Eligibility Rules
+                    </SideNavLink>
+                    <SideNavLink
+                      renderIcon={Categories}
+                      href="/admin/services/config"
+                    >
+                      Service Configuration
+                    </SideNavLink>
+                    <SideNavLink
+                      renderIcon={Rule}
+                      href="/admin/services/simulator"
+                    >
+                      Eligibility Simulator
+                    </SideNavLink>
+                  </>
+                )}
 
                 <SideNavLink
                   renderIcon={UserMultiple}
@@ -186,12 +212,14 @@ export default function AuditLogs() {
                 <SideNavLink renderIcon={Security} href="/admin/audit-logs" isActive>
                   Audit Logs
                 </SideNavLink>
-                <SideNavLink
-                  renderIcon={Settings}
-                  href="/admin/system-settings"
-                >
-                  System Settings
-                </SideNavLink>
+                {isSysAdmin && (
+                  <SideNavLink
+                    renderIcon={Settings}
+                    href="/admin/system-settings"
+                  >
+                    System Settings
+                  </SideNavLink>
+                )}
 
                 {/* Logout Button */}
                 <div

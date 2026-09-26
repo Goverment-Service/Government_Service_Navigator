@@ -62,12 +62,26 @@ export interface ActionDraft {
   retrievedContextSnippets: string[];
 }
 
+export interface ComplianceCheckItem {
+  checkType: string;
+  isPassed: boolean;
+  details: string;
+}
+export interface ValidationResult {
+  isValid: boolean;
+  decision: string;
+  summary: string;
+  complianceChecks: ComplianceCheckItem[];
+  rejectionReasons: string[];
+}
+
 export interface AgentDraftView {
   applicationId: number;
   generatedAt: string;
   derivedAgeFromNic: number | null;
   eligibility: EligibilityResult;
   action: ActionDraft;
+  validation?: ValidationResult | null;
 }
 
 /** Stored draft for the task, or null if the agents haven't run on it yet. */

@@ -1,7 +1,7 @@
 import '@carbon/styles/css/styles.css';
 import { useState, useEffect, useCallback } from "react";
 import CurrentUserBadge from "../components/CurrentUserBadge";
-import { getAdminOverviewHref } from "../utils/currentUser";
+import { getAdminOverviewHref, canManageServices } from "../utils/currentUser";
 import {
   Header,
   HeaderContainer,
@@ -48,13 +48,15 @@ import {
   Rule,
   Catalog,
   Categories,
+  Document,
+  Money,
 } from "@carbon/icons-react";
 
 // 1. Import Components
 import EditOfficerModal from "./Manage_Officers/EditOfficerModel";
 import ResetPasswordModal from "./Manage_Officers/ResetPasswordModel";
 import SuspendAccountModal from "./Manage_Officers/SuspendAccountModel";
-import { DEPARTMENTS } from "../constants/departments";
+import { DEPARTMENTS, getDepartmentSlug } from "../constants/departments";
 
 const headers = [
   { key: "name", header: "Officer Name" },
@@ -76,6 +78,7 @@ interface Officer {
 
 interface StoredOfficerUser {
   fullName?: string;
+  email?: string;
   department?: string;
   role?: string;
 }
@@ -102,6 +105,8 @@ export default function ManageOfficers() {
   const isDepartmentAdmin = currentRole.toLowerCase().includes("admin") && !!currentUser.department;
   const scopedDepartment = currentUser.department || "";
   const overviewHref = getAdminOverviewHref(currentUser);
+  const deptSlug = currentUser?.department ? getDepartmentSlug(currentUser.department) : null;
+  const isSysAdmin = canManageServices(currentUser);
 
   // Add Officer Form State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -129,7 +134,11 @@ export default function ManageOfficers() {
       });
       if (response.ok) {
         const data = await response.json();
-        setOfficerRows(data);
+        // If Department Admin is viewing, exclude the Department Admin themselves from their subordinate directory!
+        const filtered = isDepartmentAdmin
+          ? data.filter((o: Officer) => o.email.toLowerCase() !== currentUser.email?.toLowerCase() && o.role !== "Department Admin")
+          : data;
+        setOfficerRows(filtered);
       } else {
         console.error("Failed to fetch officers");
       }
@@ -231,26 +240,46 @@ export default function ManageOfficers() {
                   Overview
                 </SideNavLink>
 
-                {/* --- SUPUN'S ASSIGNED COMPONENTS --- */}
+                {!isSysAdmin && deptSlug && (
+                  <>
+                    <SideNavLink
+                      renderIcon={Document}
+                      href={`/admin/${deptSlug}/dashboard?view=verifications`}
+                    >
+                      Department Verifications
+                    </SideNavLink>
+                    <SideNavLink
+                      renderIcon={Money}
+                      href={`/admin/${deptSlug}/dashboard?view=financial`}
+                    >
+                      Financial Verifications
+                    </SideNavLink>
+                  </>
+                )}
+
                 <SideNavLink renderIcon={Catalog} href="/admin/services">
-                  Service Catalog
+                  {isSysAdmin ? "Service Catalog" : "Service Catalog (View)"}
                 </SideNavLink>
-                <SideNavLink renderIcon={Rule} href="/admin/services/rules">
-                  Eligibility Rules
-                </SideNavLink>
-                <SideNavLink
-                  renderIcon={Categories}
-                  href="/admin/services/config"
-                >
-                  Service Configuration
-                </SideNavLink>
-                <SideNavLink
-                  renderIcon={Rule}
-                  href="/admin/services/simulator"
-                >
-                  Eligibility Simulator
-                </SideNavLink>
-                {/* ---------------------------------- */}
+
+                {isSysAdmin && (
+                  <>
+                    <SideNavLink renderIcon={Rule} href="/admin/services/rules">
+                      Eligibility Rules
+                    </SideNavLink>
+                    <SideNavLink
+                      renderIcon={Categories}
+                      href="/admin/services/config"
+                    >
+                      Service Configuration
+                    </SideNavLink>
+                    <SideNavLink
+                      renderIcon={Rule}
+                      href="/admin/services/simulator"
+                    >
+                      Eligibility Simulator
+                    </SideNavLink>
+                  </>
+                )}
 
                 <SideNavLink
                   renderIcon={UserMultiple}
@@ -262,12 +291,14 @@ export default function ManageOfficers() {
                 <SideNavLink renderIcon={Security} href="/admin/audit-logs">
                   Audit Logs
                 </SideNavLink>
-                <SideNavLink
-                  renderIcon={Settings}
-                  href="/admin/system-settings"
-                >
-                  System Settings
-                </SideNavLink>
+                {isSysAdmin && (
+                  <SideNavLink
+                    renderIcon={Settings}
+                    href="/admin/system-settings"
+                  >
+                    System Settings
+                  </SideNavLink>
+                )}
 
                 {/* Logout Button */}
                 <div
@@ -453,9 +484,6 @@ export default function ManageOfficers() {
                 setFormData((prev) => ({
                   ...prev,
                   department: nextDepartment,
-                  role: nextDepartment === "Finance Department" || prev.role !== "Finance Officer"
-                    ? prev.role
-                    : "Verifying Officer",
                 }));
               }}
               disabled={isSubmitting || isDepartmentAdmin}
@@ -469,18 +497,16 @@ export default function ManageOfficers() {
             <Select
               id="role"
               labelText="Role Designation"
-              helperText={isDepartmentAdmin ? "Department Admins can only add Verifying Officers or Auditors." : undefined}
+              helperText={isDepartmentAdmin ? "Add Verifying Officers, Finance Officers, or Auditors to your department." : undefined}
               value={formData.role}
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               disabled={isSubmitting}
             >
               <SelectItem value="Verifying Officer" text="Verifying Officer" />
+              <SelectItem value="Finance Officer" text="Finance Officer" />
+              <SelectItem value="Auditor" text="Auditor" />
               {!isDepartmentAdmin && (
                 <SelectItem value="Department Admin" text="Department Admin" />
-              )}
-              <SelectItem value="Auditor" text="Auditor" />
-              {formData.department === "Finance Department" && (
-                <SelectItem value="Finance Officer" text="Finance Officer" />
               )}
             </Select>
           </Stack>

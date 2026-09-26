@@ -10,7 +10,7 @@ public record FeeScheduleEntry(string FeeType, decimal Amount, DateTime Effectiv
 
 public interface IFeeScheduleRepository
 {
-    Task<List<FeeScheduleEntry>> GetFeeSchedulesAsync(int serviceProcedureId, CancellationToken cancellationToken = default);
+    Task<List<FeeScheduleEntry>> GetFeeSchedulesAsync(int serviceProcedureId, int? stage = null, CancellationToken cancellationToken = default);
 }
 
 public record FeeLineItem(string FeeType, decimal Amount);
@@ -29,6 +29,7 @@ public interface ICalculateFeeTool
         int serviceProcedureId,
         bool expressProcessing = false,
         DateTime? asOf = null,
+        int? stage = null,
         CancellationToken cancellationToken = default);
 }
 
@@ -48,6 +49,7 @@ public class CalculateFeeTool : ICalculateFeeTool
         int serviceProcedureId,
         bool expressProcessing = false,
         DateTime? asOf = null,
+        int? stage = null,
         CancellationToken cancellationToken = default)
     {
         var result = new FeeCalculationResult();
@@ -59,7 +61,7 @@ public class CalculateFeeTool : ICalculateFeeTool
             return result;
         }
 
-        var schedules = await _repository.GetFeeSchedulesAsync(serviceProcedureId, cancellationToken);
+        var schedules = await _repository.GetFeeSchedulesAsync(serviceProcedureId, stage, cancellationToken);
 
         // Only schedules already in force; unset (default) effective dates are treated as always in force.
         // When a fee type has several revisions, the most recent one in force wins.

@@ -165,25 +165,25 @@ namespace Government_Service_Navigator.AgenticAi.Tests
         }
 
         [Fact]
-public async Task Orchestrator_ValidDraft_TransitionsToPendingHumanApproval()
-{
-    var orchestrator = new ValidationOrchestrator(_agent);
-    var state = WorkflowExecutionState.Create(8841, "199423401928", "Small Business Registration");
-    var draft = new DraftApplication
-    {
-        ApplicationId = 8841,
-        ServiceProcedureId = 1,
-        CitizenNic = "199423401928",
-        CitizenAge = 32,
-        AttachedDocumentNames = new List<string> { "Identity Document.pdf" }
-    };
+        public async Task Orchestrator_ValidDraft_TransitionsToPendingHumanApproval()
+        {
+            var orchestrator = new ValidationOrchestrator(_agent);
+            var state = WorkflowExecutionState.Create(8841, "199423401928", "Small Business Registration");
+            var draft = new DraftApplication
+            {
+                ApplicationId = 8841,
+                ServiceProcedureId = 1,
+                CitizenNic = "199423401928",
+                CitizenAge = 32,
+                AttachedDocumentNames = new List<string> { "Identity Document.pdf" }
+            };
 
-    var updatedState = await orchestrator.ExecuteStageAsync(state, draft, new List<string> { "Identity Document" });
+            var updatedState = await orchestrator.ExecuteStageAsync(state, draft, new List<string> { "Identity Document" });
 
-    Assert.Equal("PendingHumanApproval", updatedState.CurrentStage);
-    Assert.Equal("AwaitingOfficerReview", updatedState.HumanApprovalStatus);
-    Assert.True(updatedState.ValidationResult!.IsValid);
-}
+            Assert.Equal("PendingHumanApproval", updatedState.CurrentStage);
+            Assert.Equal("AwaitingOfficerReview", updatedState.HumanApprovalStatus);
+            Assert.True(updatedState.ValidationResult!.IsValid);
+        }
 
     }
 }

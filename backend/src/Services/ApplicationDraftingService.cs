@@ -4,6 +4,8 @@ using Government_Service_Navigator.AgenticAi.Agents.ActionToolAgent;
 using Government_Service_Navigator.AgenticAi.Agents.ActionToolAgent.DTOs;
 using Government_Service_Navigator.AgenticAi.Agents.EligibilityDocumentAgent;
 using Government_Service_Navigator.AgenticAi.Agents.EligibilityDocumentAgent.DTOs;
+using Government_Service_Navigator.AgenticAi.Agents.ValidationSafety;
+using Government_Service_Navigator.AgenticAi.Schemas;
 using Government_Service_Navigator.AgenticAi.Tools.PrefillApplication;
 using Government_Service_Navigator.Backend.Data.Context;
 using Government_Service_Navigator.Backend.Models.Entities;
@@ -18,7 +20,8 @@ public record AgentDraftView(
     DateTime GeneratedAt,
     int? DerivedAgeFromNic,
     EligibilityPlanResponse Eligibility,
-    ActionDraftResponse Action);
+    ActionDraftResponse Action,
+    ValidationResult? Validation = null);
 
 public interface IApplicationDraftingService
 {
@@ -38,15 +41,18 @@ public class ApplicationDraftingService : IApplicationDraftingService
     private readonly AppDbContext _context;
     private readonly IEligibilityDocumentAgent _eligibilityAgent;
     private readonly IActionToolAgent _actionAgent;
+    private readonly IValidationSafetyAgent _safetyAgent;
 
     public ApplicationDraftingService(
         AppDbContext context,
         IEligibilityDocumentAgent eligibilityAgent,
-        IActionToolAgent actionAgent)
+        IActionToolAgent actionAgent,
+        IValidationSafetyAgent safetyAgent)
     {
         _context = context;
         _eligibilityAgent = eligibilityAgent;
         _actionAgent = actionAgent;
+        _safetyAgent = safetyAgent;
     }
 
     public async Task<AgentDraftView?> GetStoredDraftAsync(int applicationId, CancellationToken cancellationToken = default)
@@ -114,9 +120,10 @@ public class ApplicationDraftingService : IApplicationDraftingService
 
         var service = submission.ServiceProcedure;
 
-        // Agent 2 → Agent 3
+        // Agent 2 → Agent 3 with CurrentStage context
+        var currentStage = submission.CurrentStage > 0 ? submission.CurrentStage : 1;
         var eligibility = await _eligibilityAgent.EvaluateEligibilityAsync(
-            new EligibilityPlanRequest(service.Name, service.Id, profile), cancellationToken);
+            new EligibilityPlanRequest(service.Name, service.Id, profile, Stage: currentStage), cancellationToken);
 
         var action = await _actionAgent.PrepareDraftAsync(new ActionDraftRequest(
             ApplicationId: submission.Id,
@@ -134,9 +141,15 @@ public class ApplicationDraftingService : IApplicationDraftingService
                 AdditionalAttributes = citizenAnswers
             },
             Eligibility: eligibility,
-            ProvidedDocuments: providedDocuments), cancellationToken);
+            ProvidedDocuments: providedDocuments,
+            Stage: currentStage), cancellationToken);
+        ValidationResult? validation = null;
+        if (action.Draft != null)
+        {
+            validation = await _safetyAgent.ValidateAndEnqueueAsync(action.Draft, eligibility.RequiredDocuments);
+        }
 
-        var view = new AgentDraftView(submission.Id, DateTime.UtcNow, derivedAge, eligibility, action);
+        var view = new AgentDraftView(submission.Id, DateTime.UtcNow, derivedAge, eligibility, action, validation);
 
         var stored = await _context.AgentDrafts.FirstOrDefaultAsync(d => d.ApplicationId == submission.Id, cancellationToken);
         if (stored == null)

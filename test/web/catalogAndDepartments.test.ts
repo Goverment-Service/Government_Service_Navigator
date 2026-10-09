@@ -132,8 +132,8 @@ describe("rulesError", () => {
 
 describe("documentError and feeError", () => {
   it("rejects a document already listed, ignoring case and spaces", () => {
-    expect(documentError({ documentName: " birth certificate " }, ["Birth Certificate"])).toContain("already listed");
-    expect(documentError({ documentName: "Birth Certificate" }, ["NIC"])).toBeNull();
+    expect(documentError({ documentName: " birth certificate ", description: "Desc" }, ["Birth Certificate"])).toContain("already listed");
+    expect(documentError({ documentName: "Birth Certificate", description: "Desc" }, ["NIC"])).toBeNull();
   });
 
   it("limits the description", () => {

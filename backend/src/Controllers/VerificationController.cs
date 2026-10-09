@@ -566,27 +566,36 @@ namespace Government_Service_Navigator.Backend.Controllers
                 {
                     int currentStage = sub.CurrentStage > 0 ? sub.CurrentStage : (task.CurrentStage > 0 ? task.CurrentStage : 1);
                     int maxStages = sub.MaxStages > 0 ? sub.MaxStages : (task.MaxStages > 0 ? task.MaxStages : 1);
-                    int finalStage = Math.Max(currentStage, maxStages);
-
+                    
                     task.Status = "Approved";
-                    task.CurrentStage = finalStage;
-                    task.StageNumber = finalStage;
-                    task.MaxStages = finalStage;
 
-                    sub.CurrentStage = finalStage;
-                    sub.MaxStages = finalStage;
-                    sub.StageStatus = "Completed";
-
-                    // Synchronize any remaining pending tasks for this application to Approved
-                    var siblingTasks = await _context.VerificationTasks
-                        .Where(t => t.ApplicationId == task.ApplicationId)
-                        .ToListAsync();
-                    foreach (var st in siblingTasks)
+                    if (currentStage >= maxStages)
                     {
-                        st.Status = "Approved";
-                        st.CurrentStage = finalStage;
-                        st.StageNumber = finalStage;
-                        st.MaxStages = finalStage;
+                        int finalStage = Math.Max(currentStage, maxStages);
+                        
+                        task.CurrentStage = finalStage;
+                        task.StageNumber = finalStage;
+                        task.MaxStages = finalStage;
+
+                        sub.CurrentStage = finalStage;
+                        sub.MaxStages = finalStage;
+                        sub.StageStatus = "Completed";
+
+                        // Synchronize any remaining pending tasks for this application to Approved
+                        var siblingTasks = await _context.VerificationTasks
+                            .Where(t => t.ApplicationId == task.ApplicationId)
+                            .ToListAsync();
+                        foreach (var st in siblingTasks)
+                        {
+                            st.Status = "Approved";
+                            st.CurrentStage = finalStage;
+                            st.StageNumber = finalStage;
+                            st.MaxStages = finalStage;
+                        }
+                    }
+                    else
+                    {
+                        sub.StageStatus = "StageApproved";
                     }
                 }
                 await _context.SaveChangesAsync();
@@ -861,3 +870,4 @@ namespace Government_Service_Navigator.Backend.Controllers
         }
     }
 }
+
